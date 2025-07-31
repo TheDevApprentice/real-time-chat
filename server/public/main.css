@@ -9,6 +9,10 @@ body {
   /* background-image: url('./wavy-lines.svg'); */
   background-size: cover;
   user-select: none;
+
+  font-family: Arial, sans-serif;
+  text-align: center;
+  padding: 20px;
 }
 
 code {

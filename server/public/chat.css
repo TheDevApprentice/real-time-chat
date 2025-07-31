@@ -1,0 +1,16 @@
+@import './main.css';
+@import './base.css';
+
+#chat-window {
+    align-self: flex-start;
+    width: 400px;
+    max-width: 90vw;
+    height: 60vh;
+    background-color: var(--page-bg-card);
+    border: 1px solid var(--ev-c-gray-1);
+    border-radius: 8px;
+    box-shadow: var(--page-card-shadow);
+    padding: 12px;
+    overflow-y: auto;
+    margin: 20px;
+  }
