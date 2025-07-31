@@ -24,6 +24,10 @@ class AppServer {
   }
 
   private setupRoutes(): void {
+    // Serve SPA entry
+    this.app.get('/', (req, res) => {
+      res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    });
     this.app.use('/api', router);
   }
 
