@@ -1,37 +1,107 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Real-Time Chat</title>
-  <style>
-    @import "./main.css";
-    @import "./base.css";
-    @import "./chat.css";
-  </style>
-</head>
-<body id="app">
-    <div>
-    <h1>Welcome to the Real-Time Chat Server</h1>
-    <p>Connect via WebSocket client to send and receive messages.</p>
-  </div>
-  <div id="chat-window"></div>
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
-    const chatWindow = document.getElementById('chat-window');
-    
-    function renderMsg({ authorName, content, timestamp }) {
-      const div = document.createElement('div');
-      div.className = 'message';
-      const time = new Date(timestamp).toLocaleTimeString();
-      div.textContent = `[${time}] ${authorName}: ${content}`;
-      chatWindow.appendChild(div);
-      chatWindow.scrollTop = chatWindow.scrollHeight;
-    }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Real-Time Chat Server</title>
+    <style>
+      @import "./main.css";
+      @import "./base.css";
+      @import "./chat.css";
+    </style>
+  </head>
+  <body id="app">
+    <h1 class="chat-title">💬 Real-Time Chat Server</h1>
+    <div class="chat-desc">
+      Connectez-vous via un client WebSocket pour échanger en temps réel.
+    </div>
+    <div class="chat-root">
+      <div class="chat-card">
+        <div id="chat-window" class="chat-window"></div>
+        <!-- Barre d'envoi de message (pour UI, même si non branché côté serveur) -->
+        <form class="chat-input-bar" id="chat-form" autocomplete="off">
+          <input
+            type="text"
+            id="author"
+            class="chat-input-author"
+            placeholder="Pseudo"
+            maxlength="20"
+            required
+          />
+          <input
+            type="text"
+            id="message"
+            class="chat-input-message"
+            placeholder="Tapez un message..."
+            maxlength="200"
+            required
+          />
+          <button type="submit" class="chat-send-btn">Envoyer</button>
+        </form>
+      </div>
+      
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io();
+      const chatWindow = document.getElementById("chat-window");
+      const chatForm = document.getElementById("chat-form");
+      const authorInput = document.getElementById("author");
+      const messageInput = document.getElementById("message");
 
-    socket.on('history', msgs => msgs.forEach(renderMsg));
-    socket.on('message', renderMsg);
-  </script>
-</body>
+      // On conserve le pseudo courant pour aligner les messages
+      let currentUser = "";
+      authorInput.addEventListener("change", function () {
+        currentUser = authorInput.value;
+      });
+      // Si déjà rempli au chargement
+      if (authorInput.value) currentUser = authorInput.value;
+
+      function getUserColorClass(authorName) {
+        // Hash simple pour obtenir un numéro entre 1 et 8
+        let hash = 0;
+        for (let i = 0; i < authorName.length; i++)
+          hash = (hash + authorName.charCodeAt(i)) % 256;
+        return "user-color-" + (1 + (hash % 8));
+      }
+
+      function renderMsg({ authorName, content, timestamp }) {
+        const div = document.createElement("div");
+        const isMine = authorName === currentUser;
+        let classes = "message";
+        if (isMine) {
+          classes += " mine";
+        } else {
+          classes += " " + getUserColorClass(authorName);
+        }
+        div.className = classes;
+        const time = new Date(timestamp).toLocaleTimeString();
+        div.innerHTML = `
+        <div class="msg-meta-row">
+          <span class="msg-author">${authorName}</span>
+          <span class="msg-time">${time}</span>
+        </div>
+        <div class="msg-content">${content}</div>
+      `;
+        chatWindow.appendChild(div);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+      }
+
+      socket.on("history", (msgs) => msgs.forEach(renderMsg));
+      socket.on("message", renderMsg);
+
+      // UI seulement : n'envoie pas vraiment au serveur (le serveur doit gérer l'event côté Node.js)
+      chatForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        if (authorInput.value && messageInput.value) {
+          socket.emit("message", {
+            authorName: authorInput.value,
+            content: messageInput.value,
+            timestamp: Date.now(),
+          });
+          messageInput.value = "";
+        }
+      });
+    </script>
+  </body>
 </html>
