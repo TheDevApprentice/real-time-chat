@@ -3,6 +3,8 @@ import http from 'http';
 import path from 'path';
 import router from './routes';
 import { WebSocketService } from './utils/WebSocketService';
+import { DatabaseService } from './utils/DatabaseService';
+
 
 class AppServer {
   private app: express.Application;
@@ -21,6 +23,15 @@ class AppServer {
     this.port = parseInt(portWanted, 10);
     this.setupMiddleware();
     this.setupRoutes();
+    const sqliteFile = process.env.SQLITE_FILE;
+    if (!sqliteFile) {
+      throw new Error('SQLITE_FILE environment variable is not defined');
+    }
+    // Initialize database
+    const dbService = DatabaseService.getInstance(sqliteFile);
+    dbService.init();
+
+    // Start WebSocket service
     new WebSocketService(this.server);
   }
 
