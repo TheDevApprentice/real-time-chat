@@ -1,4 +1,4 @@
- import express from 'express';
+import express from 'express';
 import http from 'http';
 import path from 'path';
 import router from './routes';
@@ -9,10 +9,16 @@ class AppServer {
   private server: http.Server;
   private port: number;
 
-  constructor(port: number = 3000) {
+  constructor() {
     this.app = express();
     this.server = http.createServer(this.app);
-    this.port = port;
+    require('@dotenvx/dotenvx').config()
+    console.log("Dotenvx config Port", process.env.PORT);
+    const portWanted = process.env.PORT;
+    if (!portWanted) {
+      throw new Error('PORT environment variable is not defined');
+    }
+    this.port = parseInt(portWanted, 10);
     this.setupMiddleware();
     this.setupRoutes();
     new WebSocketService(this.server);
