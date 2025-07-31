@@ -6,7 +6,7 @@ body {
   justify-content: center;
   overflow: hidden;
   background-color: var(--color-background-mute);
-  background-image: url('./wavy-lines.svg');
+  /* background-image: url('./wavy-lines.svg'); */
   background-size: cover;
   user-select: none;
 }
