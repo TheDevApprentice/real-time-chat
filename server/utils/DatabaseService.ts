@@ -126,14 +126,17 @@ export class DatabaseService {
   }
 
   // Lister toutes les rooms
-  getRooms(): Promise<Room[]> {
+  async getRooms(): Promise<Room[]> {
     return new Promise((resolve, reject) => {
       this.db.all(`SELECT id, name, creatorId, createdAt FROM rooms`, async (err, rows) => {
         if (err) return reject(err);
-        const rooms = (rows as Array<{ id: string; name: string; creatorId: string; createdAt: number }> ).map(
-          Room.fromDbRow
-        );
-        resolve(rooms);
+        // For each room, fetch users and construct Room with users
+        const roomObjs: Room[] = [];
+        for (const row of rows as Array<{ id: string; name: string; creatorId: string; createdAt: number }>) {
+          const users = await this.getUsersForRoom(row.id);
+          roomObjs.push(Room.fromDbRow(row, users));
+        }
+        resolve(roomObjs);
       });
     });
   }
@@ -157,18 +160,20 @@ export class DatabaseService {
   }
 
   // Lister les rooms d’un user
-  getRoomsForUser(userId: string): Promise<import('../models/Room').Room[]> {
+  async getRoomsForUser(userId: string): Promise<Room[]> {
     return new Promise((resolve, reject) => {
       this.db.all(
         `SELECT r.id, r.name, r.creatorId, r.createdAt FROM rooms r
          INNER JOIN user_rooms ur ON ur.roomId = r.id WHERE ur.userId = ?`,
         [userId],
-        (err, rows) => {
+        async (err, rows) => {
           if (err) return reject(err);
-          const rooms = (rows as Array<{ id: string; name: string; creatorId: string; createdAt: number }> ).map(
-            Room.fromDbRow
-          );
-          resolve(rooms);
+          const roomObjs: Room[] = [];
+          for (const row of rows as Array<{ id: string; name: string; creatorId: string; createdAt: number }>) {
+            const users = await this.getUsersForRoom(row.id);
+            roomObjs.push(Room.fromDbRow(row, users));
+          }
+          resolve(roomObjs);
         }
       );
     });
