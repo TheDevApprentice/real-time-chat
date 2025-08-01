@@ -3,6 +3,7 @@ import { Logger } from "./Logger";
 import { User } from "../models/User";
 import { Message } from "../models/Message";
 import { Room } from "../models/Room";
+import { UserSession } from "../models/UserSession";
 
 sqlite3.verbose();
 
@@ -59,7 +60,15 @@ export class DatabaseService {
         roomId TEXT NOT NULL,
         FOREIGN KEY (roomId) REFERENCES rooms(id)
       )`);
-      Logger.info("Database tables initialized (users, rooms, user_rooms, messages)");
+      this.db.run(`CREATE TABLE IF NOT EXISTS user_sessions (
+        id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        token TEXT NOT NULL,
+        createdAt INTEGER NOT NULL,
+        expiresAt INTEGER,
+        FOREIGN KEY (userId) REFERENCES users(id)
+      )`);
+      Logger.info("Database tables initialized (users, rooms, user_rooms, messages, user_sessions)");
     });
   }
 
@@ -106,8 +115,6 @@ export class DatabaseService {
       );
     });
   }
-
-
   // Créer une room
   addRoom(room: import('../models/Room').Room): Promise<import('../models/Room').Room> {
     return new Promise((resolve, reject) => {
@@ -255,5 +262,79 @@ export class DatabaseService {
       return result;
     });
   }
+  // --- SESSION MANAGEMENT ---
+  addUserSession(session: UserSession): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        `INSERT INTO user_sessions (id, userId, token, createdAt, expiresAt) VALUES (?, ?, ?, ?, ?)`,
+        [session.id, session.userId, session.token, session.createdAt, session.expiresAt ?? null],
+        (err) => {
+          if (err) {
+            Logger.error('Erreur ajout session: ' + err.message);
+            return reject(err);
+          }
+          Logger.infoObj('Ajout session: ', session);
+          resolve();
+        }
+      );
+    });
+  }
 
+
+
+  // Lister toutes les sessions utilisateur
+  async getAllUserSessions(): Promise<UserSession[]> {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        `SELECT * FROM user_sessions`,
+        async (err, rows: Array<{ id: string, userId: string, token: string, createdAt: number, expiresAt?: number }>) => {
+          if (err) return reject(err);
+          // Charger les users liés à chaque session
+          const sessions = await Promise.all(
+            rows.map(async row => {
+              const user = await this.getUserById(row.userId);
+              return new UserSession(row.id, row.userId, row.token, row.createdAt, row.expiresAt, user);
+            })
+          );
+          resolve(sessions);
+        }
+      );
+    });
+  }
+
+  // Récupérer une session utilisateur par token
+  async getUserSessionByToken(token: string): Promise<UserSession | null> {
+    return new Promise((resolve, reject) => {
+      this.db.get(
+        `SELECT * FROM user_sessions WHERE token = ?`,
+        [token],
+        async (err, row: { id: string, userId: string, token: string, createdAt: number, expiresAt?: number } | undefined) => {
+          if (err) return reject(err);
+          if (!row) return resolve(null);
+          // Charger l'utilisateur lié
+          const user = await this.getUserById(row.userId);
+          if (!user) return resolve(null);
+          const session = new UserSession(row.id, row.userId, row.token, row.createdAt, row.expiresAt, user);
+          resolve(session);
+        }
+      );
+    });
+  }
+
+  deleteUserSession(token: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        `DELETE FROM user_sessions WHERE token = ?`,
+        [token],
+        (err) => {
+          if (err) {
+            Logger.error('Erreur suppression session: ' + err.message);
+            return reject(err);
+          }
+          Logger.info(`Suppression session pour token: ${token}`);
+          resolve();
+        }
+      );
+    });
+  }
 }

@@ -1,6 +1,7 @@
 import { Server as HttpServer } from 'http';
 import { Server as SocketServer, Socket } from 'socket.io';
 import { Message } from '../models/Message';
+import { UserSession } from '../models/UserSession';
 import { User } from '../models/User';
 import { DatabaseService } from './DatabaseService';
 import { Logger } from './Logger';
@@ -25,7 +26,21 @@ export class WebSocketService {
     }
     const dbService = DatabaseService.getInstance(sqliteFile);
 
-     this.io.on('connection', (socket: Socket) => {
+     this.io.on('connection', async (socket: Socket) => {
+      // --- SESSION RESTORE VIA TOKEN ---
+      const token = socket.handshake.auth?.token;
+      if (token) {
+        try {
+          const session = await dbService.getUserSessionByToken(token);
+          if (session && session.user) {
+            socket.data.userId = session.user.id;
+            socket.data.user = session.user;
+            socket.emit('sessionRestored', { user: session.user.toJSON() });
+          }
+        } catch (err) {
+          Logger.error('Session restore failed: ' + (err instanceof Error ? err.message : String(err)));
+        }
+      }
       Logger.info(`Client connected: ${socket.id}`);
 
       // AUTH: Register
@@ -50,7 +65,13 @@ export class WebSocketService {
           const newUser = new User(randomUUID(), username, hashed);
           Logger.infoObj("newUser: ", newUser.toJSON().name);
           await dbService.addUser(newUser);
-          callback && callback({ id: newUser.id, name: newUser.name });
+
+          // --- SESSION CREATION ---
+          // const sessionToken = randomUUID();
+          // const session = new UserSession(randomUUID(), newUser.id, sessionToken, Date.now(), undefined, newUser);
+          // await dbService.addUserSession(session);
+
+          callback && callback({ id: newUser.id, name: newUser.name, token: "" });
         } catch (err) {
           callback && callback({ error: 'Registration failed.' });
         }
@@ -74,7 +95,13 @@ export class WebSocketService {
           }
           // Stocker l'ID utilisateur sur le socket
           socket.data.userId = user.id;
-          callback && callback({ id: user.id, name: user.name });
+
+          // --- SESSION CREATION ---
+          const sessionToken = randomUUID();
+          const session = new UserSession(randomUUID(), user.id, sessionToken, Date.now(), undefined, user);
+          await dbService.addUserSession(session);
+
+          callback && callback({ id: user.id, name: user.name, token: sessionToken });
         } catch (err) {
           callback && callback({ error: 'Login failed.' });
         }

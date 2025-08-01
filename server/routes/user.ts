@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { DatabaseService } from '../utils/DatabaseService';
 import { User } from '../models/User';
+import { UserSession } from '../models/UserSession';
 
 const router = Router();
 
@@ -50,6 +51,49 @@ router.post('/login', async (req, res) => {
     res.json({ id: user.id, name: user.name });
   } catch (err) {
     res.status(500).json({ error: 'Login failed.' });
+  }
+});
+
+// Lister toutes les sessions utilisateur
+router.get('/sessions', async (req, res) => {
+  try {
+    const db = DatabaseService.getInstance(process.env.SQLITE_FILE || '');
+    const sessions = await db.getAllUserSessions();
+    if (!sessions) return res.status(500).json({ error: 'Failed to get sessions.' });
+    // Charger les users liés à chaque session
+    const userSessions = await Promise.all((sessions as Array<{ id: string, userId: string, token: string, createdAt: number, expiresAt?: number }>).
+      map(async row => {
+        const user = await db.getUserById(row.userId);
+          return new UserSession(row.id, row.userId, row.token, row.createdAt, row.expiresAt, user);
+        })
+      );
+      res.json(userSessions.map(s => s.toJSON()));
+    } catch (err) {
+    console.error('Erreur /sessions:', err); // LOG DÉTAILLÉ
+    res.status(500).json({ error: 'Failed to get sessions.', details: err instanceof Error ? err.message : err });
+  }
+});
+
+// Récupérer une session par token
+router.get('/sessions/:token', async (req, res) => {
+  try {
+    const db = DatabaseService.getInstance(process.env.SQLITE_FILE || '');
+    const session = await db.getUserSessionByToken(req.params.token);
+    if (!session) return res.status(404).json({ error: 'Session not found.' });
+    res.json(session.toJSON());
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get session.' });
+  }
+});
+
+// Supprimer une session par token
+router.delete('/sessions/:token', async (req, res) => {
+  try {
+    const db = DatabaseService.getInstance(process.env.SQLITE_FILE || '');
+    await db.deleteUserSession(req.params.token);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete session.' });
   }
 });
 
