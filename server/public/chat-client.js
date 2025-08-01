@@ -3,6 +3,9 @@
 // Nécessite d'être compilé/transpilé en JS puis inclus dans index.html
 const socket = io();
 // Elements
+const userActions = document.getElementById("user-actions");
+const logoutBtn = document.getElementById("logout-btn");
+const logoutAllBtn = document.getElementById("logout-all-btn");
 const authPanel = document.getElementById("auth-panel");
 const loginForm = document.getElementById("login-form");
 const loginUsername = document.getElementById("login-username");
@@ -101,10 +104,25 @@ backToRoomsBtn.addEventListener("click", function () {
     roomPanel.style.display = "block";
     chatWindow.innerHTML = "";
 });
-// Optionnel : bouton de déconnexion (à ajouter dans l'UI si besoin)
-function logout() {
-    currentUser = null;
-    showAuthPanel(true);
+// Gestion logout (WebSocket uniquement)
+if (logoutBtn) {
+    logoutBtn.onclick = function () {
+        socket.emit('logout', {}, (res) => {
+            // Peu importe la réponse, on réinitialise l'état
+            currentUser = null;
+            document.cookie = 'sessionToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
+            showAuthPanel(true);
+        });
+    };
+}
+if (logoutAllBtn) {
+    logoutAllBtn.onclick = function () {
+        socket.emit('logoutAll', {}, (res) => {
+            currentUser = null;
+            document.cookie = 'sessionToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
+            showAuthPanel(true);
+        });
+    };
 }
 // --- CHATBOX LOGIC (par room) ---
 function getUserColorClass(authorName) {
@@ -183,6 +201,9 @@ function showAuthPanel(show) {
     chatCard.style.display = "none";
     createRoomForm.style.display = show ? "none" : "flex";
     chatForm.style.display = show ? "none" : "flex";
+    // Affiche les boutons logout uniquement si connecté
+    if (userActions)
+        userActions.style.display = show ? "none" : "block";
 }
 // --- Auth automatique via cookie/sessionToken ---
 function getCookie(name) {
