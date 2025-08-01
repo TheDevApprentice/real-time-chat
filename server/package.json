@@ -14,6 +14,7 @@
   "type": "commonjs",
   "dependencies": {
     "@dotenvx/dotenvx": "^1.48.4",
+    "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
