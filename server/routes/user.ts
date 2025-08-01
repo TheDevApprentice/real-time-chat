@@ -1,3 +1,12 @@
+import express, { Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
+import { User } from '../models/User';
+import { DatabaseService } from '../utils/DatabaseService';
+import { AuthenticatedRequest, authMiddleware } from '../middleware/auth';
+
+const router = express.Router();
+
 // Protection brute-force login (en mémoire)
 const loginAttemptsByIP = new Map<string, { count: number, lastAttempt: number, blockedUntil?: number }>();
 const loginAttemptsByUsername = new Map<string, { count: number, lastAttempt: number, blockedUntil?: number }>();
@@ -10,7 +19,6 @@ function isBlocked(attempt: { count: number, lastAttempt: number, blockedUntil?:
 }
 
 
-import { authMiddleware } from '../middleware/auth';
 
 // Registration endpoint
 router.post('/register', async (req, res) => {
@@ -22,7 +30,9 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ error: 'Passwords do not match.' });
   }
   try {
-    const db = DatabaseService.getInstance(process.env.SQLITE_FILE || '');
+    const dbFile = process.env.SQLITE_FILE;
+    if (!dbFile) throw new Error('SQLITE_FILE env variable is not set');
+    const db = DatabaseService.getInstance(dbFile);
     const users = await db.getUsers();
     if (users.find(u => u.name === username)) {
       return res.status(409).json({ error: 'Username already exists.' });
@@ -39,7 +49,7 @@ router.post('/register', async (req, res) => {
 // Login endpoint
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
-  const ip = req.ip;
+  const ip = req.ip || 'unknown';
   // Vérifier blocage IP
   let ipAttempt = loginAttemptsByIP.get(ip) || { count: 0, lastAttempt: 0 };
   if (isBlocked(ipAttempt)) {
@@ -54,9 +64,12 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ error: 'Username and password required.' });
   }
   try {
-    const db = DatabaseService.getInstance(process.env.SQLITE_FILE || '');
+    const dbFile = process.env.SQLITE_FILE;
+    if (!dbFile) throw new Error('SQLITE_FILE env variable is not set');
+    const db = DatabaseService.getInstance(dbFile);
     const users = await db.getUsers();
     const user = users.find(u => u.name === username);
+    const valid = user && await bcrypt.compare(password, user.password);
     if (!user || !valid) {
       // Échec : incrémenter compteurs
       ipAttempt.count += 1; ipAttempt.lastAttempt = Date.now();
@@ -108,7 +121,9 @@ router.post('/login', async (req, res) => {
 // Lister toutes les sessions utilisateur courant
 router.get('/sessions', authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
-    const db = DatabaseService.getInstance(process.env.SQLITE_FILE || '');
+    const dbFile = process.env.SQLITE_FILE;
+    if (!dbFile) throw new Error('SQLITE_FILE env variable is not set');
+    const db = DatabaseService.getInstance(dbFile);
     if (!req.user) return res.status(401).json({ error: 'Not authenticated.' });
     const sessions = await db.getUserSessionsByUserId(req.user.id);
     res.json(sessions.map(s => s.toJSON()));
@@ -120,7 +135,9 @@ router.get('/sessions', authMiddleware, async (req: AuthenticatedRequest, res) =
 // Récupérer une session par token
 router.get('/sessions/:token', async (req, res) => {
   try {
-    const db = DatabaseService.getInstance(process.env.SQLITE_FILE || '');
+    const dbFile = process.env.SQLITE_FILE;
+    if (!dbFile) throw new Error('SQLITE_FILE env variable is not set');
+    const db = DatabaseService.getInstance(dbFile);
     const session = await db.getUserSessionByToken(req.params.token);
     if (!session) return res.status(404).json({ error: 'Session not found.' });
     res.json(session.toJSON());
@@ -132,7 +149,9 @@ router.get('/sessions/:token', async (req, res) => {
 // Supprimer une session par token (si elle appartient à l'utilisateur)
 router.delete('/sessions/:token', authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
-    const db = DatabaseService.getInstance(process.env.SQLITE_FILE || '');
+    const dbFile = process.env.SQLITE_FILE;
+    if (!dbFile) throw new Error('SQLITE_FILE env variable is not set');
+    const db = DatabaseService.getInstance(dbFile);
     if (!req.user) return res.status(401).json({ error: 'Not authenticated.' });
     const session = await db.getUserSessionByToken(req.params.token);
     if (!session || session.userId !== req.user.id) {
@@ -148,7 +167,9 @@ router.delete('/sessions/:token', authMiddleware, async (req: AuthenticatedReque
 // Supprimer toutes les sessions de l'utilisateur courant (logout all)
 router.delete('/sessions', authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
-    const db = DatabaseService.getInstance(process.env.SQLITE_FILE || '');
+    const dbFile = process.env.SQLITE_FILE;
+    if (!dbFile) throw new Error('SQLITE_FILE env variable is not set');
+    const db = DatabaseService.getInstance(dbFile);
     if (!req.user) return res.status(401).json({ error: 'Not authenticated.' });
     await db.deleteAllUserSessionsByUserId(req.user.id);
     res.clearCookie('session_token', {
@@ -162,8 +183,6 @@ router.delete('/sessions', authMiddleware, async (req: AuthenticatedRequest, res
   }
 });
 
-// Endpoint protégé : infos utilisateur courant
-import type { AuthenticatedRequest } from '../middleware/auth';
 
 router.get('/me', authMiddleware, (req: AuthenticatedRequest, res) => {
   // req.user est injecté par le middleware
@@ -178,7 +197,9 @@ router.post('/logout', async (req, res) => {
   try {
     const token = req.cookies?.session_token;
     if (token) {
-      const db = DatabaseService.getInstance(process.env.SQLITE_FILE || '');
+      const dbFile = process.env.SQLITE_FILE;
+    if (!dbFile) throw new Error('SQLITE_FILE env variable is not set');
+    const db = DatabaseService.getInstance(dbFile);
       await db.deleteUserSession(token);
     }
     res.clearCookie('session_token', {
@@ -199,25 +220,21 @@ router.post('/refresh-token', async (req, res) => {
     return res.status(400).json({ error: 'refreshToken is required.' });
   }
   try {
-    const db = DatabaseService.getInstance(process.env.SQLITE_FILE || '');
-    // Récupère la session avec ce refreshToken
-    const sessions = await db.getUserSessionsByUserId ? await db.getUserSessionsByUserId : undefined;
+    const dbFile = process.env.SQLITE_FILE;
+    if (!dbFile) throw new Error('SQLITE_FILE env variable is not set');
+    const db = DatabaseService.getInstance(dbFile);
+    // Parcourt toutes les sessions pour trouver le bon refreshToken
+    const users = await db.getUsers();
     let session = null;
-    if (typeof db.getUserSessionByRefreshToken === 'function') {
-      session = await db.getUserSessionByRefreshToken(refreshToken);
-    } else {
-      // fallback: parcourir toutes les sessions pour trouver le bon refreshToken
-      const users = await db.getUsers();
-      for (const user of users) {
-        const userSessions = await db.getUserSessionsByUserId(user.id);
-        for (const s of userSessions) {
-          if (s.refreshToken === refreshToken) {
-            session = s;
-            break;
-          }
+    for (const user of users) {
+      const userSessions = await db.getUserSessionsByUserId(user.id);
+      for (const s of userSessions) {
+        if (s.refreshToken === refreshToken) {
+          session = s;
+          break;
         }
-        if (session) break;
       }
+      if (session) break;
     }
     if (!session) {
       return res.status(401).json({ error: 'Invalid refresh token.' });
