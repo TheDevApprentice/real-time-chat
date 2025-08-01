@@ -9,13 +9,23 @@ import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 
 // Protection brute-force login (en mémoire)
-const loginAttemptsByIP = new Map<string, { count: number, lastAttempt: number, blockedUntil?: number }>();
-const loginAttemptsByUsername = new Map<string, { count: number, lastAttempt: number, blockedUntil?: number }>();
+const loginAttemptsByIP = new Map<
+  string,
+  { count: number; lastAttempt: number; blockedUntil?: number }
+>();
+const loginAttemptsByUsername = new Map<
+  string,
+  { count: number; lastAttempt: number; blockedUntil?: number }
+>();
 
 const MAX_ATTEMPTS = 5;
 const BLOCK_DURATION = 15 * 60 * 1000; // 15 minutes
 
-function isBlocked(attempt: { count: number, lastAttempt: number, blockedUntil?: number }) {
+function isBlocked(attempt: {
+  count: number;
+  lastAttempt: number;
+  blockedUntil?: number;
+}) {
   return attempt.blockedUntil && attempt.blockedUntil > Date.now();
 }
 
@@ -194,7 +204,9 @@ export class WebSocketService {
           let session = null;
           const users = await dbService.getUsers();
           for (const user of users) {
-            const userSessions = await dbService.getUserSessionsByUserId(user.id);
+            const userSessions = await dbService.getUserSessionsByUserId(
+              user.id
+            );
             for (const s of userSessions) {
               if (s.refreshToken === refreshToken) {
                 session = s;
@@ -206,7 +218,10 @@ export class WebSocketService {
           if (!session) {
             return callback && callback({ error: "Invalid refresh token." });
           }
-          if (!session.refreshTokenExpiresAt || session.refreshTokenExpiresAt < Date.now()) {
+          if (
+            !session.refreshTokenExpiresAt ||
+            session.refreshTokenExpiresAt < Date.now()
+          ) {
             await dbService.deleteUserSession(session.token);
             return callback && callback({ error: "Refresh token expired." });
           }
@@ -227,13 +242,14 @@ export class WebSocketService {
             session.user
           );
           await dbService.addUserSession(newSession);
-          callback && callback({
-            id: session.userId,
-            name: session.user?.name,
-            token: newToken,
-            refreshToken: newRefreshToken,
-            refreshTokenExpiresAt: newRefreshTokenExpiresAt
-          });
+          callback &&
+            callback({
+              id: session.userId,
+              name: session.user?.name,
+              token: newToken,
+              refreshToken: newRefreshToken,
+              refreshTokenExpiresAt: newRefreshTokenExpiresAt,
+            });
         } catch (err) {
           callback && callback({ error: "Refresh token failed." });
         }
@@ -379,7 +395,10 @@ export class WebSocketService {
             if (match) token = match[1];
           }
           if (!token) {
-            return callback && callback({ success: false, error: "No token provided." });
+            return (
+              callback &&
+              callback({ success: false, error: "No token provided." })
+            );
           }
           await dbService.deleteUserSession(token);
           socket.data.userId = undefined;
@@ -391,53 +410,88 @@ export class WebSocketService {
         }
       });
 
-// Lister les sessions actives de l'utilisateur connecté
-socket.on("getSessions", async (data, callback) => {
-  try {
-    const userId = socket.data.userId;
-    if (!userId) {
-      return callback && callback({ success: false, error: "Not authenticated." });
-    }
-    const sessions = await dbService.getUserSessionsByUserId(userId);
-    callback && callback({ success: true, sessions: sessions.map(s => s.toJSON()) });
-  } catch (err) {
-    callback && callback({ success: false, error: "Failed to fetch sessions." });
-  }
-});
+      // Lister les sessions actives de l'utilisateur connecté
+      socket.on("getSessions", async (data, callback) => {
+        try {
+          const userId = socket.data.userId;
+          if (!userId) {
+            return (
+              callback &&
+              callback({ success: false, error: "Not authenticated." })
+            );
+          }
+          const sessions = await dbService.getUserSessionsByUserId(userId);
+          callback &&
+            callback({
+              success: true,
+              sessions: sessions.map((s) => s.toJSON()),
+            });
+        } catch (err) {
+          callback &&
+            callback({ success: false, error: "Failed to fetch sessions." });
+        }
+      });
 
-// Révoquer une session/token précis
-socket.on("revokeSession", async ({ token }, callback) => {
-  try {
-    const userId = socket.data.userId;
-    if (!userId || !token) {
-      return callback && callback({ success: false, error: "Not authenticated or missing token." });
-    }
-    // Vérifier que la session appartient bien à l'utilisateur
-    const session = await dbService.getUserSessionByToken(token);
-    if (!session || session.userId !== userId) {
-      return callback && callback({ success: false, error: "Session not found or not owned." });
-    }
-    await dbService.deleteUserSession(token);
-    callback && callback({ success: true });
-  } catch (err) {
-    callback && callback({ success: false, error: "Failed to revoke session." });
-  }
-});
+      // Révoquer une session/token précis
+      socket.on("revokeSession", async ({ token }, callback) => {
+        try {
+          const userId = socket.data.userId;
+          if (!userId || !token) {
+            return (
+              callback &&
+              callback({
+                success: false,
+                error: "Not authenticated or missing token.",
+              })
+            );
+          }
+          // Vérifier que la session appartient bien à l'utilisateur
+          const session = await dbService.getUserSessionByToken(token);
+          if (!session || session.userId !== userId) {
+            return (
+              callback &&
+              callback({
+                success: false,
+                error: "Session not found or not owned.",
+              })
+            );
+          }
+          await dbService.deleteUserSession(token);
+          callback && callback({ success: true });
+        } catch (err) {
+          callback &&
+            callback({ success: false, error: "Failed to revoke session." });
+        }
+      });
 
-// Déconnexion de toutes les sessions de l'utilisateur
-socket.on("logoutAll", async (data, callback) => {
-  try {
-    const userId = socket.data.userId;
-    if (!userId) {
-      return callback && callback({ success: false, error: "Not authenticated." });
-    }
-    await dbService.deleteAllUserSessionsByUserId(userId);
-    callback && callback({ success: true });
-    socket.disconnect(true);
-  } catch (err) {
-    callback && callback({ success: false, error: "Logout all failed." });
-  }
-});
+      // Déconnexion de toutes les sessions de l'utilisateur
+      socket.on("logoutAll", async (data, callback) => {
+        try {
+          const userId = socket.data.userId;
+          if (!userId) {
+            return (
+              callback &&
+              callback({ success: false, error: "Not authenticated." })
+            );
+          }
+          await dbService.deleteAllUserSessionsByUserId(userId);
+          callback && callback({ success: true });
+
+          // Déconnecte tous les sockets de cet utilisateur et envoie un événement
+          const sockets = await this.io.fetchSockets();
+          Logger.info(`Déconnexion de tous les sockets de l'utilisateur ${userId}`);
+          Logger.info(`Nombre de sockets: ${sockets.length}`);
+          Logger.infoObj("sockets", sockets);
+          for (const s of sockets) {
+            if (s.data.userId === userId) {
+              s.emit("forceLogout", { reason: "logoutAll" });
+              s.disconnect(true);
+            }
+          }
+        } catch (err) {
+          callback && callback({ success: false, error: "Logout all failed." });
+        }
+      });
     });
   }
 }
