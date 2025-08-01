@@ -1,3 +1,5 @@
+import { randomUUID } from "crypto";
+
 export class User {
   private _id: string;
   private _name: string;
@@ -25,5 +27,11 @@ export class User {
 
   toJSON(): { id: string; name: string } {
     return { id: this._id, name: this._name };
+  }
+
+  // Factory for DB rows
+  static fromDbRow(row: { id: string; name: string }): User | undefined {
+    if (!row) return undefined;
+    return new User(row.id, row.name);
   }
 }
