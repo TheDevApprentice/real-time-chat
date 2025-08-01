@@ -1,7 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { Message } from '../models/Message';
+import { User } from '../models/User';
 import { DatabaseService } from '../utils/DatabaseService';
 
+require('@dotenvx/dotenvx').config()
+const sqliteFile = process.env.SQLITE_FILE;
+if (!sqliteFile) {
+  throw new Error('SQLITE_FILE environment variable is not defined');
+}
+const db = DatabaseService.getInstance(sqliteFile);
 const router = Router();
 
 // Get welcome
@@ -9,34 +16,21 @@ router.get('/', (req: Request, res: Response) => {
   res.json({ message: 'Welcome to the chat API' });
 });
 
-// Post a message (echo back)
-router.post('/message', (req: Request, res: Response) => {
-  const { authorId, authorName, content } = req.body;
-  if (!authorId || !authorName || !content) {
-    return res.status(400).json({ error: 'Invalid payload' });
-  }
-  const msg = new Message(authorId, authorName, content);
-  // TODO: persist or broadcast via WebSocketService
-  res.status(201).json(msg);
-});
-
 // Get all messages
 router.get('/messages', async (req: Request, res: Response) => {
-  const db = DatabaseService.getInstance(process.env.SQLITE_FILE!);
   try {
-    const messages = await db.getMessages();
-    res.json(messages);
-  } catch (e) {
-    res.status(500).json({ error: (e as Error).message });
+    const messages : Message[] = await db.getMessages();
+    res.json(messages.map((m: Message) => m.toJSON())); // already OOP strict
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
   }
 });
 
 // Get all users
 router.get('/users', async (req: Request, res: Response) => {
-  const db = DatabaseService.getInstance(process.env.SQLITE_FILE!);
   try {
-    const users = await db.getUsers();
-    res.json(users);
+    const users : User[] = await db.getUsers();
+    res.json(users.map((u: User) => u.toJSON()));
   } catch (e) {
     res.status(500).json({ error: (e as Error).message });
   }
