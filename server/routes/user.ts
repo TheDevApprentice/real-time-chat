@@ -60,7 +60,7 @@ router.post('/login', async (req, res) => {
     res.cookie('session_token', token, {
       httpOnly: true,
       sameSite: 'lax',
-      // secure: true, // décommente en prod HTTPS
+      secure: process.env.NODE_ENV === 'production',
       maxAge: 1000 * 60 * 60 * 24 * 7 // 7 jours
     });
     res.json({ id: user.id, name: user.name });
@@ -121,6 +121,25 @@ router.get('/me', authMiddleware, (req: AuthenticatedRequest, res) => {
     return res.status(401).json({ error: 'Not authenticated.' });
   }
   res.json({ id: req.user.id, name: req.user.name });
+});
+
+// Logout endpoint
+router.post('/logout', async (req, res) => {
+  try {
+    const token = req.cookies?.session_token;
+    if (token) {
+      const db = DatabaseService.getInstance(process.env.SQLITE_FILE || '');
+      await db.deleteUserSession(token);
+    }
+    res.clearCookie('session_token', {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Logout failed.' });
+  }
 });
 
 export default router;
