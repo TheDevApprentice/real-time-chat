@@ -61,6 +61,14 @@ let currentUser: { id: string, name: string } | null = null;
 let selectedRoom: any = null;
 let rooms: any[] = [];
 
+// --- AUTH LOGIC dsiconnet all session user on all device ---
+socket.on("forceLogout", function(data) {
+  currentUser = null;
+  document.cookie = 'sessionToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
+  showAuthPanel(true);
+  alert("Vous avez été déconnecté de tous vos appareils.");
+});
+
 // --- ROOM LIST LOGIC ---
 function renderRoomList() {
   roomList.innerHTML = "";

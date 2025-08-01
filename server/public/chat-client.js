@@ -56,6 +56,13 @@ const selectedRoomTitle = document.getElementById("selected-room-title");
 let currentUser = null;
 let selectedRoom = null;
 let rooms = [];
+// --- AUTH LOGIC dsiconnet all session user on all device ---
+socket.on("forceLogout", function (data) {
+    currentUser = null;
+    document.cookie = 'sessionToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
+    showAuthPanel(true);
+    alert("Vous avez été déconnecté de tous vos appareils.");
+});
 // --- ROOM LIST LOGIC ---
 function renderRoomList() {
     roomList.innerHTML = "";
