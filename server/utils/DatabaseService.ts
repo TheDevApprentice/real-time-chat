@@ -2,6 +2,7 @@ import sqlite3 from "sqlite3";
 import { Logger } from "./Logger";
 import { User } from "../models/User";
 import { Message } from "../models/Message";
+import { Room } from "../models/Room";
 
 sqlite3.verbose();
 
@@ -35,14 +36,29 @@ export class DatabaseService {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL
       )`);
+      this.db.run(`CREATE TABLE IF NOT EXISTS rooms (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        creatorId TEXT NOT NULL,
+        createdAt INTEGER NOT NULL
+      )`);
+      this.db.run(`CREATE TABLE IF NOT EXISTS user_rooms (
+        userId TEXT NOT NULL,
+        roomId TEXT NOT NULL,
+        PRIMARY KEY (userId, roomId),
+        FOREIGN KEY (userId) REFERENCES users(id),
+        FOREIGN KEY (roomId) REFERENCES rooms(id)
+      )`);
       this.db.run(`CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         authorId TEXT,
         authorName TEXT,
         content TEXT,
-        timestamp INTEGER
+        timestamp INTEGER,
+        roomId TEXT NOT NULL,
+        FOREIGN KEY (roomId) REFERENCES rooms(id)
       )`);
-      Logger.info("Database tables initialized");
+      Logger.info("Database tables initialized (users, rooms, user_rooms, messages)");
     });
   }
 
@@ -90,35 +106,124 @@ export class DatabaseService {
     });
   }
 
-  addMessage(message: Message): Promise<void> {
+
+  // Créer une room
+  addRoom(room: import('../models/Room').Room): Promise<import('../models/Room').Room> {
     return new Promise((resolve, reject) => {
       this.db.run(
-        `INSERT INTO messages (authorId, authorName, content, timestamp) VALUES (?, ?, ?, ?)`,
-        [
-          message.author.id,
-          message.author.name,
-          message.content,
-          message.timestamp,
-        ],
+        `INSERT INTO rooms (id, name, creatorId, createdAt) VALUES (?, ?, ?, ?)`,
+        [room.id, room.name, room.creatorId, room.createdAt],
         (err) => {
           if (err) {
-            Logger.error("Erreur ajout message: " + err.message);
+            Logger.error('Erreur ajout room: ' + err.message);
             return reject(err);
           }
-          Logger.info(`Ajout message: ${message.author.name} / ${message.content}`);
+          Logger.infoObj('Ajout room: ', room);
+          resolve(room);
+        }
+      );
+    });
+  }
+
+  // Lister toutes les rooms
+  getRooms(): Promise<Room[]> {
+    return new Promise((resolve, reject) => {
+      this.db.all(`SELECT id, name, creatorId, createdAt FROM rooms`, async (err, rows) => {
+        if (err) return reject(err);
+        const rooms = (rows as Array<{ id: string; name: string; creatorId: string; createdAt: number }> ).map(
+          Room.fromDbRow
+        );
+        resolve(rooms);
+      });
+    });
+  }
+
+  // Ajouter un user à une room
+  addUserToRoom(userId: string, roomId: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        `INSERT OR IGNORE INTO user_rooms (userId, roomId) VALUES (?, ?)`,
+        [userId, roomId],
+        (err) => {
+          if (err) {
+            Logger.error('Erreur ajout user_rooms: ' + err.message);
+            return reject(err);
+          }
+          Logger.info(`Ajout user ${userId} à la room ${roomId}`);
           resolve();
         }
       );
     });
   }
 
-  getMessages(): Promise<Message[]> {
+  // Lister les rooms d’un user
+  getRoomsForUser(userId: string): Promise<import('../models/Room').Room[]> {
     return new Promise((resolve, reject) => {
       this.db.all(
-        `SELECT authorId, authorName, content, timestamp FROM messages`,
+        `SELECT r.id, r.name, r.creatorId, r.createdAt FROM rooms r
+         INNER JOIN user_rooms ur ON ur.roomId = r.id WHERE ur.userId = ?`,
+        [userId],
         (err, rows) => {
           if (err) return reject(err);
-          // Map each row to a Message (OOP strict)
+          const rooms = (rows as Array<{ id: string; name: string; creatorId: string; createdAt: number }> ).map(
+            Room.fromDbRow
+          );
+          resolve(rooms);
+        }
+      );
+    });
+  }
+
+  // Lister les users d’une room
+  getUsersForRoom(roomId: string): Promise<import('../models/User').User[]> {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        `SELECT u.id, u.name FROM users u
+         INNER JOIN user_rooms ur ON ur.userId = u.id WHERE ur.roomId = ?`,
+        [roomId],
+        (err, rows) => {
+          if (err) return reject(err);
+          const users = (rows as Array<{ id: string; name: string }> ).map(
+            User.fromDbRow
+          );
+          resolve(users.filter(u => u !== undefined));
+        }
+      );
+    });
+  }
+
+  // Ajouter un message dans une room
+  addMessageToRoom(message: Message, roomId: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        `INSERT INTO messages (authorId, authorName, content, timestamp, roomId) VALUES (?, ?, ?, ?, ?)`,
+        [
+          message.author.id,
+          message.author.name,
+          message.content,
+          message.timestamp,
+          roomId,
+        ],
+        (err) => {
+          if (err) {
+            Logger.error('Erreur ajout message: ' + err.message);
+            return reject(err);
+          }
+          Logger.info(`Ajout message: ${message.author.name} / ${message.content} / room: ${roomId}`);
+          resolve();
+        }
+      );
+    });
+  }
+
+  // Récupérer les messages d’une room
+  getMessagesForRoom(roomId: string): Promise<Message[]> {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        `SELECT authorId, authorName, content, timestamp FROM messages WHERE roomId = ?`,
+        [roomId],
+        (err, rows) => {
+          if (err) return reject(err);
           const messages: (Message | undefined)[] = (
             rows as Array<{
               authorId: string;
@@ -132,4 +237,17 @@ export class DatabaseService {
       );
     });
   }
+
+  // [Optionnel] Récupérer toutes les rooms avec leurs users
+  getRoomsAndUsers(): Promise<{ room: import('../models/Room').Room, users: import('../models/User').User[] }[]> {
+    return this.getRooms().then(async (rooms) => {
+      const result = [];
+      for (const room of rooms) {
+        const users = await this.getUsersForRoom(room.id);
+        result.push({ room, users });
+      }
+      return result;
+    });
+  }
+
 }
