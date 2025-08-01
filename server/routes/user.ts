@@ -7,6 +7,8 @@ import { UserSession } from '../models/UserSession';
 
 const router = Router();
 
+import { authMiddleware } from '../middleware/auth';
+
 // Registration endpoint
 router.post('/register', async (req, res) => {
   const { username, password, confirmPassword } = req.body;
@@ -48,6 +50,19 @@ router.post('/login', async (req, res) => {
     if (!valid) {
       return res.status(401).json({ error: 'Invalid credentials.' });
     }
+    // --- SESSION CREATION ---
+    const { randomUUID } = await import('crypto');
+    const { UserSession } = await import('../models/UserSession');
+    const token = randomUUID();
+    const session = new UserSession(randomUUID(), user.id, token, Date.now(), undefined, user);
+    await db.addUserSession(session);
+    // Placer le token dans un cookie sécurisé HTTP-only
+    res.cookie('session_token', token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      // secure: true, // décommente en prod HTTPS
+      maxAge: 1000 * 60 * 60 * 24 * 7 // 7 jours
+    });
     res.json({ id: user.id, name: user.name });
   } catch (err) {
     res.status(500).json({ error: 'Login failed.' });
@@ -95,6 +110,17 @@ router.delete('/sessions/:token', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete session.' });
   }
+});
+
+// Endpoint protégé : infos utilisateur courant
+import type { AuthenticatedRequest } from '../middleware/auth';
+
+router.get('/me', authMiddleware, (req: AuthenticatedRequest, res) => {
+  // req.user est injecté par le middleware
+  if (!req.user) {
+    return res.status(401).json({ error: 'Not authenticated.' });
+  }
+  res.json({ id: req.user.id, name: req.user.name });
 });
 
 export default router;
