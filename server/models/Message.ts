@@ -49,7 +49,7 @@ export class Message {
 
   // Factory for DB rows
   static fromDbRow(row: { authorId: string; authorName: string; content: string; timestamp: number }): Message {
-    const user = new User(row.authorId, row.authorName);
+    const user = new User(row.authorId, row.authorName, '');
     return new Message(user, row.content, row.timestamp);
   }
 }

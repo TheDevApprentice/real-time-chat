@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import http from 'http';
 import path from 'path';
+import cookieParser from 'cookie-parser';
 import router from './routes';
 import { WebSocketService } from './utils/WebSocketService';
 import { DatabaseService } from './utils/DatabaseService';
@@ -38,8 +39,9 @@ class AppServer {
 
   private setupMiddleware(): void {
     // Enable CORS for front-end
-    this.app.use(cors({ origin: '*' }));
+    this.app.use(cors({ origin: '*', credentials: true }));
     this.app.use(express.json());
+    this.app.use(cookieParser());
     this.app.use(express.static(path.join(__dirname, 'public')));
   }
 
