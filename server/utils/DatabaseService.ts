@@ -1,5 +1,7 @@
-import sqlite3 from 'sqlite3';
-import { Logger } from './Logger';
+import sqlite3 from "sqlite3";
+import { Logger } from "./Logger";
+import { User } from "../models/User";
+import { Message } from "../models/Message";
 
 sqlite3.verbose();
 
@@ -17,8 +19,11 @@ export class DatabaseService {
     });
   }
 
-  static getInstance(filePath: string = './data/chat.sqlite'): DatabaseService {
+  static getInstance(filePath: string): DatabaseService {
     if (!DatabaseService.instance) {
+      if (!filePath) {
+        throw new Error("Database file path is required");
+      }
       DatabaseService.instance = new DatabaseService(filePath);
     }
     return DatabaseService.instance;
@@ -37,51 +42,92 @@ export class DatabaseService {
         content TEXT,
         timestamp INTEGER
       )`);
-      Logger.info('Database tables initialized');
+      Logger.info("Database tables initialized");
     });
   }
 
-  addUser(id: string, name: string): Promise<void> {
+  addUser(user: User): Promise<User> {
     return new Promise((resolve, reject) => {
       this.db.run(
-        `INSERT OR IGNORE INTO users (id, name) VALUES (?, ?)`,
-        [id, name],
-        (err) => (err ? reject(err) : resolve())
+        `INSERT INTO users (id, name) VALUES (?, ?)`,
+        [user.id, user.name],
+        (err) => {
+          if (err) {
+            Logger.error("Erreur ajout user: " + err.message);
+            return reject(err);
+          }
+          Logger.infoObj("Ajout user: ", user);
+          resolve(user);
+        }
       );
     });
   }
-
-  getUsers(): Promise<Array<{ id: string; name: string }>> {
+  
+  getUsers(): Promise<User[]> {
     return new Promise((resolve, reject) => {
       this.db.all(`SELECT id, name FROM users`, (err, rows) => {
-        err ? reject(err) : resolve(rows as Array<{ id: string; name: string }>);
+        if (err) return reject(err);
+        // Map each row to a User instance (OOP strict)
+        const users: (User | undefined)[] = (rows as Array<{ id: string; name: string }>).map(
+          User.fromDbRow
+        );
+        resolve(users.filter((user) => user !== undefined));
       });
     });
   }
 
-  addMessage(
-    authorId: string,
-    authorName: string,
-    content: string,
-    timestamp: number
-  ): Promise<void> {
+  getUserById(id: string): Promise<User | undefined> {
     return new Promise((resolve, reject) => {
-      this.db.run(
-        `INSERT INTO messages (authorId, authorName, content, timestamp) VALUES (?, ?, ?, ?)`,
-        [authorId, authorName, content, timestamp],
-        (err) => (err ? reject(err) : resolve())
+      this.db.get(
+        `SELECT id, name FROM users WHERE id = ?`,
+        [id],
+        (err, row: User | undefined) => {
+          if (err) return reject(err);
+          if (!row) return resolve(undefined);
+          resolve(User.fromDbRow(row));
+        }
       );
     });
   }
 
-  getMessages(): Promise<
-    Array<{ authorId: string; authorName: string; content: string; timestamp: number }>
-  > {
+  addMessage(message: Message): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        `INSERT INTO messages (authorId, authorName, content, timestamp) VALUES (?, ?, ?, ?)`,
+        [
+          message.author.id,
+          message.author.name,
+          message.content,
+          message.timestamp,
+        ],
+        (err) => {
+          if (err) {
+            Logger.error("Erreur ajout message: " + err.message);
+            return reject(err);
+          }
+          Logger.info(`Ajout message: ${message.author.name} / ${message.content}`);
+          resolve();
+        }
+      );
+    });
+  }
+
+  getMessages(): Promise<Message[]> {
     return new Promise((resolve, reject) => {
       this.db.all(
         `SELECT authorId, authorName, content, timestamp FROM messages`,
         (err, rows) => {
-          err ? reject(err) : resolve(rows as Array<{ authorId: string; authorName: string; content: string; timestamp: number }>);
+          if (err) return reject(err);
+          // Map each row to a Message (OOP strict)
+          const messages: (Message | undefined)[] = (
+            rows as Array<{
+              authorId: string;
+              authorName: string;
+              content: string;
+              timestamp: number;
+            }>
+          ).map(Message.fromDbRow);
+          resolve(messages.filter((message) => message !== undefined));
         }
       );
     });

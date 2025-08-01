@@ -1,6 +1,9 @@
 import { Server as HttpServer } from 'http';
 import { Server as SocketServer, Socket } from 'socket.io';
+import { Message } from '../models/Message';
+import { User } from '../models/User';
 import { DatabaseService } from './DatabaseService';
+import { Logger } from './Logger';
 
 export class WebSocketService {
   private io: SocketServer;
@@ -13,25 +16,46 @@ export class WebSocketService {
   }
 
   private handleConnections(): void {
-    const dbService = DatabaseService.getInstance(process.env.SQLITE_FILE!);
+    require('@dotenvx/dotenvx').config()
+    const sqliteFile = process.env.SQLITE_FILE;
+    if (!sqliteFile) {
+      throw new Error('SQLITE_FILE environment variable is not defined');
+    }
+    const dbService = DatabaseService.getInstance(sqliteFile);
 
     this.io.on('connection', (socket: Socket) => {
-      console.log(`Client connected: ${socket.id}`);
+      Logger.info(`Client connected: ${socket.id}`);
 
       // Send message history
       dbService.getMessages()
-        .then((history: Array<{ authorId: string; authorName: string; content: string; timestamp: number }>) => socket.emit('history', history))
-        .catch((err: Error) => console.error(err));
+        .then((history) => {
+          // history is Message[]
+          socket.emit('history', history.map((m: Message) => m.toJSON()));
+        })
+        .catch((err: Error) => Logger.error(err.toString()));
 
       // Handle incoming message
-      socket.on('message', (msg: { authorId: string; authorName: string; content: string; timestamp: number }) => {
-        dbService.addMessage(msg.authorId, msg.authorName, msg.content, msg.timestamp)
-          .then(() => this.io.emit('message', msg))
-          .catch((err: Error) => console.error(err));
+      socket.on('message', (msg : Message) => {
+        if (!msg.author || !msg.author.id || !msg.author.name || !msg.content) {
+          return;
+        }
+        dbService.getUserById(msg.author.id)
+          .then(existingUser => {
+            if (!existingUser) {
+              return dbService.addUser(msg.author);
+            }
+          })
+          .then(() => {
+            const user = new User(msg.author.id, msg.author.name);
+            const messageObj = new Message(user, msg.content, msg.timestamp);
+            return dbService.addMessage(messageObj)
+              .then(() => this.io.emit('message', messageObj.toJSON()));
+          })
+          .catch((err: Error) => Logger.error(err.toString()));
       });
 
       socket.on('disconnect', () => {
-        console.log(`Client disconnected: ${socket.id}`);
+        Logger.info(`Client disconnected: ${socket.id}`);
       });
     });
   }
