@@ -29,7 +29,7 @@
   animation: cardFadeIn 0.7s cubic-bezier(.47,1.64,.41,.8);
 }
 @keyframes cardFadeIn {
-  from { opacity: 0; transform: translateY(32px) scale(0.98); }
+  from { opacity: 0; transform: translateY(32px) scale(0.9338); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 

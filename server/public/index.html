@@ -8,6 +8,7 @@
       @import "./main.css";
       @import "./base.css";
       @import "./chat.css";
+      @import "./auth.css";
     </style>
   </head>
   <body id="app">
@@ -15,8 +16,49 @@
     <div class="chat-desc">
       Connectez-vous via un client WebSocket pour échanger en temps réel.
     </div>
-    <div class="chat-root">
-      <!-- Room selection panel -->
+    <div id="user-actions" style="display:none;text-align:right;margin-bottom:10px;">
+      <button id="logout-btn" class="auth-btn" type="button">Déconnexion</button>
+      <button id="logout-all-btn" class="auth-btn" type="button">Déconnexion tous les appareils</button>
+    </div>
+    <!-- Auth panel -->
+    <div id="auth-panel" class="auth-card">
+  <div class="auth-card-header">
+    <span class="auth-card-icon">🔐</span>
+    <span class="auth-card-title">Connexion / Inscription</span>
+  </div>
+  <div class="auth-tabs">
+    <button class="auth-tab active" id="tab-login" type="button">Connexion</button>
+    <button class="auth-tab" id="tab-register" type="button">Créer un compte</button>
+  </div>
+  <form id="login-form" class="auth-form" autocomplete="off">
+    <div class="auth-field">
+      <label for="login-username">Pseudo</label>
+      <input type="text" id="login-username" maxlength="20" required autocomplete="username" />
+    </div>
+    <div class="auth-field">
+      <label for="login-password">Mot de passe</label>
+      <input type="password" id="login-password" maxlength="40" required autocomplete="current-password" />
+    </div>
+    <button type="submit" class="auth-btn">Connexion</button>
+  </form>
+  <form id="register-form" class="auth-form" autocomplete="off">
+    <div class="auth-field">
+      <label for="register-username">Pseudo</label>
+      <input type="text" id="register-username" maxlength="20" required autocomplete="username" />
+    </div>
+    <div class="auth-field">
+      <label for="register-password">Mot de passe</label>
+      <input type="password" id="register-password" maxlength="40" required autocomplete="new-password" />
+    </div>
+    <div class="auth-field">
+      <label for="register-confirm">Confirmez le mot de passe</label>
+      <input type="password" id="register-confirm" maxlength="40" required autocomplete="new-password" />
+    </div>
+    <button type="submit" class="auth-btn">Créer un compte</button>
+  </form>
+  <div class="auth-error" id="auth-error"></div>
+</div>
+    <div class="chat-root"> <!-- Room selection panel -->
       <div id="room-panel" class="chat-card">
         <div id="room-list-section">
           <h2 class="chat-title" style="font-size:1.3rem;">🗂️ Sélectionnez une room</h2>
@@ -27,7 +69,6 @@
           <h3 style="margin:1em 0 0.3em 0;">Créer une room</h3>
           <form id="create-room-form" class="chat-input-bar" autocomplete="off">
             <input type="text" id="create-room-name" class="chat-input-message" placeholder="Nom de la room" maxlength="32" required />
-            <input type="text" id="create-room-author" class="chat-input-author" placeholder="Votre pseudo" maxlength="20" required />
             <button type="submit" class="chat-send-btn">Créer</button>
           </form>
         </div>
@@ -38,14 +79,7 @@
         <div id="selected-room-title" class="chat-title" style="font-size:1.25rem;margin-bottom:0.4em;"></div>
         <div id="chat-window" class="chat-window"></div>
         <form class="chat-input-bar" id="chat-form" autocomplete="off">
-          <input
-            type="text"
-            id="author"
-            class="chat-input-author"
-            placeholder="Pseudo"
-            maxlength="20"
-            required
-          />
+          
           <input
             type="text"
             id="message"
