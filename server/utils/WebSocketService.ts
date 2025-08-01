@@ -43,6 +43,23 @@ export class WebSocketService {
       }
       Logger.info(`Client connected: ${socket.id}`);
 
+      // AUTH: Authenticate via token (auto-login)
+      socket.on('authenticate', async (data, callback) => {
+        try {
+          const { token } = data;
+          if (!token) return callback && callback({ success: false, error: 'No token provided.' });
+          const session = await dbService.getUserSessionByToken(token);
+          if (!session || !session.user) {
+            return callback && callback({ success: false, error: 'Invalid session.' });
+          }
+          socket.data.userId = session.user.id;
+          socket.data.user = session.user;
+          callback && callback({ success: true, id: session.user.id, name: session.user.name });
+        } catch (err) {
+          callback && callback({ success: false, error: 'Auth failed.' });
+        }
+      });
+
       // AUTH: Register
       socket.on('register', async (data, callback) => {
         const { username, password, confirmPassword } = data;

@@ -184,7 +184,7 @@ chatForm.addEventListener("submit", function (e) {
   messageInput.value = "";
 });
 
-// Initial : masquer toute l'UI tant qu'on n'est pas authentifié
+// Affiche ou masque les panneaux selon l'état d'authentification
 function showAuthPanel(show: boolean) {
   authPanel.style.display = show ? "block" : "none";
   roomPanel.style.display = show ? "none" : "block";
@@ -192,7 +192,28 @@ function showAuthPanel(show: boolean) {
   createRoomForm.style.display = show ? "none" : "flex";
   chatForm.style.display = show ? "none" : "flex";
 }
-showAuthPanel(true);
+
+// --- Auth automatique via cookie/sessionToken ---
+function getCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  return match ? match[2] : null;
+}
+
+const sessionToken = getCookie('sessionToken');
+if (sessionToken) {
+  socket.emit('authenticate', { token: sessionToken }, (res: any) => {
+    if (res && res.success) {
+      currentUser = { id: res.id, name: res.name };
+      showAuthPanel(false);
+      socket.emit("getRooms");
+    } else {
+      // Token invalide, afficher login
+      showAuthPanel(true);
+    }
+  });
+} else {
+  showAuthPanel(true);
+}
 
 // Auth: login
 loginForm.addEventListener("submit", function (e) {
@@ -207,6 +228,12 @@ loginForm.addEventListener("submit", function (e) {
       return;
     }
     currentUser = { id: res.id, name: res.name };
+    // Stocke le token de session dans un cookie pour les futures requêtes HTTP (REST, etc.)
+    if (res.token) {
+      document.cookie = `sessionToken=${res.token}; path=/; SameSite=Lax`;
+      // Pour la prod, ajouter 'Secure' si le site est servi en HTTPS :
+      // document.cookie = `sessionToken=${res.token}; path=/; SameSite=Lax; Secure`;
+    }
     authError.style.display = "none";
     showAuthPanel(false);
     socket.emit("getRooms");
