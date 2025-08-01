@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Real-Time Chat Server</title>
+    <style>
+      @import "./main.css";
+      @import "./base.css";
+      @import "./chat.css";
+    </style>
+  </head>
+  <body id="app">
+    <h1 class="chat-title">💬 Real-Time Chat Server</h1>
+    <div class="chat-desc">
+      Connectez-vous via un client WebSocket pour échanger en temps réel.
+    </div>
+    <div class="chat-root">
+      <!-- Room selection panel -->
+      <div id="room-panel" class="chat-card">
+        <div id="room-list-section">
+          <h2 class="chat-title" style="font-size:1.3rem;">🗂️ Sélectionnez une room</h2>
+          <ul id="room-list" class="room-list"></ul>
+          <div id="no-room-msg" style="display:none;text-align:center;color:#888;">Aucune room existante.</div>
+        </div>
+        <div id="create-room-section">
+          <h3 style="margin:1em 0 0.3em 0;">Créer une room</h3>
+          <form id="create-room-form" class="chat-input-bar" autocomplete="off">
+            <input type="text" id="create-room-name" class="chat-input-message" placeholder="Nom de la room" maxlength="32" required />
+            <input type="text" id="create-room-author" class="chat-input-author" placeholder="Votre pseudo" maxlength="20" required />
+            <button type="submit" class="chat-send-btn">Créer</button>
+          </form>
+        </div>
+      </div>
+      <!-- Chatbox for selected room (hidden by default) -->
+      <div id="chat-card" class="chat-card" style="display:none;">
+        <button id="back-to-rooms" style="margin-bottom:12px;float:right;">← Retour aux rooms</button>
+        <div id="selected-room-title" class="chat-title" style="font-size:1.25rem;margin-bottom:0.4em;"></div>
+        <div id="chat-window" class="chat-window"></div>
+        <form class="chat-input-bar" id="chat-form" autocomplete="off">
+          <input
+            type="text"
+            id="author"
+            class="chat-input-author"
+            placeholder="Pseudo"
+            maxlength="20"
+            required
+          />
+          <input
+            type="text"
+            id="message"
+            class="chat-input-message"
+            placeholder="Tapez un message..."
+            maxlength="200"
+            required
+          />
+          <button type="submit" class="chat-send-btn">Envoyer</button>
+        </form>
+      </div>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="./chat-client.js"></script>
+  </body>
+</html>
