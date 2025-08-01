@@ -4,23 +4,57 @@
 const socket = io();
 
 // Elements
+const authPanel = document.getElementById("auth-panel") as HTMLElement;
+const loginForm = document.getElementById("login-form") as HTMLFormElement;
+const loginUsername = document.getElementById("login-username") as HTMLInputElement;
+const loginPassword = document.getElementById("login-password") as HTMLInputElement;
+const registerForm = document.getElementById("register-form") as HTMLFormElement;
+const registerUsername = document.getElementById("register-username") as HTMLInputElement;
+const registerPassword = document.getElementById("register-password") as HTMLInputElement;
+const registerConfirm = document.getElementById("register-confirm") as HTMLInputElement;
+const authError = document.getElementById("auth-error") as HTMLElement;
+// Onglets Connexion/Inscription
+const tabLogin = document.getElementById("tab-login") as HTMLElement;
+const tabRegister = document.getElementById("tab-register") as HTMLElement;
+
+function showAuthTab(tab: "login" | "register") {
+  if (tab === "login") {
+    loginForm.style.display = "flex";
+    registerForm.style.display = "none";
+    tabLogin.classList.add("active");
+    tabRegister.classList.remove("active");
+    loginUsername.focus();
+  } else {
+    loginForm.style.display = "none";
+    registerForm.style.display = "flex";
+    tabLogin.classList.remove("active");
+    tabRegister.classList.add("active");
+    registerUsername.focus();
+  }
+  authError.style.display = "none";
+}
+if (tabLogin && tabRegister && loginForm && registerForm) {
+  tabLogin.addEventListener("click", () => showAuthTab("login"));
+  tabRegister.addEventListener("click", () => showAuthTab("register"));
+  // Affiche connexion par défaut
+  showAuthTab("login");
+}
+
 const roomPanel = document.getElementById("room-panel") as HTMLElement;
 const roomList = document.getElementById("room-list") as HTMLElement;
 const noRoomMsg = document.getElementById("no-room-msg") as HTMLElement;
 const createRoomForm = document.getElementById("create-room-form") as HTMLFormElement;
 const createRoomName = document.getElementById("create-room-name") as HTMLInputElement;
-const createRoomAuthor = document.getElementById("create-room-author") as HTMLInputElement;
 
 const chatCard = document.getElementById("chat-card") as HTMLElement;
 const chatWindow = document.getElementById("chat-window") as HTMLElement;
 const chatForm = document.getElementById("chat-form") as HTMLFormElement;
-const authorInput = document.getElementById("author") as HTMLInputElement;
 const messageInput = document.getElementById("message") as HTMLInputElement;
 const backToRoomsBtn = document.getElementById("back-to-rooms") as HTMLButtonElement;
 const selectedRoomTitle = document.getElementById("selected-room-title") as HTMLElement;
 
 // State
-let currentUser: string = "";
+let currentUser: { id: string, name: string } | null = null;
 let selectedRoom: any = null;
 let rooms: any[] = [];
 
@@ -51,30 +85,21 @@ socket.on("rooms", (serverRooms: any[]) => {
 createRoomForm.addEventListener("submit", function (e) {
   e.preventDefault();
   const name = createRoomName.value.trim();
-  const creatorId = createRoomAuthor.value.trim();
-  if (!name || !creatorId) return;
-  currentUser = creatorId;
-  socket.emit("createRoom", { name, creatorId });
+  if (!name || !currentUser) return;
+  socket.emit("createRoom", { name, creatorId: currentUser.id });
   createRoomName.value = "";
-  // On ne sélectionne pas la room automatiquement, UX : l'user la voit apparaître
 });
 
 // --- JOIN ROOM ---
 function joinRoom(room: any) {
-  if (!currentUser) {
-    // Demander pseudo si pas encore défini
-    const pseudo = prompt("Entrez votre pseudo pour rejoindre la room :");
-    if (!pseudo) return;
-    currentUser = pseudo;
-  }
+  if (!currentUser) return;
   selectedRoom = room;
-  authorInput.value = currentUser;
   selectedRoomTitle.textContent = `💬 Room : ${room.name}`;
   // UI : afficher la chatbox, masquer la liste des rooms
   roomPanel.style.display = "none";
   chatCard.style.display = "block";
   chatWindow.innerHTML = "";
-  socket.emit("joinRoom", { roomId: room.id, userId: currentUser });
+  socket.emit("joinRoom", { roomId: room.id });
 }
 
 backToRoomsBtn.addEventListener("click", function () {
@@ -83,6 +108,12 @@ backToRoomsBtn.addEventListener("click", function () {
   roomPanel.style.display = "block";
   chatWindow.innerHTML = "";
 });
+
+// Optionnel : bouton de déconnexion (à ajouter dans l'UI si besoin)
+function logout() {
+  currentUser = null;
+  showAuthPanel(true);
+}
 
 // --- CHATBOX LOGIC (par room) ---
 function getUserColorClass(authorName: string): string {
@@ -96,7 +127,7 @@ function renderMsg(msg: any) {
   const authorName = msg.author?.name || "???";
   const { content, timestamp } = msg;
   const div = document.createElement("div");
-  const isMine = authorName === currentUser;
+  const isMine = currentUser && authorName === currentUser.name;
   let classes = "message";
   if (isMine) {
     classes += " mine";
@@ -129,22 +160,86 @@ socket.on("message", (data: any) => {
   renderMsg(data.message);
 });
 
+// Gestion des erreurs serveur
+socket.on("error", (err: any) => {
+  if (authPanel.style.display !== "none") {
+    authError.textContent = err.error || "Erreur serveur";
+    authError.style.display = "block";
+  } else {
+    alert(err.error || "Erreur serveur");
+  }
+});
+
 // Formulaire d'envoi de message (dans la room sélectionnée)
 chatForm.addEventListener("submit", function (e) {
   e.preventDefault();
-  if (!selectedRoom) return;
-  const author = authorInput.value.trim();
+  if (!selectedRoom || !currentUser) return;
   const content = messageInput.value.trim();
-  if (!author || !content) return;
-  currentUser = author;
+  if (!content) return;
   socket.emit("sendMessageToRoom", {
     roomId: selectedRoom.id,
-    author: { id: author, name: author },
     content,
     timestamp: Date.now(),
   });
   messageInput.value = "";
 });
 
+// Initial : masquer toute l'UI tant qu'on n'est pas authentifié
+function showAuthPanel(show: boolean) {
+  authPanel.style.display = show ? "block" : "none";
+  roomPanel.style.display = show ? "none" : "block";
+  chatCard.style.display = "none";
+  createRoomForm.style.display = show ? "none" : "flex";
+  chatForm.style.display = show ? "none" : "flex";
+}
+showAuthPanel(true);
+
+// Auth: login
+loginForm.addEventListener("submit", function (e) {
+  e.preventDefault();
+  const username = loginUsername.value.trim();
+  const password = loginPassword.value;
+  if (!username || !password) return;
+  socket.emit("login", { username, password }, (res: any) => {
+    if (res && res.error) {
+      authError.textContent = res.error;
+      authError.style.display = "block";
+      return;
+    }
+    currentUser = { id: res.id, name: res.name };
+    authError.style.display = "none";
+    showAuthPanel(false);
+    socket.emit("getRooms");
+  });
+});
+
+// Auth: register
+registerForm.addEventListener("submit", function (e) {
+  e.preventDefault();
+  const username = registerUsername.value.trim();
+  const password = registerPassword.value;
+  const confirm = registerConfirm.value;
+  // Correction : vérifie explicitement que le champ password est bien transmis
+  if (!username || !password || !confirm) {
+    authError.textContent = "Veuillez remplir tous les champs.";
+    authError.style.display = "block";
+    return;
+  }
+  // Log pour debug (à retirer en prod)
+  // console.log('Register payload:', { username, password, confirmPassword: confirm });
+  socket.emit("register", { username, password, confirmPassword: confirm }, (res: any) => {
+    if (res && res.error) {
+      authError.textContent = res.error;
+      authError.style.display = "block";
+      return;
+    }
+    currentUser = { id: res.id, name: res.name };
+    authError.style.display = "none";
+    showAuthPanel(false);
+    socket.emit("getRooms");
+  });
+});
+
 // Initial : demander la liste des rooms (si non pushée automatiquement)
-socket.emit("getRooms");
+// (ne rien faire tant qu'on n'est pas authentifié)
+
