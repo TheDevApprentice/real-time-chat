@@ -34,7 +34,8 @@ export class DatabaseService {
     this.db.serialize(() => {
       this.db.run(`CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
-        name TEXT NOT NULL
+        name TEXT NOT NULL,
+        password TEXT NOT NULL
       )`);
       this.db.run(`CREATE TABLE IF NOT EXISTS rooms (
         id TEXT PRIMARY KEY,
@@ -65,8 +66,8 @@ export class DatabaseService {
   addUser(user: User): Promise<User> {
     return new Promise((resolve, reject) => {
       this.db.run(
-        `INSERT INTO users (id, name) VALUES (?, ?)`,
-        [user.id, user.name],
+        `INSERT INTO users (id, name, password) VALUES (?, ?, ?)`,
+        [user.id, user.name, user.password],
         (err) => {
           if (err) {
             Logger.error("Erreur ajout user: " + err.message);
@@ -81,10 +82,10 @@ export class DatabaseService {
   
   getUsers(): Promise<User[]> {
     return new Promise((resolve, reject) => {
-      this.db.all(`SELECT id, name FROM users`, (err, rows) => {
+      this.db.all(`SELECT id, name, password FROM users`, (err, rows) => {
         if (err) return reject(err);
         // Map each row to a User instance (OOP strict)
-        const users: (User | undefined)[] = (rows as Array<{ id: string; name: string }>).map(
+        const users: (User | undefined)[] = (rows as Array<{ id: string; name: string; password: string }> ).map(
           User.fromDbRow
         );
         resolve(users.filter((user) => user !== undefined));
@@ -95,9 +96,9 @@ export class DatabaseService {
   getUserById(id: string): Promise<User | undefined> {
     return new Promise((resolve, reject) => {
       this.db.get(
-        `SELECT id, name FROM users WHERE id = ?`,
+        `SELECT id, name, password FROM users WHERE id = ?`,
         [id],
-        (err, row: User | undefined) => {
+        (err, row: { id: string; name: string; password: string } | undefined) => {
           if (err) return reject(err);
           if (!row) return resolve(undefined);
           resolve(User.fromDbRow(row));
