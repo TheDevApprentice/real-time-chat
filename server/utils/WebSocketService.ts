@@ -8,6 +8,17 @@ import { Logger } from "./Logger";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 
+// Protection brute-force login (en mémoire)
+const loginAttemptsByIP = new Map<string, { count: number, lastAttempt: number, blockedUntil?: number }>();
+const loginAttemptsByUsername = new Map<string, { count: number, lastAttempt: number, blockedUntil?: number }>();
+
+const MAX_ATTEMPTS = 5;
+const BLOCK_DURATION = 15 * 60 * 1000; // 15 minutes
+
+function isBlocked(attempt: { count: number, lastAttempt: number, blockedUntil?: number }) {
+  return attempt.blockedUntil && attempt.blockedUntil > Date.now();
+}
+
 export class WebSocketService {
   private io: SocketServer;
 
@@ -133,18 +144,29 @@ export class WebSocketService {
 
           // --- SESSION CREATION ---
           const sessionToken = randomUUID();
+          const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 jours
+          const refreshToken = randomUUID();
+          const refreshTokenExpiresAt = Date.now() + 3 * 24 * 60 * 60 * 1000; // 3 jours
           const session = new UserSession(
             randomUUID(),
             user.id,
             sessionToken,
             Date.now(),
-            undefined,
+            expiresAt,
+            refreshToken,
+            refreshTokenExpiresAt,
             user
           );
           await dbService.addUserSession(session);
 
           callback &&
-            callback({ id: user.id, name: user.name, token: sessionToken });
+            callback({
+              id: user.id,
+              name: user.name,
+              token: sessionToken,
+              refreshToken,
+              refreshTokenExpiresAt,
+            });
         } catch (err) {
           callback && callback({ error: "Login failed." });
         }
@@ -160,6 +182,62 @@ export class WebSocketService {
           );
         })
         .catch((err: Error) => Logger.error(err.toString()));
+
+      // --- REFRESH TOKEN EVENT ---
+      socket.on("refreshToken", async (data, callback) => {
+        const { refreshToken } = data;
+        if (!refreshToken) {
+          return callback && callback({ error: "refreshToken is required." });
+        }
+        try {
+          // Recherche la session avec ce refreshToken
+          let session = null;
+          const users = await dbService.getUsers();
+          for (const user of users) {
+            const userSessions = await dbService.getUserSessionsByUserId(user.id);
+            for (const s of userSessions) {
+              if (s.refreshToken === refreshToken) {
+                session = s;
+                break;
+              }
+            }
+            if (session) break;
+          }
+          if (!session) {
+            return callback && callback({ error: "Invalid refresh token." });
+          }
+          if (!session.refreshTokenExpiresAt || session.refreshTokenExpiresAt < Date.now()) {
+            await dbService.deleteUserSession(session.token);
+            return callback && callback({ error: "Refresh token expired." });
+          }
+          // Rotation: supprimer l'ancienne session
+          await dbService.deleteUserSession(session.token);
+          // Créer une nouvelle session
+          const newToken = randomUUID();
+          const newRefreshToken = randomUUID();
+          const newRefreshTokenExpiresAt = Date.now() + 3 * 24 * 60 * 60 * 1000;
+          const newSession = new UserSession(
+            randomUUID(),
+            session.userId,
+            newToken,
+            Date.now(),
+            undefined,
+            newRefreshToken,
+            newRefreshTokenExpiresAt,
+            session.user
+          );
+          await dbService.addUserSession(newSession);
+          callback && callback({
+            id: session.userId,
+            name: session.user?.name,
+            token: newToken,
+            refreshToken: newRefreshToken,
+            refreshTokenExpiresAt: newRefreshTokenExpiresAt
+          });
+        } catch (err) {
+          callback && callback({ error: "Refresh token failed." });
+        }
+      });
 
       // Création d'une room
       socket.on("createRoom", async (data) => {
@@ -313,9 +391,53 @@ export class WebSocketService {
         }
       });
 
-      socket.on("disconnect", () => {
-        Logger.info(`Client disconnected: ${socket.id}`);
-      });
+// Lister les sessions actives de l'utilisateur connecté
+socket.on("getSessions", async (data, callback) => {
+  try {
+    const userId = socket.data.userId;
+    if (!userId) {
+      return callback && callback({ success: false, error: "Not authenticated." });
+    }
+    const sessions = await dbService.getUserSessionsByUserId(userId);
+    callback && callback({ success: true, sessions: sessions.map(s => s.toJSON()) });
+  } catch (err) {
+    callback && callback({ success: false, error: "Failed to fetch sessions." });
+  }
+});
+
+// Révoquer une session/token précis
+socket.on("revokeSession", async ({ token }, callback) => {
+  try {
+    const userId = socket.data.userId;
+    if (!userId || !token) {
+      return callback && callback({ success: false, error: "Not authenticated or missing token." });
+    }
+    // Vérifier que la session appartient bien à l'utilisateur
+    const session = await dbService.getUserSessionByToken(token);
+    if (!session || session.userId !== userId) {
+      return callback && callback({ success: false, error: "Session not found or not owned." });
+    }
+    await dbService.deleteUserSession(token);
+    callback && callback({ success: true });
+  } catch (err) {
+    callback && callback({ success: false, error: "Failed to revoke session." });
+  }
+});
+
+// Déconnexion de toutes les sessions de l'utilisateur
+socket.on("logoutAll", async (data, callback) => {
+  try {
+    const userId = socket.data.userId;
+    if (!userId) {
+      return callback && callback({ success: false, error: "Not authenticated." });
+    }
+    await dbService.deleteAllUserSessionsByUserId(userId);
+    callback && callback({ success: true });
+    socket.disconnect(true);
+  } catch (err) {
+    callback && callback({ success: false, error: "Logout all failed." });
+  }
+});
     });
   }
 }

@@ -6,14 +6,18 @@ export class UserSession {
   token: string;
   createdAt: number;
   expiresAt?: number;
+  refreshToken?: string;
+  refreshTokenExpiresAt?: number;
   user?: User;
 
-  constructor(id: string, userId: string, token: string, createdAt: number, expiresAt?: number, user?: User) {
+  constructor(id: string, userId: string, token: string, createdAt: number, expiresAt?: number, refreshToken?: string, refreshTokenExpiresAt?: number, user?: User) {
     this.id = id;
     this.userId = userId;
     this.token = token;
     this.createdAt = createdAt;
     this.expiresAt = expiresAt;
+    this.refreshToken = refreshToken;
+    this.refreshTokenExpiresAt = refreshTokenExpiresAt;
     this.user = user;
   }
 
@@ -24,6 +28,8 @@ export class UserSession {
       token: this.token,
       createdAt: this.createdAt,
       expiresAt: this.expiresAt,
+      refreshToken: this.refreshToken,
+      refreshTokenExpiresAt: this.refreshTokenExpiresAt,
       user: this.user ? this.user.toJSON() : undefined,
     };
   }
