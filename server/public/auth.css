@@ -148,6 +148,28 @@
   text-align: center;
   display: none;
 }
+#user-actions {
+  display: flex;
+  gap: 0.6em;
+  justify-content: flex-end;
+  margin-bottom: 0.6em;
+}
+#logout-btn, #logout-all-btn {
+  background: linear-gradient(90deg, #7c3aed 60%, #a78bfa 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.55em 1.1em;
+  font-size: 0.97em;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 8px 0 rgba(124, 58, 237, 0.09);
+  transition: background 0.18s, box-shadow 0.2s;
+}
+#logout-btn:hover, #logout-all-btn:hover {
+  background: linear-gradient(90deg, #a78bfa 60%, #7c3aed 100%);
+  box-shadow: 0 3px 12px 0 rgba(124, 58, 237, 0.13);
+}
 @media (max-width: 600px) {
   .auth-card {
     padding: 18px 3vw 12px 3vw;
