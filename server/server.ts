@@ -5,6 +5,7 @@ import path from 'path';
 import router from './routes';
 import { WebSocketService } from './utils/WebSocketService';
 import { DatabaseService } from './utils/DatabaseService';
+import { Logger } from './utils/Logger';
 
 class AppServer {
   private app: express.Application;
@@ -15,7 +16,7 @@ class AppServer {
     this.app = express();
     this.server = http.createServer(this.app);
     require('@dotenvx/dotenvx').config()
-    console.log("Dotenvx config Port", process.env.PORT);
+    Logger.infoObj("Dotenvx config Port", process.env.PORT);
     const portWanted = process.env.PORT;
     if (!portWanted) {
       throw new Error('PORT environment variable is not defined');
@@ -52,7 +53,7 @@ class AppServer {
 
   public start(): void {
     this.server.listen(this.port, () => {
-      console.log(`Server listening on port ${this.port}`);
+      Logger.info(`Server listening on port ${this.port}`);
     });
   }
 }
