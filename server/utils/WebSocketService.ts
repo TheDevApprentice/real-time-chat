@@ -90,8 +90,18 @@ export class WebSocketService {
       // Création d'une room
       socket.on('createRoom', async (data) => {
         try {
+          // Vérifier que l'utilisateur est connecté
+          if (!socket.data.userId) {
+            socket.emit('error', { error: 'Vous devez être connecté pour créer une room.' });
+            return;
+          }
           const { name, creatorId } = data;
           if (!name || !creatorId) return;
+          // Vérifier que creatorId correspond à l'utilisateur connecté
+          if (creatorId !== socket.data.userId) {
+            socket.emit('error', { error: 'Identifiant utilisateur invalide.' });
+            return;
+          }
           const Room = (await import('../models/Room')).Room;
           const room = new Room(name, creatorId);
           await dbService.addRoom(room);
@@ -106,6 +116,11 @@ export class WebSocketService {
       // Récupérer la liste des rooms (à la demande)
       socket.on('getRooms', async () => {
         try {
+          // Vérifier que l'utilisateur est connecté
+          if (!socket.data.userId) {
+            socket.emit('error', { error: 'Vous devez être connecté pour envoyer un message.' });
+            return;
+          }
           const rooms = await dbService.getRooms();
           socket.emit('rooms', rooms.map((r) => r.toJSON()));
         } catch (err) {
@@ -116,6 +131,11 @@ export class WebSocketService {
       // Rejoindre une room (Socket.IO join)
       socket.on('joinRoom', async ({ roomId }) => {
         try {
+          // Vérifier que l'utilisateur est connecté
+          if (!socket.data.userId) {
+            socket.emit('error', { error: 'Vous devez être connecté pour envoyer un message.' });
+            return;
+          }
           const userId = socket.data.userId;
           if (!roomId || !userId) {
             socket.emit('error', { error: 'Not authenticated or missing roomId.' });
@@ -143,6 +163,11 @@ export class WebSocketService {
       // Envoyer un message dans une room
       socket.on('sendMessageToRoom', async (data) => {
         try {
+          // Vérifier que l'utilisateur est connecté
+          if (!socket.data.userId) {
+            socket.emit('error', { error: 'Vous devez être connecté pour envoyer un message.' });
+            return;
+          }
           const { roomId, content, timestamp } = data;
           const userId = socket.data.userId;
           if (!roomId || !userId || !content) {
