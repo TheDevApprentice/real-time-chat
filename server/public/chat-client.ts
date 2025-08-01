@@ -233,10 +233,25 @@ registerForm.addEventListener("submit", function (e) {
       authError.style.display = "block";
       return;
     }
-    currentUser = { id: res.id, name: res.name };
-    authError.style.display = "none";
-    showAuthPanel(false);
-    socket.emit("getRooms");
+    // Succès inscription : invite à se connecter
+    authError.textContent = "Compte créé avec succès ! Connectez-vous.";
+    authError.style.color = "#228b22";
+    authError.style.background = "#f5fff5";
+    authError.style.border = "1px solid #b8ffb8";
+    authError.style.display = "block";
+    // Bascule sur l'onglet login
+    showAuthTab("login");
+    // Remet la couleur d'erreur après 3s
+    setTimeout(() => {
+      authError.style.color = "#e23c3c";
+      authError.style.background = "#fff5f5";
+      authError.style.border = "1px solid #ffd4d4";
+      authError.style.display = "none";
+    }, 3000);
+    // Vide les champs d'inscription
+    registerUsername.value = "";
+    registerPassword.value = "";
+    registerConfirm.value = "";
   });
 });
 
