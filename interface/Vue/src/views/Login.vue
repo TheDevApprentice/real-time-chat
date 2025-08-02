@@ -202,11 +202,11 @@ interface Bubble {
 }
 const chatBubbles = ref<Bubble[]>([]);
 const messages = [
-  { text: "Hello !", speaker: 0 },
+  { text: "Hello !😀", speaker: 0 },
   { text: "How are you ?", speaker: 1 },
-  { text: "Fine thx ! :)", speaker: 0 },
-  { text: "Where do you want to go ?", speaker: 1 },
-  { text: "I want to go to the beach !", speaker: 0 },
+  { text: "Fine thx !😁", speaker: 0 },
+  { text: "Where do you want to go this we ?😄", speaker: 1 },
+  { text: "I want to go to the beach ! 😃", speaker: 0 },
 ];
 
 const typeMessage = async (text: string, bubble: Bubble) => {
@@ -681,6 +681,7 @@ function onSubmit() {
   padding: 0.6rem 0.8rem;
   border-radius: 0.8rem;
   max-width: 100%;
+  width: min-content;
   font-size: 0.9rem;
   line-height: 1.2;
   position: relative;
