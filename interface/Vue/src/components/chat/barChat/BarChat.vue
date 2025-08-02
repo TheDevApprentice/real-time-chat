@@ -1,17 +1,37 @@
 <template>
   <div class="chat-bar-image-row">
-    <ImageButton />
+    <ImageButton @click-image="$emit('click-image')" :disabled="imageDisabled" />
     <div class="chat-bar chat-bar-redesign">
-      <ChatInput />
-      <SendButton />
+      <ChatInput
+        :modelValue="inputValueProxy"
+        :placeholder="inputPlaceholder"
+        :disabled="inputDisabled"
+        @keydown.enter="emit('click-send')"
+      />
+      <SendButton @click-send="$emit('click-send')" :disabled="sendDisabled" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import ImageButton from './ImageButton.vue';
 import ChatInput from './ChatInput.vue';
 import SendButton from './SendButton.vue';
+
+const props = defineProps<{
+  modelValue?: string,
+  inputPlaceholder?: string,
+  inputDisabled?: boolean,
+  sendDisabled?: boolean,
+  imageDisabled?: boolean
+}>()
+const emit = defineEmits(['update:modelValue', 'click-image', 'click-send'])
+
+const inputValueProxy = computed({
+  get: () => props.modelValue,
+  set: v => emit('update:modelValue', v)
+})
 </script>
 
 <style scoped>

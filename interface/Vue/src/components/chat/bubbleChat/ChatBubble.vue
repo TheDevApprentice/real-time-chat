@@ -21,6 +21,14 @@
 <script setup lang="ts">
 import { defineProps } from "vue";
 
+// simulate chat conversation with typewriter effect
+export interface Bubble {
+  speaker: number;
+  text: string;
+  isTyping?: boolean;
+  isWriting?: boolean;
+}
+
 defineProps<{
   speaker: number;
   text: string;

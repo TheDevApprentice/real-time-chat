@@ -1,9 +1,10 @@
 <template>
   <button
-    type="submit"
+    type="button"
     class="send-btn send-btn-redesign"
     aria-label="Envoyer"
-    disabled
+    @click="$emit('click-send')"
+    :disabled="disabled"
   >
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
       <path d="M2 11L20 2L11 20L10 13L2 11Z" fill="currentColor" />
@@ -11,7 +12,8 @@
   </button>
 </template>
 <script setup lang="ts">
-// Purement visuel
+const props = defineProps<{ disabled?: boolean }>()
+const emit = defineEmits(['click-send'])
 </script>
 <style scoped>
 .send-btn.send-btn-redesign {

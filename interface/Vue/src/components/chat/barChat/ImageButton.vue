@@ -3,7 +3,8 @@
     type="button"
     class="image-btn"
     aria-label="Envoyer une image"
-    disabled
+    @click="$emit('click-image')"
+    :disabled="disabled"
   >
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
       <rect
@@ -27,7 +28,8 @@
 </template>
 
 <script setup lang="ts">
-// Purement visuel
+const props = defineProps<{ disabled?: boolean }>()
+const emit = defineEmits(['click-image'])
 </script>
 
 <style scoped>

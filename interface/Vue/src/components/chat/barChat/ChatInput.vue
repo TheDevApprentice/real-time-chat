@@ -1,8 +1,26 @@
 <template>
-  <input type="text" class="chat-input" placeholder="Message" disabled />
+  <input
+    type="text"
+    class="chat-input"
+    :placeholder="placeholder"
+    :value="modelValue"
+    @input="onInput"
+    :disabled="disabled"
+  />
 </template>
 <script setup lang="ts">
-// Purement visuel
+const props = defineProps<{
+  modelValue: string | undefined
+  placeholder?: string
+  disabled?: boolean
+}>()
+const emit = defineEmits(['update:modelValue'])
+
+function onInput(e: Event) {
+  const target = e.target as HTMLInputElement | null
+  if (target) emit('update:modelValue', target.value)
+}
+
 </script>
 <style scoped>
 .chat-input {
