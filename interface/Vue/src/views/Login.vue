@@ -141,8 +141,11 @@
           <div
             v-for="(bubble, idx) in chatBubbles"
             :key="idx"
-            :class="['chat-bubble', bubble.speaker === 0 ? 'left' : 'right']"
-            :style="{ top: `${15 + idx * 12}%` }"
+            :class="[
+              'chat-bubble',
+              bubble.speaker === 0 ? 'left bubble-enter-left' : 'right bubble-enter-right'
+            ]"
+            :style="{ animationDelay: `${idx * 0.22}s` }"
           >
             {{ bubble.text }}
           </div>
@@ -178,6 +181,7 @@ const typeMessage = async (text: string, bubble: Bubble) => {
   }
   await new Promise((r) => setTimeout(r, 800));
 };
+
 onMounted(async () => {
   for (let i = 0; i < messages.length; i++) {
     const bubble: Bubble = { speaker: i % 2, text: "" };
@@ -569,7 +573,35 @@ function onSubmit() {
   max-width: 100%;
   font-size: 0.9rem;
   line-height: 1.2;
+  position: relative;
 }
+.chat-bubble.left::after {
+  content: "";
+  position: absolute;
+  left: 16px;
+  bottom: -8px;
+  width: 0;
+  height: 0;
+  border: 8px solid transparent;
+  border-top-color: rgba(255, 255, 255, 0.18);
+  border-bottom: 0;
+  border-right: 0;
+  margin-left: -4px;
+}
+.chat-bubble.right::after {
+  content: "";
+  position: absolute;
+  right: 16px;
+  bottom: -8px;
+  width: 0;
+  height: 0;
+  border: 8px solid transparent;
+  border-top-color: #4466d6;
+  border-bottom: 0;
+  border-left: 0;
+  margin-right: -4px;
+}
+
 .chat-bubble.left {
   background: rgba(255, 255, 255, 0.15);
   align-self: flex-start;
