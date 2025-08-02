@@ -44,7 +44,6 @@ defineProps<{
   cursor: pointer;
   color: #fff;
   background: linear-gradient(135deg, #4b71ed 60%, #93a7ee 100%);
-  box-shadow: 1px 1px 8px 3px rgba(82, 122, 255, 0.893);
-  animation: float 7s ease-in-out infinite;
+  animation: float 2s ease-in-out infinite;
 }
 </style>

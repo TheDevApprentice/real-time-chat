@@ -50,7 +50,7 @@ defineEmits<{ close: [] }>();
 }
 .chat-header-preview:hover {
   background: rgba(255, 255, 255, 0.263);
-  box-shadow: 1px 1px 12px 6px rgba(77, 115, 242, 0.893);
+  box-shadow: 1px 1px 12px 3px rgba(77, 115, 242, 0.893);
 }
 .chat-header-avatar {
   width: 34px;
