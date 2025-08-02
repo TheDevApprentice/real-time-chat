@@ -52,11 +52,11 @@ defineProps<{
   word-break: break-word;
 }
 .chat-bubble.left {
-  background: rgba(115, 84, 139, 0.363);
+  background: linear-gradient(90deg, #8b44d6c1 65%, #d65bff9d 100%);
   align-self: flex-start;
 }
 .chat-bubble.right {
-  background: linear-gradient(90deg, #4466d6 60%, #5b7fff 100%);
+  background: linear-gradient(90deg, #4466d6b8 65%, #5ba8ff9d 100%);
   color: #fff;
   align-self: flex-end;
 }
@@ -68,7 +68,7 @@ defineProps<{
   width: 0;
   height: 0;
   border: 8px solid transparent;
-  border-top-color: rgba(115, 84, 139, 0.363);
+  border-top-color: #8b44d6c1;
   border-bottom: 0;
   border-right: 0;
   margin-left: -4px;
@@ -81,7 +81,7 @@ defineProps<{
   width: 0;
   height: 0;
   border: 8px solid transparent;
-  border-top-color: rgba(68, 102, 214, 0.3);
+  border-top-color: #5ba8ff9d;
   border-bottom: 0;
   border-left: 0;
   margin-right: -4px;
