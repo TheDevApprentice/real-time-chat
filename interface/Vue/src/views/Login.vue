@@ -154,13 +154,13 @@
               ><span class="dot">.</span>
             </span>
             <span v-else>
-  <span
-    class="typewriter"
-    :style="{ '--typewriter-chars': bubble.text.length }"
-  >
-    {{ bubble.text }}<span v-if="bubble.isWriting" class="typewriter-cursor">|</span>
-  </span>
-</span>
+              <span
+                class="typewriter"
+                :style="{ '--typewriter-chars': bubble.text.length }"
+              >
+                {{ bubble.text }}
+              </span>
+            </span>
           </div>
         </div>
       </div>
@@ -191,23 +191,20 @@ const messages = [
   { text: "Hello !", speaker: 0 },
   { text: "How are you ?", speaker: 1 },
   { text: "Fine thx ! :)", speaker: 0 },
-  { text: "Where do you want to go this weekend ?", speaker: 1 },
+  { text: "Where do you want to go ?", speaker: 1 },
   { text: "I want to go to the beach !", speaker: 0 },
 ];
+
 const typeMessage = async (text: string, bubble: Bubble) => {
   bubble.text = "";
   for (const char of text) {
     bubble.text += char;
-    await nextTick(); // force le rendu Vue à chaque lettre
-    await new Promise((r) => setTimeout(r, 30));
+    await nextTick();
+    await new Promise((r) => setTimeout(r, 60));
   }
 };
-
-let chatSequenceStarted = false;
 onMounted(async () => {
-  if (chatSequenceStarted) return;
-  chatSequenceStarted = true;
-  for (let i = 0; i < messages.length; i++) {
+  for (let i = 0; i < messages.length + 1; i++) {
     const msg = messages[i];
     if (msg.speaker === 0) {
       const bubble: Bubble = {
@@ -218,13 +215,15 @@ onMounted(async () => {
       };
       chatBubbles.value.push(bubble);
       await nextTick();
-      await new Promise((res) => setTimeout(res, 900));
+      await new Promise((res) => setTimeout(res, 1000));
       bubble.isTyping = false;
       bubble.isWriting = true;
       await nextTick();
       await typeMessage(msg.text, bubble);
       bubble.isWriting = false;
+      await nextTick();
       await new Promise((res) => setTimeout(res, 120));
+      await nextTick();
     } else {
       const bubble: Bubble = {
         speaker: msg.speaker,
@@ -236,7 +235,9 @@ onMounted(async () => {
       await nextTick();
       await typeMessage(msg.text, bubble);
       bubble.isWriting = false;
+      await nextTick();
       await new Promise((res) => setTimeout(res, 120));
+      await nextTick();
     }
   }
 });
@@ -697,6 +698,42 @@ function onSubmit() {
   40% {
     transform: translateY(0);
     opacity: 0.7;
+  }
+}
+.typewriter {
+  display: inline-block;
+  white-space: pre;
+  overflow: hidden;
+  border-right: none;
+  --typewriter-chars: 20;
+  width: 0;
+  animation: typewriter 1.2s steps(var(--typewriter-chars)) 1 forwards;
+}
+
+@keyframes typewriter {
+  to {
+    width: calc(var(--typewriter-chars) * 1ch);
+  }
+}
+
+.typewriter-cursor {
+  display: inline-block;
+  width: 1ch;
+  color: var(--page-accent-color, #90caf9);
+  animation: blink-cursor 0.7s steps(1) infinite;
+  font-weight: 700;
+  font-size: 1.08em;
+  vertical-align: baseline;
+}
+
+@keyframes blink-cursor {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
   }
 }
 </style>
