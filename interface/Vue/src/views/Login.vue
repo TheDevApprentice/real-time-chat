@@ -787,14 +787,13 @@ function onSubmit() {
   gap: 1rem;
   position: absolute;
   left: -520px;
-
   animation: fade-in 0.9s ease-in-out;
 }
 
 /* Chat preview container */
 .chat-preview {
   position: absolute;
-  top: -2%;
+  top: -4%;
   right: -480px;
   width: auto;
   display: flex;

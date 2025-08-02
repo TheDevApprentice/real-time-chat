@@ -1,26 +1,43 @@
 <template>
-  <input
-    type="text"
-    class="chat-input"
+  <textarea
+    ref="textareaRef"
+    class="chat-input resize-none w-full min-h-[2.5rem] max-h-36 overflow-auto"
     :placeholder="placeholder"
     :value="modelValue"
     @input="onInput"
     :disabled="disabled"
+    rows="1"
   />
 </template>
 <script setup lang="ts">
-defineProps<{
+import { ref, watch, nextTick } from 'vue';
+const props = defineProps<{
   modelValue: string | undefined
   placeholder?: string
   disabled?: boolean
 }>()
 const emit = defineEmits(['update:modelValue'])
+const textareaRef = ref<HTMLTextAreaElement | null>(null)
 
-function onInput(e: Event) {
-  const target = e.target as HTMLInputElement | null
-  if (target) emit('update:modelValue', target.value)
+function resize() {
+  const el = textareaRef.value
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = el.scrollHeight + 'px'
 }
 
+function onInput(e: Event) {
+  const target = e.target as HTMLTextAreaElement | null
+  if (target) {
+    emit('update:modelValue', target.value)
+    resize()
+  }
+}
+
+watch(() => props.modelValue, async () => {
+  await nextTick()
+  resize()
+})
 </script>
 <style scoped>
 .chat-input {
@@ -34,6 +51,11 @@ function onInput(e: Event) {
   border-radius: 1rem;
   box-shadow: none;
   transition: background 0.18s;
+  resize: none;
+  min-height: 2.5rem;
+  max-height: 9rem;
+  line-height: 1.5;
+  scrollbar-width: none;
 }
 .chat-input:focus {
   background: rgba(255, 255, 255, 0.12);

@@ -43,7 +43,7 @@ const inputValueProxy = computed({
 
 .chat-bar.chat-bar-redesign {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5rem;
   background: rgba(255, 255, 255, 0.08);
   border-radius: 1.2rem;
