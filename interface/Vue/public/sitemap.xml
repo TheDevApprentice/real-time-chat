@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+        http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+
+  <!-- Page d'accueil -->
+  <url>
+    <loc>https://bahabun.fr/</loc>
+    <lastmod>2025-06-19T23:00:00+02:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://bahabun.fr/assets/images/restaurant.jpg</image:loc>
+      <image:title>Bahabun - Restaurant Vietnamien Halal à Paris</image:title>
+    </image:image>
+  </url>
+
+  <!-- Page Menu -->
+  <url>
+    <loc>https://bahabun.fr/menu</loc>
+    <lastmod>2025-06-19T23:00:00+02:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://bahabun.fr/assets/images/menu.jpg</image:loc>
+      <image:title>Menu du restaurant Bahabun - Cuisine Vietnamienne Halal</image:title>
+    </image:image>
+  </url>
+
+  <!-- Page À propos -->
+  <url>
+    <loc>https://bahabun.fr/about</loc>
+    <lastmod>2025-06-19T23:00:00+02:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://bahabun.fr/assets/images/about.jpg</image:loc>
+      <image:title>À propos de Bahabun - Notre histoire</image:title>
+    </image:image>
+  </url>
+
+  <!-- Page Contact -->
+  <url>
+    <loc>https://bahabun.fr/contact</loc>
+    <lastmod>2025-06-19T23:00:00+02:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+</urlset>

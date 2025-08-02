@@ -314,7 +314,6 @@
 import { ref, onMounted, watch, nextTick } from "vue";
 import { defineAsyncComponent } from "vue";
 import type { Bubble } from "../components/chat/bubbleChat/ChatBubble.vue";
-import Avatar from "../components/chat/headerChat/Avatar.vue";
 
 const realTimeFull = "Real‑Time";
 const chatFull = "Chat";
@@ -389,7 +388,7 @@ async function AnimChat() {
   showChat.value = true;
   await new Promise((res) => setTimeout(res, 200));
 
-  for (let i = 0; i < messages.length + 1; i++) {
+  for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
     if (msg.speaker === 0) {
       const bubble: Bubble = {

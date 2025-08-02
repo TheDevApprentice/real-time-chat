@@ -9,7 +9,7 @@
   />
 </template>
 <script setup lang="ts">
-const props = defineProps<{
+defineProps<{
   modelValue: string | undefined
   placeholder?: string
   disabled?: boolean

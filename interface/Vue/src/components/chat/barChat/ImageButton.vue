@@ -28,7 +28,7 @@
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{ disabled?: boolean }>()
+defineProps<{ disabled?: boolean }>()
 const emit = defineEmits(['click-image'])
 </script>
 

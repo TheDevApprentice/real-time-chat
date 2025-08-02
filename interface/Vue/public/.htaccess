@@ -1,0 +1,97 @@
+# Fichier .htaccess pour Bahabun - Restaurant Vietnamien Halal
+# Optimisations pour le SEO et la performance
+
+# Activer la réécriture d'URL
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  
+  # Rediriger www vers non-www
+  RewriteCond %{HTTP_HOST} ^www\.bahabun\.fr [NC]
+  RewriteRule ^(.*)$ https://bahabun.fr/$1 [L,R=301]
+  
+  # Forcer HTTPS
+  RewriteCond %{HTTPS} off
+  RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+  
+  # Pour SPA (Single Page Application) - Toutes les routes non-existantes vers index.html
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# Compression Gzip
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript application/json application/xml image/svg+xml
+</IfModule>
+
+# Cache Control - Améliore les performances et le score PageSpeed
+<IfModule mod_expires.c>
+  ExpiresActive On
+  
+  # Images
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/gif "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType image/x-icon "access plus 1 year"
+  
+  # Vidéo
+  ExpiresByType video/mp4 "access plus 1 year"
+  ExpiresByType video/webm "access plus 1 year"
+  
+  # CSS, JavaScript
+  ExpiresByType text/css "access plus 1 month"
+  ExpiresByType text/javascript "access plus 1 month"
+  ExpiresByType application/javascript "access plus 1 month"
+  
+  # Polices
+  ExpiresByType font/ttf "access plus 1 year"
+  ExpiresByType font/otf "access plus 1 year"
+  ExpiresByType font/woff "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
+  
+  # Autres
+  ExpiresByType text/html "access plus 1 day"
+  ExpiresByType application/json "access plus 0 seconds"
+  ExpiresByType application/xml "access plus 0 seconds"
+</IfModule>
+
+# Headers de sécurité
+<IfModule mod_headers.c>
+  # Protection XSS
+  Header set X-XSS-Protection "1; mode=block"
+  
+  # Protection contre le clickjacking
+  Header set X-Frame-Options "SAMEORIGIN"
+  
+  # Empêcher le MIME-sniffing
+  Header set X-Content-Type-Options "nosniff"
+  
+  # Référrer Policy
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  
+  # Content Security Policy - Ajustez selon les besoins
+  Header set Content-Security-Policy "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://unpkg.com 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.bahabun.fr;"
+</IfModule>
+
+# Protection du fichier .htaccess
+<Files .htaccess>
+  Order Allow,Deny
+  Deny from all
+</Files>
+
+# Protection des fichiers sensibles
+<FilesMatch "^(\.env|\.git|composer\.json|package\.json|webpack\.config\.js|vite\.config\.ts)">
+  Order Allow,Deny
+  Deny from all
+</FilesMatch>
+
+# Désactiver l'affichage du contenu des répertoires
+Options -Indexes
+
+# Taille limite d'upload - Ajustez selon vos besoins
+php_value upload_max_filesize 10M
+php_value post_max_size 20M

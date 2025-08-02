@@ -1,0 +1,23 @@
+# RFC 9116 - Security.txt File for Bahabun Restaurant
+# https://bahabun.fr/.well-known/security.txt
+# https://securitytxt.org/
+
+# Coordonnées pour signaler les problèmes de sécurité
+Contact: mailto:security@bahabun.fr
+Contact: https://bahabun.fr/contact
+
+# Politique de divulgation des vulnérabilités
+Policy: https://bahabun.fr/security-policy
+
+# Clé publique PGP (à remplacer par votre clé réelle)
+# Encryption: https://bahabun.fr/pgp-key.txt
+
+# Formats préférés pour les rapports
+Preferred-Languages: fr, en
+
+# Calendrier d'accusé de réception
+Acknowledgments: https://bahabun.fr/hall-of-fame
+
+# Date de dernière mise à jour et d'expiration
+Expires: 2026-06-19T23:00:00.000Z
+Last-Updated: 2025-06-19T23:00:00.000Z
