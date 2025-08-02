@@ -1,17 +1,14 @@
 <template>
   <PageTemplate>
     <template #content>
+      <div class="auth-header-text">
+        <h1 class="auth-title">Bienvenue sur Real-Time Chat</h1>
+        <p class="auth-subtitle">Rejoignez la conversation en direct</p>
+      </div>
       <div class="auth-wrapper">
-        <div class="auth-header-text">
-          <h1 class="auth-title">Bienvenue sur Real-Time Chat</h1>
-          <p class="auth-subtitle">Rejoignez la conversation en direct</p>
-        </div>
-
         <div class="auth-bg-container">
           <span class="auth-bg-circle circle-1"></span>
           <span class="auth-bg-circle circle-2"></span>
-          <span class="auth-bg-chat chat-1"></span>
-          <span class="auth-bg-chat chat-2"></span>
         </div>
         <div class="auth-card">
           <!-- Header/avatar stylisé -->
@@ -140,13 +137,23 @@
             <p v-if="error" class="auth-error">{{ error }}</p>
           </form>
         </div>
+        <div class="chat-preview">
+          <div
+            v-for="(bubble, idx) in chatBubbles"
+            :key="idx"
+            :class="['chat-bubble', bubble.speaker === 0 ? 'left' : 'right']"
+            :style="{ top: `${15 + idx * 12}%` }"
+          >
+            {{ bubble.text }}
+          </div>
+        </div>
       </div>
     </template>
   </PageTemplate>
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import PageTemplate from "../components/PageTemplate.vue";
 
 const mode = ref<"login" | "register">("login");
@@ -155,6 +162,29 @@ const email = ref("");
 const password = ref("");
 const confirm = ref("");
 const error = ref("");
+
+// simulate chat conversation with typewriter effect
+interface Bubble {
+  speaker: number;
+  text: string;
+}
+const chatBubbles = ref<Bubble[]>([]);
+const messages = ["Hello !", "How are you ?", "Fine thx ! :)"];
+const typeMessage = async (text: string, bubble: Bubble) => {
+  bubble.text = "";
+  for (const char of text) {
+    bubble.text += char;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  await new Promise((r) => setTimeout(r, 800));
+};
+onMounted(async () => {
+  for (let i = 0; i < messages.length; i++) {
+    const bubble: Bubble = { speaker: i % 2, text: "" };
+    chatBubbles.value.push(bubble);
+    await typeMessage(messages[i], bubble);
+  }
+});
 
 function onSubmit() {
   error.value = "";
@@ -201,6 +231,8 @@ function onSubmit() {
 
 .auth-wrapper {
   position: relative;
+  display: flex;
+  justify-content: center;
 }
 
 .auth-bg-container {
@@ -253,7 +285,7 @@ function onSubmit() {
   left: 90%;
 }
 .auth-bg-chat.chat-1::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: -8px;
   left: 20px;
@@ -268,7 +300,7 @@ function onSubmit() {
   right: 50%;
 }
 .auth-bg-chat.chat-2::after {
-  content: '';
+  content: "";
   position: absolute;
   top: -8px;
   right: 15px;
@@ -482,8 +514,69 @@ function onSubmit() {
 
 /* floating animation for background shapes */
 @keyframes float {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50%      { transform: translateY(20px) scale(1.1); }
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(20px) scale(1.1);
+  }
 }
 
+/* Chat bubble alignment */
+.auth-bg-chat.chat-left {
+  right: 8%;
+  left: auto;
+  background: rgba(255, 255, 255, 0.15);
+}
+.auth-bg-chat.chat-left::after {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  left: 20px;
+  border-width: 8px 8px 0;
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.15) transparent;
+}
+.auth-bg-chat.chat-right {
+  right: 8%;
+  left: auto;
+  background: rgba(68, 102, 214, 0.3);
+}
+.auth-bg-chat.chat-right::after {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  right: 20px;
+  border-width: 8px 8px 0;
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+/* Chat preview container */
+.chat-preview {
+  position: absolute;
+  top: 20%;
+  right: -220px;
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+.chat-bubble {
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.8rem;
+  max-width: 100%;
+  font-size: 0.9rem;
+  line-height: 1.2;
+}
+.chat-bubble.left {
+  background: rgba(255, 255, 255, 0.15);
+  align-self: flex-start;
+}
+.chat-bubble.right {
+  background: rgba(68, 102, 214, 0.3);
+  color: #fff;
+  align-self: flex-end;
+}
 </style>
