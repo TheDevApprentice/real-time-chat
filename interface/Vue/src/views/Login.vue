@@ -162,6 +162,20 @@
               </span>
             </span>
           </div>
+          <div class="chat-bar chat-bar-redesign">
+            <input
+              type="text"
+              class="chat-input"
+              placeholder="Message"
+              disabled
+            />
+            <button type="submit" class="send-btn send-btn-redesign" aria-label="Envoyer" disabled>
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                <path d="M2 11L20 2L11 20L10 13L2 11Z" fill="currentColor" />
+              </svg>
+            </button>
+          </div>
+
         </div>
       </div>
     </template>
@@ -200,7 +214,7 @@ const typeMessage = async (text: string, bubble: Bubble) => {
   for (const char of text) {
     bubble.text += char;
     await nextTick();
-    await new Promise((r) => setTimeout(r, 60));
+    await new Promise((r) => setTimeout(r, 70));
   }
 };
 onMounted(async () => {
@@ -612,12 +626,56 @@ function onSubmit() {
 /* Chat preview container */
 .chat-preview {
   position: absolute;
-  top: 20%;
-  right: -220px;
-  width: 200px;
+  top: 8%;
+  right: -350px;
+  width: auto;
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
+
+  border-radius: 1rem;
+  border: 1px solid rgba(68, 102, 214, 0.1);
+  background: rgba(255, 255, 255, 0.09);
+  box-shadow: 0 2px 12px 0 rgba(68, 102, 214, 0.13);
+  padding: 1rem;
+  overflow: hidden;
+  z-index: 1;
+
+}
+.chat-bar {
+  display: flex;
+  gap: 0.8rem;
+}
+.chat-bar.text {
+  flex: 1;
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 2px 12px 0 rgba(68, 102, 214, 0.13);
+  padding: 0.1rem 0.2rem;
+  margin: 0.1rem;
+}
+.chat-bar.btn {
+  width: 48px;
+}
+.send-btn {
+  background: var(--page-accent-color, #4466d644);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  transition: background 0.2s;
+  cursor: pointer;
+  box-shadow: 0 2px 8px 0 rgba(68, 102, 214, 0.13);
+}
+.send-btn:hover {
+  background: #2b3e7a;
+}
+.send-btn svg {
+  display: block;
 }
 .chat-bubble {
   padding: 0.6rem 0.8rem;
@@ -736,4 +794,58 @@ function onSubmit() {
     opacity: 0;
   }
 }
+.chat-bar.chat-bar-redesign {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255,255,255,0.08);
+  border-radius: 1.2rem;
+  padding: 0.22rem 0.36rem 0.22rem 0.8rem;
+  box-shadow: 0 2px 8px 0 rgba(68,102,214,0.10);
+  margin-top: 0.7rem;
+}
+
+.chat-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #eee;
+  font-size: 1.03em;
+  padding: 0.7em 0.2em;
+  border-radius: 1.1rem;
+  box-shadow: none;
+  transition: background 0.18s;
+}
+.chat-input:focus {
+  background: rgba(255,255,255,0.12);
+}
+.chat-input::placeholder {
+  color: #bbb;
+  opacity: 1;
+  font-style: italic;
+  letter-spacing: 0.01em;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.09);
+}
+
+.send-btn.send-btn-redesign {
+  margin-left: 0.15rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4466d6 60%, #5b7fff 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px 0 rgba(68, 102, 214, 0.18);
+  border: none;
+  transition: background 0.18s, transform 0.13s;
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+.send-btn-redesign svg {
+  display: block;
+}
+
 </style>
