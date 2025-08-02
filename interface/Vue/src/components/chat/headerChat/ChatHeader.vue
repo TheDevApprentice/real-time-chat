@@ -2,7 +2,13 @@
   <div class="chat-header-preview">
     <Avatar :avatar="avatar" />
     <span class="chat-header-name">{{ name }}</span>
-    <button class="chat-header-close" aria-label="Fermer" disabled>
+    <button
+      class="chat-header-close"
+      aria-label="Fermer"
+      disabled
+      v-if="active"
+      @click="onClose"
+    >
       <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
         <path
           d="M5 5L15 15M15 5L5 15"
@@ -21,11 +27,10 @@ import Avatar from "./Avatar.vue";
 defineProps<{
   avatar?: string;
   name?: string;
-  close?: boolean;
   onClose?: () => void;
   onOpen?: () => void;
-  isOpen?: boolean;
   active?: boolean;
+  nbUnreadMessage?: number;
 }>();
 
 defineEmits<{ close: [] }>();
@@ -42,6 +47,7 @@ defineEmits<{ close: [] }>();
   background: rgba(255, 255, 255, 0.163);
   border-radius: 1.1rem;
   box-shadow: 1px 1px 12px 1px rgba(68, 102, 214, 0.71);
+  transition: background 0.25s box-shadow 0.25s;
 }
 .chat-header-avatar {
   width: 34px;
@@ -52,18 +58,19 @@ defineEmits<{ close: [] }>();
   align-items: center;
   justify-content: center;
   font-size: 1.35em;
-  color: #fff;
   font-weight: 700;
   box-shadow: 1px 1px 6px 1px rgba(68, 102, 214, 0.621);
   margin-right: 0.3rem;
+  transition: background 0.25s;
 }
 .chat-header-name {
   font-weight: 600;
-  color: #f4f4f4;
-  font-size: 1.08em;
-  letter-spacing: 0.01em;
+  color: var(--page-text-color);
+  font-size: 1.02em;
+  letter-spacing: 0.05em;
   flex: 1;
   text-shadow: 0 1px 2px rgba(10, 161, 255, 0.496);
+  transition: color 0.25s;
 }
 .chat-header-close {
   background: transparent;
