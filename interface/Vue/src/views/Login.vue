@@ -1,132 +1,139 @@
 <template>
   <PageTemplate>
     <template #content>
-      <div class="auth-card">
-        <!-- Header/avatar stylisé -->
-        <div class="flex justify-center -mt-8 mb-3">
-          <div
-            class="avatar-glass rounded-full shadow-lg flex items-center justify-center border-2 border-[var(--page-accent-color)]"
-            style="
-              width: 56px;
-              height: 56px;
-              background: rgba(255, 255, 255, 0.16);
-              backdrop-filter: blur(8px);
-            "
-          >
-            <svg
-              width="32"
-              height="32"
-              fill="none"
-              stroke="var(--page-accent-color, #4466d6)"
-              stroke-width="2.2"
-              viewBox="0 0 48 48"
-            >
-              <circle cx="24" cy="18" r="10" />
-              <ellipse cx="24" cy="36" rx="16" ry="8" />
-            </svg>
-          </div>
+      <!-- rajouter un titre et sous titre-->
+      <div class="auth-wrapper">
+        <div class="auth-bg-container">
+          <span class="auth-bg-circle circle-1"></span>
+          <span class="auth-bg-circle circle-2"></span>
         </div>
-        <div class="auth-tabs-container">
-          <div class="auth-tabs">
-            <button
-              :class="['auth-tab', mode === 'login' ? 'active' : '']"
-              @click="mode = 'login'"
+        <div class="auth-card">
+          <!-- Header/avatar stylisé -->
+          <div class="flex justify-center -mt-4 mb-3">
+            <div
+              class="avatar-glass rounded-full shadow-lg flex items-center justify-center border-2 border-[var(--page-accent-color)]"
+              style="
+                width: 56px;
+                height: 56px;
+                background: rgba(255, 255, 255, 0.16);
+                backdrop-filter: blur(8px);
+              "
             >
-              Connexion
-            </button>
-            <button
-              :class="['auth-tab', mode === 'register' ? 'active' : '']"
-              @click="mode = 'register'"
-            >
-              Créer un compte
-            </button>
+              <svg
+                width="32"
+                height="32"
+                fill="none"
+                stroke="var(--page-accent-color, #4466d6)"
+                stroke-width="2.2"
+                viewBox="0 0 48 48"
+              >
+                <circle cx="24" cy="18" r="10" />
+                <ellipse cx="24" cy="36" rx="16" ry="8" />
+              </svg>
+            </div>
           </div>
+          <div class="auth-tabs-container">
+            <div class="auth-tabs">
+              <button
+                :class="['auth-tab', mode === 'login' ? 'active' : '']"
+                @click="mode = 'login'"
+              >
+                Connexion
+              </button>
+              <button
+                :class="['auth-tab', mode === 'register' ? 'active' : '']"
+                @click="mode = 'register'"
+              >
+                Créer un compte
+              </button>
+            </div>
+          </div>
+          <form @submit.prevent="onSubmit" class="auth-form">
+            <div class="auth-field">
+              <div class="input-group">
+                <span class="auth-icon">
+                  <svg
+                    width="20"
+                    height="20"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle cx="12" cy="8" r="4" />
+                    <path d="M4 20c0-4 4-7 8-7s8 3 8 7" />
+                  </svg>
+                </span>
+                <input
+                  id="username"
+                  v-model="username"
+                  type="text"
+                  required
+                  :placeholder="
+                    mode === 'login'
+                      ? 'Nom d\'utilisateur'
+                      : 'Choisissez un nom d\'utilisateur'
+                  "
+                  class="auth-input"
+                />
+              </div>
+            </div>
+            <div class="auth-field">
+              <div class="input-group">
+                <span class="auth-icon">
+                  <svg
+                    width="20"
+                    height="20"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <rect x="3" y="11" width="18" height="11" rx="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                </span>
+                <input
+                  id="password"
+                  v-model="password"
+                  type="password"
+                  required
+                  placeholder="Mot de passe"
+                  class="auth-input"
+                />
+              </div>
+            </div>
+            <div v-if="mode === 'register'" class="auth-field">
+              <div class="input-group">
+                <span class="auth-icon">
+                  <svg
+                    width="20"
+                    height="20"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <rect x="3" y="11" width="18" height="11" rx="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                </span>
+                <input
+                  id="confirm"
+                  v-model="confirm"
+                  type="password"
+                  required
+                  placeholder="Confirmer le mot de passe"
+                  class="auth-input"
+                />
+              </div>
+            </div>
+            <button type="submit" class="auth-btn">
+              {{ mode === "login" ? "Se connecter" : "Créer un compte" }}
+            </button>
+            <p v-if="error" class="auth-error">{{ error }}</p>
+          </form>
         </div>
-        <form @submit.prevent="onSubmit" class="auth-form">
-          <div class="auth-field">
-            <div class="input-group">
-              <span class="auth-icon">
-                <svg
-                  width="20"
-                  height="20"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  viewBox="0 0 24 24"
-                >
-                  <circle cx="12" cy="8" r="4" />
-                  <path d="M4 20c0-4 4-7 8-7s8 3 8 7" />
-                </svg>
-              </span>
-              <input
-                id="username"
-                v-model="username"
-                type="text"
-                required
-                :placeholder="
-                  mode === 'login'
-                    ? 'Nom d\'utilisateur'
-                    : 'Choisissez un nom d\'utilisateur'
-                "
-                class="auth-input"
-              />
-            </div>
-          </div>
-          <div class="auth-field">
-            <div class="input-group">
-              <span class="auth-icon">
-                <svg
-                  width="20"
-                  height="20"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  viewBox="0 0 24 24"
-                >
-                  <rect x="3" y="11" width="18" height="11" rx="2" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
-              </span>
-              <input
-                id="password"
-                v-model="password"
-                type="password"
-                required
-                placeholder="Mot de passe"
-                class="auth-input"
-              />
-            </div>
-          </div>
-          <div v-if="mode === 'register'" class="auth-field">
-            <div class="input-group">
-              <span class="auth-icon">
-                <svg
-                  width="20"
-                  height="20"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  viewBox="0 0 24 24"
-                >
-                  <rect x="3" y="11" width="18" height="11" rx="2" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
-              </span>
-              <input
-                id="confirm"
-                v-model="confirm"
-                type="password"
-                required
-                placeholder="Confirmer le mot de passe"
-                class="auth-input"
-              />
-            </div>
-          </div>
-          <button type="submit" class="auth-btn">
-            {{ mode === "login" ? "Se connecter" : "Créer un compte" }}
-          </button>
-          <p v-if="error" class="auth-error">{{ error }}</p>
-        </form>
       </div>
     </template>
   </PageTemplate>
@@ -166,13 +173,56 @@ function onSubmit() {
 </script>
 
 <style scoped>
+.auth-wrapper {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.auth-bg-container {
+  position: absolute;
+  top: -20%;
+  left: -20%;
+  width: 140%;
+  height: 140%;
+  z-index: 0;
+}
+
+.auth-bg-circle {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.3;
+}
+
+.circle-1 {
+  width: 300px;
+  height: 300px;
+  top: -100px;
+  right: -100px;
+  background: var(--page-btn-gradient-hover);
+}
+
+.circle-2 {
+  width: 200px;
+  height: 200px;
+  bottom: -80px;
+  left: -80px;
+  background: var(--page-secondary-color);
+}
+
+/* elevate card above background shapes */
+.auth-card {
+  position: relative;
+  z-index: 1;
+  width: 360px;
+}
+
 .auth-card {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 340px;
-  min-height: 390px;
   background: var(--page-bg-card);
   border-radius: 2.5rem;
   box-shadow: 0 0 32px 0 rgba(68, 102, 214, 0.1),
