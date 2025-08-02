@@ -6,7 +6,12 @@
     <span class="chat-header-name">{{ name }}</span>
     <button class="chat-header-close" aria-label="Fermer" disabled>
       <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-        <path d="M5 5L15 15M15 5L5 15" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/>
+        <path
+          d="M5 5L15 15M15 5L5 15"
+          stroke="currentColor"
+          stroke-width="2.3"
+          stroke-linecap="round"
+        />
       </svg>
     </button>
   </div>
@@ -14,8 +19,8 @@
 
 <script setup lang="ts">
 defineProps<{
-  avatar?: string
-  name?: string
+  avatar?: string;
+  name?: string;
 }>();
 </script>
 
@@ -51,7 +56,7 @@ defineProps<{
   font-size: 1.08em;
   letter-spacing: 0.01em;
   flex: 1;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.09);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.09);
 }
 .chat-header-close {
   background: transparent;

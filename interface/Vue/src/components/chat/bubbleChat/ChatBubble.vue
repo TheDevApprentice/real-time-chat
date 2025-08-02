@@ -7,13 +7,11 @@
     :style="{ animationDelay: `${animationDelay}` }"
   >
     <span v-if="isTyping" class="typing-dots">
-      <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>
+      <span class="dot">.</span><span class="dot">.</span
+      ><span class="dot">.</span>
     </span>
     <span v-else>
-      <span
-        class="typewriter"
-        :style="{ '--typewriter-chars': text.length }"
-      >
+      <span class="typewriter" :style="{ '--typewriter-chars': text.length }">
         {{ text }}
       </span>
     </span>
@@ -21,13 +19,13 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps } from 'vue';
+import { defineProps } from "vue";
 
 defineProps<{
-  speaker: number,
-  text: string,
-  isTyping?: boolean,
-  animationDelay?: string
+  speaker: number;
+  text: string;
+  isTyping?: boolean;
+  animationDelay?: string;
 }>();
 </script>
 
@@ -42,7 +40,7 @@ defineProps<{
   line-height: 1.2;
   position: relative;
   box-shadow: 0 2px 8px 0 rgba(68, 102, 214, 0.08);
-  animation: bubble-pop 0.45s cubic-bezier(.4,1.6,.4,1) both;
+  animation: bubble-pop 0.45s cubic-bezier(0.4, 1.6, 0.4, 1) both;
   word-break: break-word;
 }
 .chat-bubble.left {
@@ -100,9 +98,20 @@ defineProps<{
   animation-delay: 0.4s;
 }
 @keyframes dot-bounce {
-  0%, 80%, 100% { transform: translateY(0); opacity: 0.7; }
-  30% { transform: translateY(-7px); opacity: 1; }
-  40% { transform: translateY(0); opacity: 0.7; }
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.7;
+  }
+  30% {
+    transform: translateY(-7px);
+    opacity: 1;
+  }
+  40% {
+    transform: translateY(0);
+    opacity: 0.7;
+  }
 }
 .typewriter {
   display: inline-block;
@@ -119,7 +128,13 @@ defineProps<{
   }
 }
 @keyframes bubble-pop {
-  0% { opacity: 0; transform: scale(0.95) translateY(20px);}
-  100% { opacity: 1; transform: scale(1) translateY(0);}
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 </style>
