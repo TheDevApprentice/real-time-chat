@@ -159,7 +159,7 @@
 import { ref, onMounted, nextTick } from "vue";
 import PageTemplate from "../components/PageTemplate.vue";
 import CardTemplate from '../components/ui/CardTemplate.vue';
-import ChatBubble from '../components/chat/bubbleChat/ChatBubble.vue';
+import ChatBubble, { type Bubble } from '../components/chat/bubbleChat/ChatBubble.vue';
 import BarChat from '../components/chat/barChat/BarChat.vue';
 import ChatHeader from '../components/chat/headerChat/ChatHeader.vue';
 
@@ -170,13 +170,6 @@ const password = ref("");
 const confirm = ref("");
 const error = ref("");
 
-// simulate chat conversation with typewriter effect
-interface Bubble {
-  speaker: number;
-  text: string;
-  isTyping?: boolean;
-  isWriting?: boolean;
-}
 const chatBubbles = ref<Bubble[]>([]);
 const messages = [
   { text: "Hello ! 😀", speaker: 0 },
@@ -194,6 +187,7 @@ const typeMessage = async (text: string, bubble: Bubble) => {
     await new Promise((r) => setTimeout(r, 70));
   }
 };
+
 onMounted(async () => {
   for (let i = 0; i < messages.length + 1; i++) {
     const msg = messages[i];
