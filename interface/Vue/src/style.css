@@ -591,7 +591,7 @@ body {
 }
 .bubble-enter-right {
   opacity: 0;
-  animation: bubbleSlideRight 0.5s cubic-bezier(.4,2,.2,1) forwards;
+  animation: bubbleSlideRight 0.7s cubic-bezier(.4,2,.2,1) forwards;
 }
 .bubble-enter-left {
   opacity: 0;

@@ -147,7 +147,10 @@
             ]"
             :style="{ animationDelay: `${idx * 0.22}s` }"
           >
-            {{ bubble.text }}
+            <span v-if="bubble.isTyping" class="typing-dots">
+  <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>
+</span>
+<span v-else>{{ bubble.text }}</span>
           </div>
         </div>
       </div>
@@ -156,7 +159,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, nextTick } from "vue";
 import PageTemplate from "../components/PageTemplate.vue";
 
 const mode = ref<"login" | "register">("login");
@@ -170,23 +173,43 @@ const error = ref("");
 interface Bubble {
   speaker: number;
   text: string;
+  isTyping?: boolean;
 }
 const chatBubbles = ref<Bubble[]>([]);
-const messages = ["Hello !", "How are you ?", "Fine thx ! :)"];
+const messages = [
+  { text: "Hello !", speaker: 0 },
+  { text: "How are you ?", speaker: 1 },
+  { text: "Fine thx ! :)", speaker: 0 }
+];
 const typeMessage = async (text: string, bubble: Bubble) => {
   bubble.text = "";
   for (const char of text) {
     bubble.text += char;
-    await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 30));
   }
   await new Promise((r) => setTimeout(r, 800));
 };
 
 onMounted(async () => {
   for (let i = 0; i < messages.length; i++) {
-    const bubble: Bubble = { speaker: i % 2, text: "" };
-    chatBubbles.value.push(bubble);
-    await typeMessage(messages[i], bubble);
+    const msg = messages[i];
+    // Pour speaker 0, on affiche d'abord les points animés
+    if (msg.speaker === 0) {
+      const bubble: Bubble = { speaker: msg.speaker, text: '', isTyping: true };
+      chatBubbles.value.push(bubble);
+      await nextTick();
+      await new Promise(res => setTimeout(res, 900)); // durée d'animation des points
+      bubble.isTyping = false;
+      await typeMessage(msg.text, bubble);
+      await new Promise(res => setTimeout(res, 120));
+    } else {
+      // Pour speaker 1, pas d'animation points, juste typewriter
+      const bubble: Bubble = { speaker: msg.speaker, text: '' };
+      chatBubbles.value.push(bubble);
+      await nextTick();
+      await typeMessage(msg.text, bubble);
+      await new Promise(res => setTimeout(res, 120));
+    }
   }
 });
 
@@ -611,4 +634,36 @@ function onSubmit() {
   color: #fff;
   align-self: flex-end;
 }
+
+.typing-dots {
+  display: inline-block;
+  min-width: 1.5em;
+  letter-spacing: 0.1em;
+}
+.dot {
+  display: inline-block;
+  opacity: 0.7;
+  font-weight: 900;
+  font-size: 1.1em;
+  transform: translateY(0);
+  animation: dot-bounce 1.2s infinite;
+}
+.dot:nth-child(2) { animation-delay: 0.2s; }
+.dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dot-bounce {
+  0%, 80%, 100% {
+    transform: translateY(0);
+    opacity: 0.7;
+  }
+  30% {
+    transform: translateY(-7px);
+    opacity: 1;
+  }
+  40% {
+    transform: translateY(0);
+    opacity: 0.7;
+  }
+}
+
 </style>
