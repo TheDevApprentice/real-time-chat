@@ -42,7 +42,6 @@
         </div>
       </div>
       <form @submit.prevent="onSubmit" class="auth-form">
-        <!-- <h1 class="auth-title">{{ mode === 'login' ? 'Connexion' : 'Créer un compte' }}</h1> -->
         <div class="auth-field">
           <div class="input-group">
             <span class="auth-icon"
@@ -71,12 +70,6 @@
             />
           </div>
         </div>
-        <!-- <div v-if="mode === 'register'" class="auth-field">
-          <div class="input-group">
-            <span class="auth-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M22 6l-10 7L2 6"/></svg></span>
-            <input id="email" v-model="email" type="email" required placeholder="Adresse e-mail" class="auth-input" />
-          </div>
-        </div> -->
         <div class="auth-field">
           <div class="input-group">
             <span class="auth-icon"
