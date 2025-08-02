@@ -139,64 +139,16 @@
         </div>
         <div class="chat-preview">
           <!-- Chat header with avatar, name and close button -->
-          <div class="chat-header-preview">
-            <div class="chat-header-avatar">
-              <span>🤖</span>
-            </div>
-            <span class="chat-header-name">Bot Mélanie</span>
-            <button class="chat-header-close" aria-label="Fermer" disabled>
-              <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-                <path d="M5 5L15 15M15 5L5 15" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/>
-              </svg>
-            </button>
-          </div>
-          <div
+          <ChatHeader avatar="🤖" name="Bot Mélanie" />
+          <ChatBubble
             v-for="(bubble, idx) in chatBubbles"
             :key="idx"
-            :class="[
-              'chat-bubble',
-              bubble.speaker === 0
-                ? 'left bubble-enter-left'
-                : 'right bubble-enter-right',
-            ]"
-            :style="{ animationDelay: `${idx * 0.22}s` }"
-          >
-            <span v-if="bubble.isTyping" class="typing-dots">
-              <span class="dot">.</span><span class="dot">.</span
-              ><span class="dot">.</span>
-            </span>
-            <span v-else>
-              <span
-                class="typewriter"
-                :style="{ '--typewriter-chars': bubble.text.length }"
-              >
-                {{ bubble.text }}
-              </span>
-            </span>
-          </div>
-          <div class="chat-bar-image-row">
-            <button type="button" class="image-btn" aria-label="Envoyer une image" disabled>
-              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-                <rect x="3" y="5" width="16" height="12" rx="2.5" stroke="currentColor" stroke-width="1.7" />
-                <circle cx="7.5" cy="9.5" r="1.2" fill="currentColor" />
-                <path d="M4 15L9 10L13.5 14L16 11L18 13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-              </svg>
-            </button>
-            <div class="chat-bar chat-bar-redesign">
-              <input
-                type="text"
-                class="chat-input"
-                placeholder="Message"
-                disabled
-              />
-              <button type="submit" class="send-btn send-btn-redesign" aria-label="Envoyer" disabled>
-                <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-                  <path d="M2 11L20 2L11 20L10 13L2 11Z" fill="currentColor" />
-                </svg>
-              </button>
-            </div>
-          </div>
-
+            :speaker="bubble.speaker"
+            :text="bubble.text"
+            :isTyping="bubble.isTyping"
+            :animationDelay="`${idx * 0.22}s`"
+          />
+          <BarChat />
         </div>
       </div>
     </template>
@@ -206,6 +158,9 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from "vue";
 import PageTemplate from "../components/PageTemplate.vue";
+import ChatBubble from '../components/chat/bubbleChat/ChatBubble.vue';
+import BarChat from '../components/chat/barChat/BarChat.vue';
+import ChatHeader from '../components/chat/headerChat/ChatHeader.vue';
 
 const mode = ref<"login" | "register">("login");
 const username = ref("");
