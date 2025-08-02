@@ -5,7 +5,6 @@
     <button
       class="chat-header-close"
       aria-label="Fermer"
-      disabled
       v-if="active"
       @click="onClose"
     >
@@ -47,7 +46,11 @@ defineEmits<{ close: [] }>();
   background: rgba(255, 255, 255, 0.163);
   border-radius: 1.1rem;
   box-shadow: 1px 1px 12px 1px rgba(68, 102, 214, 0.71);
-  transition: background 0.25s box-shadow 0.25s;
+  transition: background 0.25s, box-shadow 0.25s;
+}
+.chat-header-preview:hover {
+  background: rgba(255, 255, 255, 0.263);
+  box-shadow: 1px 1px 12px 6px rgba(77, 115, 242, 0.893);
 }
 .chat-header-avatar {
   width: 34px;
@@ -63,6 +66,9 @@ defineEmits<{ close: [] }>();
   margin-right: 0.3rem;
   transition: background 0.25s;
 }
+.chat-header-avatar:hover {
+  cursor: pointer;
+}
 .chat-header-name {
   font-weight: 600;
   color: var(--page-text-color);
@@ -72,6 +78,10 @@ defineEmits<{ close: [] }>();
   text-shadow: 0 1px 2px rgba(10, 161, 255, 0.496);
   transition: color 0.25s;
 }
+.chat-header-name:hover {
+  cursor: pointer;
+}
+
 .chat-header-close {
   background: transparent;
   border: none;
@@ -86,6 +96,10 @@ defineEmits<{ close: [] }>();
   cursor: not-allowed;
   opacity: 0.7;
   margin-left: 0.2rem;
+}
+.chat-header-close:hover {
+  cursor: pointer;
+  color: var(--page-text-color);
 }
 .chat-header-close svg {
   display: block;

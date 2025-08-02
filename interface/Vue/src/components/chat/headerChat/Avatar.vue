@@ -22,10 +22,29 @@ defineProps<{
   align-items: center;
   justify-content: center;
   font-size: 1.35em;
-  color: #fff;
   font-weight: 700;
   box-shadow: 1px 1px 8px 3px rgba(68, 102, 214, 0.893);
+  transition: background 0.25s, box-shadow 0.25s, color 0.25s;
   margin-right: 0.3rem;
   z-index: 20;
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+.chat-header-avatar:hover {
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #4b71ed 60%, #93a7ee 100%);
+  box-shadow: 1px 1px 8px 3px rgba(82, 122, 255, 0.893);
+  animation: float 7s ease-in-out infinite;
 }
 </style>
