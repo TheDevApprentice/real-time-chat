@@ -9,7 +9,7 @@
           >
             <CardTemplate>
               <!-- Header/avatar stylisé -->
-              <div class="flex justify-center">
+              <div class="flex justify-center -mt-6">
                 <div
                   class="avatar-glass rounded-full shadow-lg flex items-center justify-center border-2 border-[var(--page-accent-color)]"
                   style="
@@ -163,7 +163,7 @@
               </div>
               <CardTemplate>
                 <!-- Header/avatar stylisé -->
-                <div class="flex justify-center">
+                <div class="flex justify-center -mt-6">
                   <div
                     class="avatar-glass rounded-full shadow-lg flex items-center justify-center border-2 border-[var(--page-accent-color)]"
                     style="
@@ -299,7 +299,7 @@
                   :isTyping="bubble.isTyping"
                   :animationDelay="`${idx * 0.22}s`"
                 />
-                <BarChat />
+                <BarChat  />
               </div>
             </div>
           </div>
@@ -794,7 +794,8 @@ function onSubmit() {
 /* Chat preview container */
 .chat-preview {
   position: absolute;
-  right: -400px;
+  top: -2%;
+  right: -480px;
   width: auto;
   display: flex;
   flex-direction: column;

@@ -4,7 +4,6 @@
     class="image-btn"
     aria-label="Envoyer une image"
     @click="$emit('click-image')"
-    :disabled="disabled"
   >
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
       <rect
@@ -34,7 +33,6 @@ const emit = defineEmits(['click-image'])
 
 <style scoped>
 .image-btn {
-  margin-top: 0.6rem;
   margin-right: 0.1rem;
   width: 40px;
   height: 40px;

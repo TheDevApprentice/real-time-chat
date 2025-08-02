@@ -30,8 +30,8 @@ function onInput(e: Event) {
   outline: none;
   color: #eee;
   font-size: 1.03em;
-  padding: 0.7em 0.2em;
-  border-radius: 1.1rem;
+  padding: 0.5em 1em;
+  border-radius: 1rem;
   box-shadow: none;
   transition: background 0.18s;
 }

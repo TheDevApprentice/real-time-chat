@@ -1,14 +1,13 @@
 <template>
   <div class="chat-bar-image-row">
-    <ImageButton @click-image="$emit('click-image')" :disabled="imageDisabled" />
+    <ImageButton @click-image="$emit('click-image')" />
     <div class="chat-bar chat-bar-redesign">
       <ChatInput
         :modelValue="inputValueProxy"
         :placeholder="inputPlaceholder"
-        :disabled="inputDisabled"
         @keydown.enter="emit('click-send')"
       />
-      <SendButton @click-send="$emit('click-send')" :disabled="sendDisabled" />
+      <SendButton @click-send="$emit('click-send')" />
     </div>
   </div>
 </template>
@@ -48,7 +47,7 @@ const inputValueProxy = computed({
   gap: 0.5rem;
   background: rgba(255, 255, 255, 0.08);
   border-radius: 1.2rem;
-  padding: 0.22rem 0.36rem 0.22rem 0.8rem;
+  padding: 0.22rem 0.36rem 0.22rem 0rem;
   box-shadow: 0 2px 8px 0 rgba(68, 102, 214, 0.1);
 }
 </style>
