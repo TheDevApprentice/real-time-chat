@@ -1,21 +1,29 @@
 <template>
-  <div class="page-template">
-    <div class="page-template-header">
-      <div class="header-actions">
-        <ThemeSwitcher />
-        <LanguageSwitcher />
+  <Suspense>
+    <template #default>
+      <div class="page-template">
+        <div class="page-template-header">
+          <div class="header-actions">
+            <ThemeSwitcher />
+            <LanguageSwitcher />
+          </div>
+        </div>
+        <div class="">
+          <slot name="content" />
+        </div>
       </div>
-    </div>
-    <div class="">
-      <slot name="content" />
-    </div>
-  </div>
+    </template>
+    <template #fallback>
+      <LoadingOverlay />
+    </template>
+  </Suspense>
 </template>
 
 <script setup lang="ts">
-import ThemeSwitcher from "./ThemeSwitcher.vue";
-import LanguageSwitcher from "./LanguageSwitcher.vue";
-// No logic needed for this template
+import { defineAsyncComponent } from 'vue';
+const ThemeSwitcher = defineAsyncComponent(() => import('./ThemeSwitcher.vue'));
+const LanguageSwitcher = defineAsyncComponent(() => import('./LanguageSwitcher.vue'));
+const LoadingOverlay = defineAsyncComponent(() => import('./LoadingOverlay.vue'));
 </script>
 
 <style scoped>

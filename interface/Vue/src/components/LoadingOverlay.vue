@@ -35,7 +35,7 @@
 </template>
 
 <script setup lang="ts">
-import CircleLoader from './loaders/CircleLoader.vue'
+import CircleLoader from './CircleLoader.vue'
 
 defineProps<{
   totalStages?: number

@@ -157,11 +157,24 @@
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from "vue";
-import PageTemplate from "../components/PageTemplate.vue";
-import CardTemplate from '../components/ui/CardTemplate.vue';
-import ChatBubble, { type Bubble } from '../components/chat/bubbleChat/ChatBubble.vue';
-import BarChat from '../components/chat/barChat/BarChat.vue';
-import ChatHeader from '../components/chat/headerChat/ChatHeader.vue';
+import { defineAsyncComponent } from "vue";
+import type { Bubble } from "../components/chat/bubbleChat/ChatBubble.vue";
+
+const ChatBubble = defineAsyncComponent(
+  () => import("../components/chat/bubbleChat/ChatBubble.vue")
+);
+const BarChat = defineAsyncComponent(
+  () => import("../components/chat/barChat/BarChat.vue")
+);
+const ChatHeader = defineAsyncComponent(
+  () => import("../components/chat/headerChat/ChatHeader.vue")
+);
+const PageTemplate = defineAsyncComponent(
+  () => import("../components/PageTemplate.vue")
+);
+const CardTemplate = defineAsyncComponent(
+  () => import("../components/ui/CardTemplate.vue")
+);
 
 const mode = ref<"login" | "register">("login");
 const username = ref("");
@@ -588,6 +601,5 @@ function onSubmit() {
   padding: 1rem;
   overflow: hidden;
   z-index: 1;
-
 }
 </style>
