@@ -647,7 +647,7 @@ function onSubmit() {
 /* Chat preview container */
 .chat-preview {
   position: absolute;
-  top: 3.5%;
+  top: 0.5%;
   right: -350px;
   width: auto;
   display: flex;
