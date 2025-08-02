@@ -311,7 +311,7 @@ function onSubmit() {
 .auth-btn:hover,
 .auth-btn:focus {
   background: var(--page-btn-gradient-hover);
-  box-shadow: 0 4px 16px 0 rgba(68, 102, 214, 0.16);
+  box-shadow: 0 4px 16px 0 var(--page-btn-shadow-hover);
   transform: translateY(-2px) scale(1.025);
 }
 
