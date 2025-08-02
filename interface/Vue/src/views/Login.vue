@@ -7,11 +7,14 @@
             <h1 class="auth-title gradient-title-v3">
               <span class="title-rt">{{ typedRealTime }}</span>
               <span class="title-chat-glow">
-                {{ typedChat }}<span v-if="showCursor" class="typewriter-cursor">|</span>
+                {{ typedChat
+                }}<span v-if="showCursor" class="typewriter-cursor">|</span>
                 <span class="glow-anim"></span>
               </span>
             </h1>
-            <p class="auth-subtitle subtitle-fadein">Rejoignez la conversation en direct</p>
+            <p class="auth-subtitle subtitle-fadein">
+              Rejoignez la conversation en direct
+            </p>
           </div>
           <div class="auth-wrapper">
             <div class="auth-bg-container">
@@ -145,7 +148,7 @@
                 <p v-if="error" class="auth-error">{{ error }}</p>
               </form>
             </CardTemplate>
-            <div class="chat-preview">
+            <div v-if="showChat" class="chat-preview">
               <!-- Chat header with avatar, name and close button -->
               <ChatHeader avatar="🤖" name="Bot Mélanie" />
               <ChatBubble
@@ -170,38 +173,35 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick } from "vue";
-import { defineAsyncComponent } from 'vue';
-import type { Bubble } from '../components/chat/bubbleChat/ChatBubble.vue';
+import { defineAsyncComponent } from "vue";
+import type { Bubble } from "../components/chat/bubbleChat/ChatBubble.vue";
 
 const realTimeFull = "Real‑Time";
 const chatFull = "Chat";
 const typedRealTime = ref("");
 const typedChat = ref("");
 const showCursor = ref(false);
+const showChat = ref(false);
 
-onMounted(async () => {
-  // Typewriter pour "Real‑Time"
-  for (let i = 0; i <= realTimeFull.length; i++) {
-    typedRealTime.value = realTimeFull.slice(0, i);
-    await new Promise(res => setTimeout(res, 60));
-  }
-  await new Promise(res => setTimeout(res, 200));
-  // Typewriter pour "Chat"
-  for (let i = 0; i <= chatFull.length; i++) {
-    typedChat.value = chatFull.slice(0, i);
-    await new Promise(res => setTimeout(res, 90));
-  }
-  showCursor.value = false;
-});
 watch(typedChat, (val) => {
   showCursor.value = val.length < chatFull.length;
 });
 
-const ChatBubble = defineAsyncComponent(() => import('../components/chat/bubbleChat/ChatBubble.vue'));
-const BarChat = defineAsyncComponent(() => import('../components/chat/barChat/BarChat.vue'));
-const ChatHeader = defineAsyncComponent(() => import('../components/chat/headerChat/ChatHeader.vue'));
-const PageTemplate = defineAsyncComponent(() => import('../components/PageTemplate.vue'));
-const CardTemplate = defineAsyncComponent(() => import('../components/ui/CardTemplate.vue'));
+const ChatBubble = defineAsyncComponent(
+  () => import("../components/chat/bubbleChat/ChatBubble.vue")
+);
+const BarChat = defineAsyncComponent(
+  () => import("../components/chat/barChat/BarChat.vue")
+);
+const ChatHeader = defineAsyncComponent(
+  () => import("../components/chat/headerChat/ChatHeader.vue")
+);
+const PageTemplate = defineAsyncComponent(
+  () => import("../components/PageTemplate.vue")
+);
+const CardTemplate = defineAsyncComponent(
+  () => import("../components/ui/CardTemplate.vue")
+);
 
 import LoadingOverlay from "../components/LoadingOverlay.vue";
 
@@ -230,7 +230,25 @@ const typeMessage = async (text: string, bubble: Bubble) => {
   }
 };
 
-onMounted(async () => {
+async function AnimTypeTitle() {
+  // Typewriter pour "Real‑Time"
+  for (let i = 0; i <= realTimeFull.length; i++) {
+    typedRealTime.value = realTimeFull.slice(0, i);
+    await new Promise((res) => setTimeout(res, 60));
+  }
+  await new Promise((res) => setTimeout(res, 200));
+  // Typewriter pour "Chat"
+  for (let i = 0; i <= chatFull.length; i++) {
+    typedChat.value = chatFull.slice(0, i);
+    await new Promise((res) => setTimeout(res, 90));
+  }
+  showCursor.value = false;
+}
+
+async function AnimChat() {
+  showChat.value = true;
+  await new Promise((res) => setTimeout(res, 200));
+
   for (let i = 0; i < messages.length + 1; i++) {
     const msg = messages[i];
     if (msg.speaker === 0) {
@@ -267,6 +285,13 @@ onMounted(async () => {
       await nextTick();
     }
   }
+}
+
+onMounted(async () => {
+  await AnimTypeTitle();
+  await new Promise((res) => setTimeout(res, 200));
+  await AnimChat();
+  await new Promise((res) => setTimeout(res, 200));
 });
 
 function onSubmit() {
@@ -617,7 +642,7 @@ function onSubmit() {
 .chat-preview {
   position: absolute;
   top: 0.5%;
-  right: -350px;
+  right: -400px;
   width: auto;
   display: flex;
   flex-direction: column;
@@ -631,7 +656,24 @@ function onSubmit() {
   overflow: hidden;
   z-index: 1;
 
+  animation: fade-in 0.9s ease-in-out;
 }
+
+@keyframes fade-in {
+  from {
+    position: absolute;
+    top: 0.5%;
+    right: -400px;
+    opacity: 0;
+  }
+  to {
+    position: absolute;
+    top: 0.5%;
+    right: -400px;
+    opacity: 1;
+  }
+}
+
 .improved-auth-header {
   display: flex;
   flex-direction: column;
@@ -640,7 +682,7 @@ function onSubmit() {
   margin-top: 1.4rem;
 }
 .gradient-title-v3 {
-  font-family: 'JetBrains Mono', 'Fira Sans', 'Segoe UI', Arial, sans-serif;
+  font-family: "JetBrains Mono", "Fira Sans", "Segoe UI", Arial, sans-serif;
   font-size: 3.1rem;
   font-weight: 900;
   letter-spacing: -0.03em;
@@ -662,7 +704,7 @@ function onSubmit() {
   filter: drop-shadow(0 2px 12px #4466d622);
   margin-right: 0.09em;
 
-  font-family: 'JetBrains Mono', 'Fira Sans', 'Segoe UI', Arial, sans-serif;
+  font-family: "JetBrains Mono", "Fira Sans", "Segoe UI", Arial, sans-serif;
   font-size: 3.1rem;
   font-weight: 900;
   letter-spacing: -0.03em;
@@ -699,7 +741,10 @@ function onSubmit() {
 }
 .title-chat-glow .glow-anim {
   position: absolute;
-  left: 0; right: 0; top: 60%; height: 45%;
+  left: 0;
+  right: 0;
+  top: 60%;
+  height: 45%;
   pointer-events: none;
   z-index: -1;
   background: radial-gradient(ellipse at center, #ffb86c66 0%, #ff6bcb22 100%);
@@ -708,8 +753,14 @@ function onSubmit() {
   animation: chatGlowAnim 2.5s infinite alternate;
 }
 @keyframes chatGlowAnim {
-  0% { opacity: 0.7; filter: blur(10px);}
-  100% { opacity: 1; filter: blur(18px);}
+  0% {
+    opacity: 0.7;
+    filter: blur(10px);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(18px);
+  }
 }
 .typewriter-cursor {
   display: inline-block;
@@ -722,12 +773,22 @@ function onSubmit() {
   filter: drop-shadow(0 0 6px #ffb86cbb);
 }
 @keyframes blink {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0; }
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
 }
 
 .title-main {
-  background: linear-gradient(90deg, var(--page-accent-color, #4466d6) 50%, #5b7fff 100%);
+  background: linear-gradient(
+    90deg,
+    var(--page-accent-color, #4466d6) 50%,
+    #5b7fff 100%
+  );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -749,7 +810,10 @@ function onSubmit() {
 }
 .title-chat-glow .glow-anim {
   position: absolute;
-  left: 0; right: 0; top: 60%; height: 45%;
+  left: 0;
+  right: 0;
+  top: 60%;
+  height: 45%;
   pointer-events: none;
   z-index: -1;
   background: radial-gradient(ellipse at center, #ffb86c66 0%, #ff6bcb22 100%);
@@ -758,8 +822,14 @@ function onSubmit() {
   animation: chatGlowAnim 2.5s infinite alternate;
 }
 @keyframes chatGlowAnim {
-  0% { opacity: 0.7; filter: blur(10px);}
-  100% { opacity: 1; filter: blur(18px);}
+  0% {
+    opacity: 0.7;
+    filter: blur(10px);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(18px);
+  }
 }
 .subtitle-fadein {
   font-size: 1.13rem;
@@ -767,10 +837,16 @@ function onSubmit() {
   margin-top: 0.5em;
   font-weight: 500;
   letter-spacing: 0.01em;
-  animation: subtitleFadeIn 1.3s cubic-bezier(.4,1.6,.4,1) both;
+  animation: subtitleFadeIn 1.3s cubic-bezier(0.4, 1.6, 0.4, 1) both;
 }
 @keyframes subtitleFadeIn {
-  0% { opacity: 0; transform: translateY(12px);}
-  100% { opacity: 1; transform: none;}
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
 }
 </style>
