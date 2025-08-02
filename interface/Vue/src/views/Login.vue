@@ -22,14 +22,14 @@
               <span class="auth-bg-circle circle-2"></span>
             </div>
             <div v-if="showChat" class="demo-avatars">
-              <ChatHeader avatar="🤖" name="Bot Hugo" />
-              <ChatHeader avatar="🤖" name="Bot Lidya" />
-              <ChatHeader avatar="🤖" name="Bot Christine" />
-              <ChatHeader avatar="🤖" name="Bot Frédéric" />
+              <ChatHeader avatar="🤖" name="Bot Hugo" :active="true" />
+              <ChatHeader avatar="🧛" name="Bot Lidya" :active="true" />
+              <ChatHeader avatar="🤡" name="Bot Christine" :active="true" />
+              <ChatHeader avatar="🐺" name="Bot Frédéric" :active="true" />
             </div>
             <CardTemplate>
               <!-- Header/avatar stylisé -->
-              <div class="flex justify-center -mt-4 mb-3">
+              <div class="flex justify-center">
                 <div
                   class="avatar-glass rounded-full shadow-lg flex items-center justify-center border-2 border-[var(--page-accent-color)]"
                   style="
@@ -156,7 +156,7 @@
             </CardTemplate>
             <div v-if="showChat" class="chat-preview">
               <!-- Chat header with avatar, name and close button -->
-              <ChatHeader avatar="🤖" name="Bot Mélanie" />
+              <ChatHeader avatar="🤖" name="Bot Mélanie" :active="true" />
               <ChatBubble
                 v-for="(bubble, idx) in chatBubbles"
                 :key="idx"
@@ -648,10 +648,10 @@ function onSubmit() {
 .demo-avatars {
   display: flex;
   flex-direction: column;
+  width: 100%;
   gap: 1rem;
   position: absolute;
-  top: 0.5%;
-  left: -400px;
+  left: -520px;
 
   animation: fade-in 0.9s ease-in-out;
 }
@@ -659,7 +659,6 @@ function onSubmit() {
 /* Chat preview container */
 .chat-preview {
   position: absolute;
-  top: 0.5%;
   right: -400px;
   width: auto;
   display: flex;
