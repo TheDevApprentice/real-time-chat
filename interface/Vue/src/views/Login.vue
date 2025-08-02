@@ -154,9 +154,13 @@
               ><span class="dot">.</span>
             </span>
             <span v-else>
-              {{ bubble.text
-              }}<span v-if="bubble.isWriting" class="typewriter-cursor">|</span>
-            </span>
+  <span
+    class="typewriter"
+    :style="{ '--typewriter-chars': bubble.text.length }"
+  >
+    {{ bubble.text }}<span v-if="bubble.isWriting" class="typewriter-cursor">|</span>
+  </span>
+</span>
           </div>
         </div>
       </div>
@@ -194,11 +198,15 @@ const typeMessage = async (text: string, bubble: Bubble) => {
   bubble.text = "";
   for (const char of text) {
     bubble.text += char;
+    await nextTick(); // force le rendu Vue à chaque lettre
     await new Promise((r) => setTimeout(r, 30));
   }
 };
 
+let chatSequenceStarted = false;
 onMounted(async () => {
+  if (chatSequenceStarted) return;
+  chatSequenceStarted = true;
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
     if (msg.speaker === 0) {
@@ -213,9 +221,9 @@ onMounted(async () => {
       await new Promise((res) => setTimeout(res, 900));
       bubble.isTyping = false;
       bubble.isWriting = true;
+      await nextTick();
       await typeMessage(msg.text, bubble);
       bubble.isWriting = false;
-      
       await new Promise((res) => setTimeout(res, 120));
     } else {
       const bubble: Bubble = {
