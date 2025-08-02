@@ -205,8 +205,7 @@ function onSubmit() {
   flex: 1 1 0;
   padding: 0.7em 0;
   font-weight: 600;
-  background: none;
-  color: var(--color-text-secondary);
+  color: var(--color-text);
   border: none;
   border-bottom: 2.5px solid transparent;
   cursor: pointer;
@@ -219,7 +218,6 @@ function onSubmit() {
 .auth-tab.active {
   color: var(--color-text);
   border-bottom: 2.5px solid var(--page-accent-color, #4466d6);
-  background: none;
 }
 
 .auth-tab-underline {
