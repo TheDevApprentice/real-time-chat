@@ -42,6 +42,9 @@ import LanguageSwitcher from "./LanguageSwitcher.vue";
   justify-content: center;
   position: relative;
   background: var(--color-background);
-
+  /* background-image: url("../assets/3431856.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat; */
 }
 </style>
