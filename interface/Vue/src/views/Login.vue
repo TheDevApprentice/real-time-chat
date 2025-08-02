@@ -138,6 +138,18 @@
           </form>
         </div>
         <div class="chat-preview">
+          <!-- Chat header with avatar, name and close button -->
+          <div class="chat-header-preview">
+            <div class="chat-header-avatar">
+              <span>🤖</span>
+            </div>
+            <span class="chat-header-name">Bot Mélanie</span>
+            <button class="chat-header-close" aria-label="Fermer" disabled>
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                <path d="M5 5L15 15M15 5L5 15" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
           <div
             v-for="(bubble, idx) in chatBubbles"
             :key="idx"
@@ -162,18 +174,27 @@
               </span>
             </span>
           </div>
-          <div class="chat-bar chat-bar-redesign">
-            <input
-              type="text"
-              class="chat-input"
-              placeholder="Message"
-              disabled
-            />
-            <button type="submit" class="send-btn send-btn-redesign" aria-label="Envoyer" disabled>
+          <div class="chat-bar-image-row">
+            <button type="button" class="image-btn" aria-label="Envoyer une image" disabled>
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-                <path d="M2 11L20 2L11 20L10 13L2 11Z" fill="currentColor" />
+                <rect x="3" y="5" width="16" height="12" rx="2.5" stroke="currentColor" stroke-width="1.7" />
+                <circle cx="7.5" cy="9.5" r="1.2" fill="currentColor" />
+                <path d="M4 15L9 10L13.5 14L16 11L18 13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
               </svg>
             </button>
+            <div class="chat-bar chat-bar-redesign">
+              <input
+                type="text"
+                class="chat-input"
+                placeholder="Message"
+                disabled
+              />
+              <button type="submit" class="send-btn send-btn-redesign" aria-label="Envoyer" disabled>
+                <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                  <path d="M2 11L20 2L11 20L10 13L2 11Z" fill="currentColor" />
+                </svg>
+              </button>
+            </div>
           </div>
 
         </div>
@@ -202,10 +223,10 @@ interface Bubble {
 }
 const chatBubbles = ref<Bubble[]>([]);
 const messages = [
-  { text: "Hello !😀", speaker: 0 },
+  { text: "Hello ! 😀", speaker: 0 },
   { text: "How are you ?", speaker: 1 },
-  { text: "Fine thx !😁", speaker: 0 },
-  { text: "Where do you want to go this we ?😄", speaker: 1 },
+  { text: "Fine thx ! 😁", speaker: 0 },
+  { text: "Where do you want to go this we ? 😄", speaker: 1 },
   { text: "I want to go to the beach ! 😃", speaker: 0 },
 ];
 
@@ -626,7 +647,7 @@ function onSubmit() {
 /* Chat preview container */
 .chat-preview {
   position: absolute;
-  top: 8%;
+  top: 3.5%;
   right: -350px;
   width: auto;
   display: flex;
@@ -679,6 +700,7 @@ function onSubmit() {
 }
 .chat-bubble {
   padding: 0.6rem 0.8rem;
+  margin: 0.1rem 0.1rem;
   border-radius: 0.8rem;
   max-width: 100%;
   width: min-content;
@@ -694,7 +716,7 @@ function onSubmit() {
   width: 0;
   height: 0;
   border: 8px solid transparent;
-  border-top-color: rgba(255, 255, 255, 0.18);
+  border-top-color: rgba(115, 84, 139, 0.363);
   border-bottom: 0;
   border-right: 0;
   margin-left: -4px;
@@ -707,14 +729,14 @@ function onSubmit() {
   width: 0;
   height: 0;
   border: 8px solid transparent;
-  border-top-color: #4466d6;
+  border-top-color: rgba(68, 102, 214, 0.3);
   border-bottom: 0;
   border-left: 0;
   margin-right: -4px;
 }
 
 .chat-bubble.left {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(115, 84, 139, 0.363);
   align-self: flex-start;
 }
 .chat-bubble.right {
@@ -846,6 +868,87 @@ function onSubmit() {
   opacity: 0.75;
 }
 .send-btn-redesign svg {
+  display: block;
+}
+
+.chat-header-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  padding: 0.18rem 0.35rem 0.18rem 0.12rem;
+  margin-bottom: 0.75rem;
+  background: rgba(255, 255, 255, 0.163);
+  border-radius: 1.1rem;
+  box-shadow: 1px 1px 12px 0 rgba(68, 102, 214, 0.566);
+}
+
+.chat-header-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4466d6 60%, #5b7fff 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35em;
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 2px 8px 0 rgba(68, 102, 214, 0.13);
+  margin-right: 0.3rem;
+}
+.chat-header-name {
+  font-weight: 600;
+  color: #f4f4f4;
+  font-size: 1.08em;
+  letter-spacing: 0.01em;
+  flex: 1;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.09);
+}
+.chat-header-close {
+  background: transparent;
+  border: none;
+  color: #bbb;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.18s, color 0.18s;
+  cursor: not-allowed;
+  opacity: 0.7;
+  margin-left: 0.2rem;
+}
+.chat-header-close svg {
+  display: block;
+}
+
+.chat-bar-image-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.7rem;
+}
+
+.image-btn {
+  margin-top: 0.6rem;
+  margin-right: 0.1rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.12);
+  color: #77aaff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px 0 rgba(68,102,214,0.09);
+  border: none;
+  transition: background 0.16s, color 0.13s, transform 0.13s;
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+.image-btn svg {
   display: block;
 }
 
