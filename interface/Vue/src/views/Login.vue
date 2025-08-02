@@ -21,6 +21,12 @@
               <span class="auth-bg-circle circle-1"></span>
               <span class="auth-bg-circle circle-2"></span>
             </div>
+            <div v-if="showChat" class="demo-avatars">
+              <ChatHeader avatar="🤖" name="Bot Hugo" />
+              <ChatHeader avatar="🤖" name="Bot Lidya" />
+              <ChatHeader avatar="🤖" name="Bot Christine" />
+              <ChatHeader avatar="🤖" name="Bot Frédéric" />
+            </div>
             <CardTemplate>
               <!-- Header/avatar stylisé -->
               <div class="flex justify-center -mt-4 mb-3">
@@ -175,6 +181,7 @@
 import { ref, onMounted, watch, nextTick } from "vue";
 import { defineAsyncComponent } from "vue";
 import type { Bubble } from "../components/chat/bubbleChat/ChatBubble.vue";
+import Avatar from "../components/chat/headerChat/Avatar.vue";
 
 const realTimeFull = "Real‑Time";
 const chatFull = "Chat";
@@ -638,6 +645,17 @@ function onSubmit() {
   border-color: rgba(255, 255, 255, 0.15) transparent;
 }
 
+.demo-avatars {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  position: absolute;
+  top: 0.5%;
+  left: -400px;
+
+  animation: fade-in 0.9s ease-in-out;
+}
+
 /* Chat preview container */
 .chat-preview {
   position: absolute;
@@ -702,7 +720,6 @@ function onSubmit() {
   letter-spacing: -0.01em;
   font-size: 0.99em;
   filter: drop-shadow(0 2px 12px #4466d622);
-  margin-right: 0.09em;
 
   font-family: "JetBrains Mono", "Fira Sans", "Segoe UI", Arial, sans-serif;
   font-size: 3.1rem;
@@ -713,7 +730,7 @@ function onSubmit() {
   align-items: center;
   position: relative;
   justify-content: center;
-  margin-bottom: 0.2em;
+  margin-bottom: 0.1em;
   line-height: 1.06;
   text-align: center;
 }
@@ -726,7 +743,6 @@ function onSubmit() {
 }
 .title-chat-glow {
   position: relative;
-  margin-left: 0rem;
   font-family: inherit;
   font-weight: 900;
   background: linear-gradient(90deg, #ffb86c 20%, #ff6bcb 80%);
@@ -743,7 +759,6 @@ function onSubmit() {
   position: absolute;
   left: 0;
   right: 0;
-  top: 60%;
   height: 45%;
   pointer-events: none;
   z-index: -1;
