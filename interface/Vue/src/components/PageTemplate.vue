@@ -5,10 +5,8 @@
       <LanguageSwitcher />
     </div>
   </div>
-  <div class="page-template-bg">
-    <div class="page-template-content">
-      <slot />
-    </div>
+  <div class="page-template">
+    <slot name="content" />
   </div>
 </template>
 
@@ -21,7 +19,6 @@ import LanguageSwitcher from "./LanguageSwitcher.vue";
 <style scoped>
 .page-template-header {
   width: 100%;
-  height: 100%;
   display: flex;
   justify-content: flex-end;
   align-items: flex-start;
@@ -29,28 +26,19 @@ import LanguageSwitcher from "./LanguageSwitcher.vue";
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 50;
+  z-index: 10;
 }
 .header-actions {
   display: flex;
   gap: 0.7rem;
 }
-.page-template-bg {
+.page-template {
   width: 100%;
-  height: 100%;
-  background: var(--page-bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.page-template-content {
-  width: 100%;
-  height: 100%;
   min-height: 100vh;
-  min-width: 100vw;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
+  background: var(--page-bg);
 }
 </style>
