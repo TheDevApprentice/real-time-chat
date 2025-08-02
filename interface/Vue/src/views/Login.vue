@@ -1,0 +1,243 @@
+<template>
+  <PageTemplate>
+    <div class="auth-card">
+      <div class="auth-tabs-container">
+        <div class="auth-tabs">
+          <button
+            :class="['auth-tab', mode === 'login' ? 'active' : '']"
+            @click="mode = 'login'"
+          >Connexion</button>
+          <button
+            :class="['auth-tab', mode === 'register' ? 'active' : '']"
+            @click="mode = 'register'"
+          >Créer un compte</button>
+        </div>
+      </div>
+      <form @submit.prevent="onSubmit" class="auth-form">
+        <!-- <h1 class="auth-title">{{ mode === 'login' ? 'Connexion' : 'Créer un compte' }}</h1> -->
+        <div class="auth-field">
+          <div class="input-group">
+            <span class="auth-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-7 8-7s8 3 8 7"/></svg></span>
+            <input id="username" v-model="username" type="text" required :placeholder="mode === 'login' ? 'Nom d\'utilisateur' : 'Choisissez un nom d\'utilisateur'" class="auth-input" />
+          </div>
+        </div>
+        <!-- <div v-if="mode === 'register'" class="auth-field">
+          <div class="input-group">
+            <span class="auth-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M22 6l-10 7L2 6"/></svg></span>
+            <input id="email" v-model="email" type="email" required placeholder="Adresse e-mail" class="auth-input" />
+          </div>
+        </div> -->
+        <div class="auth-field">
+          <div class="input-group">
+            <span class="auth-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+            <input id="password" v-model="password" type="password" required placeholder="Mot de passe" class="auth-input" />
+          </div>
+        </div>
+        <div v-if="mode === 'register'" class="auth-field">
+          <div class="input-group">
+            <span class="auth-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+            <input id="confirm" v-model="confirm" type="password" required placeholder="Confirmer le mot de passe" class="auth-input" />
+          </div>
+        </div>
+        <button type="submit" class="auth-btn">{{ mode === 'login' ? 'Se connecter' : 'Créer un compte' }}</button>
+        <p v-if="error" class="auth-error">{{ error }}</p>
+      </form>
+    </div>
+  </PageTemplate>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+import PageTemplate from '../components/PageTemplate.vue'
+
+const mode = ref<'login' | 'register'>('login')
+const username = ref('')
+const email = ref('')
+const password = ref('')
+const confirm = ref('')
+const error = ref('')
+
+function onSubmit() {
+  error.value = ''
+  if (mode.value === 'register') {
+    if (!username.value || !email.value || !password.value || !confirm.value) {
+      error.value = 'Veuillez remplir tous les champs.'
+      return
+    }
+    if (password.value !== confirm.value) {
+      error.value = 'Les mots de passe ne correspondent pas.'
+      return
+    }
+    // TODO: call register API/socket
+  } else {
+    if (!username.value || !password.value) {
+      error.value = 'Veuillez entrer votre nom d\'utilisateur et mot de passe.'
+      return
+    }
+    // TODO: call login API/socket
+  }
+}
+</script>
+
+<style scoped>
+.auth-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-background);
+}
+
+.auth-tabs-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.auth-tabs {
+  display: flex;
+  position: relative;
+  gap: 1rem;
+}
+
+.auth-tab {
+  flex: 1 1 0;
+  padding: 0.7em 0;
+  font-weight: 600;
+  background: none;
+  color: var(--color-text-secondary);
+  border: none;
+  border-bottom: 2.5px solid transparent;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+  font-size: 1.08em;
+  position: relative;
+  outline: none;
+}
+
+.auth-tab.active {
+  color: var(--color-text);
+  border-bottom: 2.5px solid var(--page-accent-color, #4466d6);
+  background: none;
+}
+
+.auth-tab-underline {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 50%;
+  height: 2.5px;
+  background: var(--page-btn-gradient, #4466d6);
+  border-radius: 2px;
+  transition: left 0.25s cubic-bezier(.4,1.3,.4,1);
+  z-index: 2;
+}
+
+.auth-form {
+  background: var(--page-bg-card);
+  box-shadow: var(--page-card-shadow);
+  border-radius: 18px;
+  padding: 2.2rem 2rem 2rem 2rem;
+  min-width: 340px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  align-items: center;
+}
+
+/* .auth-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--page-text-color);
+  margin-bottom: 0.3em;
+  text-align: center;
+  letter-spacing: -1px;
+} */
+
+.auth-field {
+  display: flex;
+  align-items: center;
+  background: var(--input-bg);
+  border: 1.5px solid var(--input-border);
+  border-radius: 8px;
+  padding: 0.1em 0.8em 0.1em 0.3em;
+  box-shadow: none;
+  transition: border 0.2s, box-shadow 0.2s;
+  margin-bottom: 0.1em;
+  min-height: 2.7em;
+  width: 100%;
+}
+
+.auth-field:focus-within {
+  border-color: var(--input-focus-border);
+  box-shadow: 0 0 0 2px var(--input-focus-shadow);
+}
+
+.input-group {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.auth-icon {
+  margin-right: 0.5em;
+  color: var(--page-accent-color, #4466d6);
+  display: flex;
+  align-items: center;
+}
+
+.auth-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  flex: 1;
+  font-size: 1.08em;
+  color: var(--page-text-color);
+  padding: 0.6em 0.2em;
+  font-family: inherit;
+}
+
+.auth-btn {
+  background: var(--page-btn-gradient);
+  color: var(--btn-color-text, #fff);
+  border: none;
+  font-weight: 600;
+  font-size: 1.08em;
+  border-radius: 8px;
+  box-shadow: var(--page-btn-shadow);
+  padding: 0.9em 0;
+  margin-top: 0.3em;
+  transition: background 0.18s, box-shadow 0.18s;
+  width: 100%;
+}
+
+.auth-btn:hover, .auth-btn:focus {
+  background: var(--page-btn-gradient-hover);
+  box-shadow: var(--page-btn-shadow),0 2px 8px 0 var(--page-btn-hover-shadow-1);
+}
+
+.auth-error {
+  color: var(--error-color, #e23c3c);
+  background: #fff5f5;
+  border: 1px solid #ffd4d4;
+  border-radius: 7px;
+  padding: 0.5em 0.9em;
+  font-size: 1em;
+  width: 100%;
+  text-align: center;
+  margin-top: 0.2em;
+}
+
+@media (max-width: 600px) {
+  .auth-card {
+    min-height: 100vh;
+    padding: 0;
+  }
+  .auth-form {
+    min-width: 0;
+    padding: 1.2rem 0.6rem 1.2rem 0.6rem;
+  }
+}
+</style>
