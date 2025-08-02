@@ -173,7 +173,7 @@ function onSubmit() {
   justify-content: center;
   min-width: 340px;
   min-height: 390px;
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--page-bg-card);
   border-radius: 2.5rem;
   box-shadow: 0 0 32px 0 rgba(68, 102, 214, 0.1),
     0 1.5px 8px 0 rgba(178, 190, 231, 0.08);
@@ -248,7 +248,7 @@ function onSubmit() {
 .auth-field {
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.75);
+  background: var(--input-bg);
   border: 1.5px solid var(--input-border);
   border-radius: 1.1rem;
   padding: 0.1em 0.8em 0.1em 0.3em;
@@ -261,8 +261,8 @@ function onSubmit() {
 }
 
 .auth-field:focus-within {
-  border-color: var(--page-accent-color, #4466d6);
-  background: rgba(240, 245, 255, 0.95);
+  border-color: var(--input-focus-border, #4466d6);
+  background: var(--input-focus-bg);
   box-shadow: 0 0 0 2.5px var(--input-focus-shadow, #c7d6fc),
     0 2px 12px 0 rgba(68, 102, 214, 0.07);
   z-index: 2;
@@ -293,13 +293,13 @@ function onSubmit() {
 }
 
 .auth-btn {
-  background: linear-gradient(90deg, #4466d6 0%, #a14a8a 100%);
+  background: var(--page-btn-gradient);
   color: var(--btn-color-text, #fff);
   border: none;
   font-weight: 700;
   font-size: 1.13em;
   border-radius: 1.1rem;
-  box-shadow: 0 2px 12px 0 rgba(68, 102, 214, 0.1);
+  box-shadow: 0 2px 12px 0 var(--page-btn-shadow);
   padding: 0.95em 0;
   margin-top: 0.3em;
   transition: background 0.18s, box-shadow 0.18s, transform 0.13s;
@@ -310,7 +310,7 @@ function onSubmit() {
 
 .auth-btn:hover,
 .auth-btn:focus {
-  background: linear-gradient(90deg, #3c5ac4 0%, #b14b8a 100%);
+  background: var(--page-btn-gradient-hover);
   box-shadow: 0 4px 16px 0 rgba(68, 102, 214, 0.16);
   transform: translateY(-2px) scale(1.025);
 }
@@ -322,8 +322,8 @@ function onSubmit() {
 
 .auth-error {
   color: var(--error-color, #e23c3c);
-  background: #fff5f5;
-  border: 1px solid #ffd4d4;
+  background: var(--input-focus-bg);
+  border: 1px solid var(--input-focus-border);
   border-radius: 7px;
   padding: 0.5em 0.9em;
   font-size: 1em;

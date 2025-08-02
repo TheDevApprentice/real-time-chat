@@ -46,6 +46,7 @@
 
   /* Input */
   --input-bg: rgba(44, 62, 120, 0.13);
+  --input-focus-bg: rgba(126, 126, 143, 0.95);
   --input-border: rgba(120, 120, 180, 0.18);
   --input-focus-border: #90caf9;
   --input-hover-border: #b03a7a;
@@ -186,6 +187,7 @@
 
   /* Input */
   --input-bg: rgba(240, 240, 250, 0.85);
+  --input-focus-bg: rgba(242, 242, 245, 0.95);
   --input-border: rgba(140, 140, 180, 0.35);
   --input-focus-border: #4466d6;
   --input-hover-border: #5a8fff;
@@ -524,7 +526,7 @@ body {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background-color: var(--color-background-mute);
+  background-color: var(--color-background);
   line-height: 1.6;
   font-family:
     Inter,

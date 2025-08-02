@@ -39,6 +39,6 @@ import LanguageSwitcher from "./LanguageSwitcher.vue";
   align-items: center;
   justify-content: center;
   position: relative;
-  background: var(--page-bg);
+  background: var(--color-background);
 }
 </style>
