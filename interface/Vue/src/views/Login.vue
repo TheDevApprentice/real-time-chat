@@ -1,8 +1,12 @@
 <template>
   <PageTemplate>
     <template #content>
-      <!-- rajouter un titre et sous titre-->
       <div class="auth-wrapper">
+        <div class="auth-header-text">
+          <h1 class="auth-title">Bienvenue sur Real-Time Chat</h1>
+          <p class="auth-subtitle">Rejoignez la conversation en direct</p>
+        </div>
+
         <div class="auth-bg-container">
           <span class="auth-bg-circle circle-1"></span>
           <span class="auth-bg-circle circle-2"></span>
@@ -173,11 +177,28 @@ function onSubmit() {
 </script>
 
 <style scoped>
+.auth-header-text {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.auth-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--page-accent-color);
+  margin: 0;
+}
+
+.auth-subtitle {
+  font-size: 1rem;
+  color: var(--color-text);
+  margin: 0.3rem 0 0;
+}
+
 .auth-wrapper {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  position: relative;
 }
 
 .auth-bg-container {

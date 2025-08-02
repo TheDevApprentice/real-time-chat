@@ -1,12 +1,14 @@
 <template>
-  <div class="page-template-header">
-    <div class="header-actions">
-      <ThemeSwitcher />
-      <LanguageSwitcher />
-    </div>
-  </div>
   <div class="page-template">
-    <slot name="content" />
+    <div class="page-template-header">
+      <div class="header-actions">
+        <ThemeSwitcher />
+        <LanguageSwitcher />
+      </div>
+    </div>
+    <div class="">
+      <slot name="content" />
+    </div>
   </div>
 </template>
 
@@ -33,12 +35,13 @@ import LanguageSwitcher from "./LanguageSwitcher.vue";
   gap: 0.7rem;
 }
 .page-template {
-  width: 100%;
-  min-height: 100vh;
+  width: 100vw;
+  height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   background: var(--color-background);
+
 }
 </style>
