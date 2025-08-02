@@ -4,50 +4,18 @@
       <PageTemplate>
         <template #content>
           <!-- Version mobile/tablette : CardTemplate seul -->
-          <div
-            class="block md:hidden w-full flex justify-center items-center min-h-screen"
-          >
+          <div class="block md:hidden w-full justify-center items-center">
             <CardTemplate>
               <!-- Header/avatar stylisé -->
-              <div class="flex justify-center -mt-6">
-                <div
-                  class="avatar-glass rounded-full shadow-lg flex items-center justify-center border-2 border-[var(--page-accent-color)]"
-                  style="
-                    width: 56px;
-                    height: 56px;
-                    background: rgba(255, 255, 255, 0.16);
-                    backdrop-filter: blur(8px);
-                  "
-                >
-                  <svg
-                    width="32"
-                    height="32"
-                    fill="none"
-                    stroke="var(--page-accent-color, #4466d6)"
-                    stroke-width="2.2"
-                    viewBox="0 0 48 48"
-                  >
-                    <circle cx="24" cy="18" r="10" />
-                    <ellipse cx="24" cy="36" rx="16" ry="8" />
-                  </svg>
-                </div>
-              </div>
-              <div class="auth-tabs-container">
-                <div class="auth-tabs">
-                  <button
-                    :class="['auth-tab', mode === 'login' ? 'active' : '']"
-                    @click="mode = 'login'"
-                  >
-                    Connexion
-                  </button>
-                  <button
-                    :class="['auth-tab', mode === 'register' ? 'active' : '']"
-                    @click="mode = 'register'"
-                  >
-                    Créer un compte
-                  </button>
-                </div>
-              </div>
+              <LargeAvatar :mode="mode" />
+              <TabsContainer
+                :mode="mode"
+                @update:mode="mode = $event"
+                :tabs="[
+                  { id: 'login', text: 'Connexion' },
+                  { id: 'register', text: 'Créer un compte' },
+                ]"
+              />
               <form @submit.prevent="onSubmit" class="auth-form">
                 <div class="auth-field">
                   <div class="input-group">
@@ -155,53 +123,32 @@
                 <span class="auth-bg-circle circle-1"></span>
                 <span class="auth-bg-circle circle-2"></span>
               </div>
-              <div v-if="showChat" class="demo-avatars md:flex">
-                <ChatHeader avatar="🤖" name="Bot Hugo" :active="true" />
-                <ChatHeader avatar="🧛" name="Bot Lidya" :active="true" />
-                <ChatHeader avatar="🤡" name="Bot Christine" :active="true" />
-                <ChatHeader avatar="🐺" name="Bot Frédéric" :active="true" />
+
+              <div class="flex flex-col">
+                <div v-if="showChat" class="demo-large-avatars md:flex">
+                  <LargeAvatar avatar="🤖" name="Bot Hugo" :mode="mode" />
+                  <LargeAvatar avatar="🧛" name="Bot Lidya" :mode="mode" />
+                  <LargeAvatar avatar="" name="Bot Christine" :mode="mode" />
+                  <LargeAvatar avatar="" name="Bot Frédéric" :mode="mode" />
+                </div>
+                <div v-if="showChat" class="demo-avatars md:flex">
+                  <ChatHeader avatar="🤖" name="Bot Hugo" :active="true" />
+                  <ChatHeader avatar="🧛" name="Bot Lidya" :active="true" />
+                  <ChatHeader avatar="🤡" name="Bot Christine" :active="true" />
+                  <ChatHeader avatar="🐺" name="Bot Frédéric" :active="true" />
+                </div>
               </div>
               <CardTemplate>
                 <!-- Header/avatar stylisé -->
-                <div class="flex justify-center -mt-6">
-                  <div
-                    class="avatar-glass rounded-full shadow-lg flex items-center justify-center border-2 border-[var(--page-accent-color)]"
-                    style="
-                      width: 56px;
-                      height: 56px;
-                      background: rgba(255, 255, 255, 0.16);
-                      backdrop-filter: blur(8px);
-                    "
-                  >
-                    <svg
-                      width="32"
-                      height="32"
-                      fill="none"
-                      stroke="var(--page-accent-color, #4466d6)"
-                      stroke-width="2.2"
-                      viewBox="0 0 48 48"
-                    >
-                      <circle cx="24" cy="18" r="10" />
-                      <ellipse cx="24" cy="36" rx="16" ry="8" />
-                    </svg>
-                  </div>
-                </div>
-                <div class="auth-tabs-container">
-                  <div class="auth-tabs">
-                    <button
-                      :class="['auth-tab', mode === 'login' ? 'active' : '']"
-                      @click="mode = 'login'"
-                    >
-                      Connexion
-                    </button>
-                    <button
-                      :class="['auth-tab', mode === 'register' ? 'active' : '']"
-                      @click="mode = 'register'"
-                    >
-                      Créer un compte
-                    </button>
-                  </div>
-                </div>
+                <LargeAvatar :mode="mode" />
+                <TabsContainer
+                  :mode="mode"
+                  @update:mode="mode = $event"
+                  :tabs="[
+                    { id: 'login', text: 'Connexion' },
+                    { id: 'register', text: 'Créer un compte' },
+                  ]"
+                />
                 <form @submit.prevent="onSubmit" class="auth-form">
                   <div class="auth-field">
                     <div class="input-group">
@@ -289,7 +236,6 @@
                 </form>
               </CardTemplate>
               <div v-if="showChat" class="chat-preview hidden md:flex">
-                <!-- Chat header with avatar, name and close button -->
                 <ChatHeader avatar="🤖" name="Bot Mélanie" :active="true" />
                 <ChatBubble
                   v-for="(bubble, idx) in chatBubbles"
@@ -299,7 +245,7 @@
                   :isTyping="bubble.isTyping"
                   :animationDelay="`${idx * 0.22}s`"
                 />
-                <BarChat  />
+                <BarChat />
               </div>
             </div>
           </div>
@@ -345,6 +291,8 @@ const CardTemplate = defineAsyncComponent(
 );
 
 import LoadingOverlay from "../components/LoadingOverlay.vue";
+import LargeAvatar from "../components/LargeAvatar.vue";
+import TabsContainer from "../components/TabsContainer.vue";
 
 const mode = ref<"login" | "register">("login");
 const username = ref("");
@@ -558,10 +506,27 @@ function onSubmit() {
   border-color: transparent transparent rgba(255, 255, 255, 0.1);
 }
 
-.avatar-glass {
-  box-shadow: 0 2px 12px 0 rgba(68, 102, 214, 0.13);
+.chat-header-avatar {
+  border-radius: 50%;
+  border: 2px solid rgba(68, 151, 214, 0.371);
+
+  background: linear-gradient(135deg, #4466d6 60%, #5b7fff 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35em;
+  font-weight: 700;
+  box-shadow: 1px 1px 8px 3px rgba(68, 102, 214, 0.893);
+  transition: background 0.25s, box-shadow 0.25s, color 0.25s;
+  margin-right: 0.3rem;
+  z-index: 20;
 }
 
+.chat-header-avatar:hover {
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #4b71ed 60%, #93a7ee 100%);
+}
 .auth-tabs-container {
   width: 100%;
   display: flex;
@@ -779,13 +744,23 @@ function onSubmit() {
   border-style: solid;
   border-color: rgba(255, 255, 255, 0.15) transparent;
 }
-
+.demo-large-avatars {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  gap: 1rem;
+  position: absolute;
+  top: -10%;
+  left: -520px;
+  animation: fade-in 0.9s ease-in-out;
+}
 .demo-avatars {
   display: flex;
   flex-direction: column;
   width: 100%;
   gap: 1rem;
   position: absolute;
+  top: 15%;
   left: -520px;
   animation: fade-in 0.9s ease-in-out;
 }

@@ -40,7 +40,8 @@ defineProps<{
 <style scoped>
 .chat-bubble {
   padding: 0.6rem 0.8rem;
-  margin: 0.1rem 0.1rem;
+  margin-top: 0.1rem;
+  margin-bottom: 0.1rem;
   border-radius: 0.8rem;
   max-width: 100%;
   width: min-content;
