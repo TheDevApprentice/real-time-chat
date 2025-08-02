@@ -143,14 +143,20 @@
             :key="idx"
             :class="[
               'chat-bubble',
-              bubble.speaker === 0 ? 'left bubble-enter-left' : 'right bubble-enter-right'
+              bubble.speaker === 0
+                ? 'left bubble-enter-left'
+                : 'right bubble-enter-right',
             ]"
             :style="{ animationDelay: `${idx * 0.22}s` }"
           >
             <span v-if="bubble.isTyping" class="typing-dots">
-  <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>
-</span>
-<span v-else>{{ bubble.text }}</span>
+              <span class="dot">.</span><span class="dot">.</span
+              ><span class="dot">.</span>
+            </span>
+            <span v-else>
+              {{ bubble.text
+              }}<span v-if="bubble.isWriting" class="typewriter-cursor">|</span>
+            </span>
           </div>
         </div>
       </div>
@@ -174,12 +180,15 @@ interface Bubble {
   speaker: number;
   text: string;
   isTyping?: boolean;
+  isWriting?: boolean;
 }
 const chatBubbles = ref<Bubble[]>([]);
 const messages = [
   { text: "Hello !", speaker: 0 },
   { text: "How are you ?", speaker: 1 },
-  { text: "Fine thx ! :)", speaker: 0 }
+  { text: "Fine thx ! :)", speaker: 0 },
+  { text: "Where do you want to go this weekend ?", speaker: 1 },
+  { text: "I want to go to the beach !", speaker: 0 },
 ];
 const typeMessage = async (text: string, bubble: Bubble) => {
   bubble.text = "";
@@ -187,28 +196,39 @@ const typeMessage = async (text: string, bubble: Bubble) => {
     bubble.text += char;
     await new Promise((r) => setTimeout(r, 30));
   }
-  await new Promise((r) => setTimeout(r, 800));
 };
 
 onMounted(async () => {
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
-    // Pour speaker 0, on affiche d'abord les points animés
     if (msg.speaker === 0) {
-      const bubble: Bubble = { speaker: msg.speaker, text: '', isTyping: true };
+      const bubble: Bubble = {
+        speaker: msg.speaker,
+        text: "",
+        isTyping: true,
+        isWriting: false,
+      };
       chatBubbles.value.push(bubble);
       await nextTick();
-      await new Promise(res => setTimeout(res, 900)); // durée d'animation des points
+      await new Promise((res) => setTimeout(res, 900));
       bubble.isTyping = false;
+      bubble.isWriting = true;
       await typeMessage(msg.text, bubble);
-      await new Promise(res => setTimeout(res, 120));
+      bubble.isWriting = false;
+      
+      await new Promise((res) => setTimeout(res, 120));
     } else {
-      // Pour speaker 1, pas d'animation points, juste typewriter
-      const bubble: Bubble = { speaker: msg.speaker, text: '' };
+      const bubble: Bubble = {
+        speaker: msg.speaker,
+        text: "",
+        isTyping: false,
+        isWriting: true,
+      };
       chatBubbles.value.push(bubble);
       await nextTick();
       await typeMessage(msg.text, bubble);
-      await new Promise(res => setTimeout(res, 120));
+      bubble.isWriting = false;
+      await new Promise((res) => setTimeout(res, 120));
     }
   }
 });
@@ -648,11 +668,17 @@ function onSubmit() {
   transform: translateY(0);
   animation: dot-bounce 1.2s infinite;
 }
-.dot:nth-child(2) { animation-delay: 0.2s; }
-.dot:nth-child(3) { animation-delay: 0.4s; }
+.dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
 
 @keyframes dot-bounce {
-  0%, 80%, 100% {
+  0%,
+  80%,
+  100% {
     transform: translateY(0);
     opacity: 0.7;
   }
@@ -665,5 +691,4 @@ function onSubmit() {
     opacity: 0.7;
   }
 }
-
 </style>
