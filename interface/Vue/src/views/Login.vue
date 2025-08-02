@@ -10,6 +10,8 @@
         <div class="auth-bg-container">
           <span class="auth-bg-circle circle-1"></span>
           <span class="auth-bg-circle circle-2"></span>
+          <span class="auth-bg-chat chat-1"></span>
+          <span class="auth-bg-chat chat-2"></span>
         </div>
         <div class="auth-card">
           <!-- Header/avatar stylisé -->
@@ -213,7 +215,9 @@ function onSubmit() {
 .auth-bg-circle {
   position: absolute;
   border-radius: 50%;
-  opacity: 0.3;
+  opacity: 0.2;
+  filter: blur(12px);
+  animation: float 12s ease-in-out infinite;
 }
 
 .circle-1 {
@@ -230,6 +234,47 @@ function onSubmit() {
   bottom: -80px;
   left: -80px;
   background: var(--page-secondary-color);
+}
+
+/* chat bubble decorations */
+.auth-bg-chat {
+  position: absolute;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.15);
+  /* filter: blur(4px); */
+  /* mix-blend-mode: overlay; */
+  animation: float 8s ease-in-out infinite;
+  z-index: 0;
+}
+.auth-bg-chat.chat-1 {
+  width: 100px;
+  height: 60px;
+  top: 40%;
+  left: 90%;
+}
+.auth-bg-chat.chat-1::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 20px;
+  border-width: 8px 8px 0;
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.1) transparent;
+}
+.auth-bg-chat.chat-2 {
+  width: 80px;
+  height: 50px;
+  bottom: 30%;
+  right: 50%;
+}
+.auth-bg-chat.chat-2::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  right: 15px;
+  border-width: 0 8px 8px;
+  border-style: solid;
+  border-color: transparent transparent rgba(255, 255, 255, 0.1);
 }
 
 /* elevate card above background shapes */
@@ -434,4 +479,11 @@ function onSubmit() {
   opacity: 0;
   transition: opacity 0.2s;
 }
+
+/* floating animation for background shapes */
+@keyframes float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(20px) scale(1.1); }
+}
+
 </style>
