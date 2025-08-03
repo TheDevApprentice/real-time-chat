@@ -213,7 +213,9 @@ onMounted(async () => {
 });
 
 import { useAuthStore } from "../stores/AuthStore";
+import { useRouter } from 'vue-router';
 const authStore = useAuthStore();
+const router = useRouter();
 
 function onSubmit() {
   console.log("Auth information Login Page received : ", authInformation);
@@ -258,8 +260,7 @@ function onSubmit() {
             authStore.error || "Erreur lors de la connexion";
         } else {
           authInformation.error = "";
-          // Redirection automatique après login si besoin (router.push('/home'))
-          // router.push('/home');
+          router.push('/home');
         }
       });
   }
