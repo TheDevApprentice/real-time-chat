@@ -11,15 +11,9 @@
                 { id: 'login', text: 'Connexion' },
                 { id: 'register', text: 'Créer mon compte' },
               ]"
+              :authInformation="authInformation"
               @update:mode="updateMode($event)"
-              @submit="
-                onSubmit(
-                  authInformation.username,
-                  authInformation.password,
-                  authInformation.confirm,
-                  authInformation.error
-                )
-              "
+              @submit="onSubmit"
             />
           </div>
           <!-- Version desktop : tout le layout -->
@@ -110,15 +104,9 @@
                   { id: 'login', text: 'Connexion' },
                   { id: 'register', text: 'Créer mon compte' },
                 ]"
+                :authInformation="authInformation"
                 @update:mode="updateMode($event)"
-                @submit="
-                  onSubmit(
-                    authInformation.username,
-                    authInformation.password,
-                    authInformation.confirm,
-                    authInformation.error
-                  )
-                "
+                @submit="onSubmit"
               />
               <div v-if="showChat" class="chat-preview hidden md:flex">
                 <ChatHeader avatar="🤖" name="Bot Mélanie" :active="true" />
@@ -305,29 +293,20 @@ onMounted(async () => {
   await new Promise((res) => setTimeout(res, 200));
 });
 
-function onSubmit(
-  usernameReceived: string,
-  passwordReceived: string,
-  confirmReceived: string,
-  errorReceived: string
-) {
-  authInformation.username = usernameReceived;
-  authInformation.password = passwordReceived;
-  authInformation.confirm = confirmReceived;
-  authInformation.error = errorReceived;
+function onSubmit() {
   console.log("Auth information Login Page received : ", authInformation);
   if (mode.value === "register") {
-    if (!usernameReceived || !passwordReceived || !confirmReceived) {
+    if (!authInformation.username || !authInformation.password || !authInformation.confirm) {
       authInformation.error = "Veuillez remplir tous les champs.";
       return;
     }
-    if (passwordReceived !== confirmReceived) {
+    if (authInformation.password !== authInformation.confirm) {
       authInformation.error = "Les mots de passe ne correspondent pas.";
       return;
     }
     // TODO: call register API/socket
   } else {
-    if (!usernameReceived || !passwordReceived) {
+    if (!authInformation.username || !authInformation.password) {
       authInformation.error =
         "Veuillez entrer votre nom d'utilisateur et mot de passe.";
       return;

@@ -11,15 +11,9 @@
                 { id: 'login', text: 'Connexion' },
                 { id: 'register', text: 'Créer mon compte' },
               ]"
+              :authInformation="authInformation"
               @update:mode="updateMode($event)"
-              @submit="
-                onSubmit(
-                  authInformation.username,
-                  authInformation.password,
-                  authInformation.confirm,
-                  authInformation.error
-                )
-              "
+              @submit="onSubmit"
             />
           </div>
           <!-- Version desktop : tout le layout -->
@@ -48,15 +42,9 @@
                   { id: 'login', text: 'Connexion' },
                   { id: 'register', text: 'Créer mon compte' },
                 ]"
+                :authInformation="authInformation"
                 @update:mode="updateMode($event)"
-                @submit="
-                  onSubmit(
-                    authInformation.username,
-                    authInformation.password,
-                    authInformation.confirm,
-                    authInformation.error
-                  )
-                "
+                @submit="onSubmit"
               />
               <div v-if="showChat" class="chat-preview hidden md:flex">
                 <ChatHeader avatar="🤖" name="Bot Mélanie" :active="true" />
@@ -84,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick, reactive, computed } from "vue";
+import { ref, onMounted, watch, nextTick, reactive } from "vue";
 import { defineAsyncComponent } from "vue";
 import type { Bubble } from "../components/chat/bubbleChat/ChatBubble.vue";
 import LoadingOverlay from "../components/LoadingOverlay.vue";
@@ -92,23 +80,10 @@ import LoadingOverlay from "../components/LoadingOverlay.vue";
 const realTimeFull = "Real‑Time";
 const chatFull = "Chat";
 const typedRealTime = ref("");
-const searchQuery = ref("");
 const typedChat = ref("");
 const showCursor = ref(false);
 const showChat = ref(false);
 
-const users = [
-  { name: "Bot Hugo", avatar: "🤖" },
-  { name: "Bot Lidya", avatar: "🧛" },
-  { name: "Bot Christine", avatar: "🤡" },
-];
-
-const filteredUsers = computed(() => {
-  if (!searchQuery.value) return [];
-  return users.filter(u =>
-    u.name.toLowerCase().includes(searchQuery.value.toLowerCase())
-  );
-});
 watch(typedChat, (val) => {
   showCursor.value = val.length < chatFull.length;
 });
@@ -125,21 +100,10 @@ const ChatHeader = defineAsyncComponent(
 const PageTemplate = defineAsyncComponent(
   () => import("../components/PageTemplate.vue")
 );
-const LargeAvatar = defineAsyncComponent(
-  () => import("../components/LargeAvatar.vue")
-);
 const AuthCard = defineAsyncComponent(
   () => import("../components/auth/AuthCard.vue")
 );
-const UserConversationItem = defineAsyncComponent(
-  () => import("../components/chat/UserConversationItem.vue")
-);
-const SearchBar = defineAsyncComponent(
-  () => import("../components/SearchBar.vue")
-);
-const SearchBarUserCard = defineAsyncComponent(
-  () => import("../components/SearchBarUserCard.vue")
-);
+
 const mode = reactive({ value: "login" });
 const authInformation = reactive({
   username: "",
@@ -153,17 +117,22 @@ function updateMode(modeChanged: string) {
   console.log("Login Page mode changed : ", modeChanged);
   mode.value = modeChanged;
 }
-function updateSearchQuery(searchQueryChanged: string) {
-  console.log("Login Page searchQuery changed : ", searchQueryChanged);
-  searchQuery.value = searchQueryChanged;
-}
+
 const chatBubbles = reactive<Bubble[]>([]);
 const messages = [
-  { text: "Hello ! 😀", speaker: 0, date: new Date().toLocaleDateString()},
-  { text: "How are you ?", speaker: 1, date: new Date().toLocaleDateString()},
-  { text: "Fine thx ! 😁", speaker: 0, date: new Date().toLocaleDateString()},
-  { text: "Where do you want to go this we ? 😄", speaker: 1, date: new Date().toLocaleDateString()},
-  { text: "I want to go to the beach ! 😃", speaker: 0, date: new Date().toLocaleDateString()},
+  { text: "Hello ! 😀", speaker: 0, date: new Date().toLocaleDateString() },
+  { text: "How are you ?", speaker: 1, date: new Date().toLocaleDateString() },
+  { text: "Fine thx ! 😁", speaker: 0, date: new Date().toLocaleDateString() },
+  {
+    text: "Where do you want to go this we ? 😄",
+    speaker: 1,
+    date: new Date().toLocaleDateString(),
+  },
+  {
+    text: "I want to go to the beach ! 😃",
+    speaker: 0,
+    date: new Date().toLocaleDateString(),
+  },
 ];
 
 const typeMessage = async (text: string, bubble: Bubble) => {
@@ -243,34 +212,56 @@ onMounted(async () => {
   await new Promise((res) => setTimeout(res, 200));
 });
 
-function onSubmit(
-  usernameReceived: string,
-  passwordReceived: string,
-  confirmReceived: string,
-  errorReceived: string
-) {
-  authInformation.username = usernameReceived;
-  authInformation.password = passwordReceived;
-  authInformation.confirm = confirmReceived;
-  authInformation.error = errorReceived;
+import { useAuthStore } from "../stores/AuthStore";
+const authStore = useAuthStore();
+
+function onSubmit() {
   console.log("Auth information Login Page received : ", authInformation);
   if (mode.value === "register") {
-    if (!usernameReceived || !passwordReceived || !confirmReceived) {
+    if (!authInformation.username || !authInformation.password || !authInformation.confirm) {
       authInformation.error = "Veuillez remplir tous les champs.";
       return;
     }
-    if (passwordReceived !== confirmReceived) {
+    if (authInformation.password !== authInformation.confirm) {
       authInformation.error = "Les mots de passe ne correspondent pas.";
       return;
     }
-    // TODO: call register API/socket
+    console.log(
+      "Registering user : ",
+      authInformation.username,
+      authInformation.password,
+      authInformation.confirm
+    );
+    authStore
+      .register(authInformation.username, authInformation.password, authInformation.confirm)
+      .then((success) => {
+        if (!success) {
+          authInformation.error =
+            authStore.error || "Erreur lors de la création du compte";
+        } else {
+          authInformation.error =
+            authStore.error || "Compte créé avec succès ! Connectez-vous.";
+          mode.value = "login";
+        }
+      });
   } else {
-    if (!usernameReceived || !passwordReceived) {
+    if (!authInformation.username || !authInformation.password) {
       authInformation.error =
         "Veuillez entrer votre nom d'utilisateur et mot de passe.";
       return;
     }
-    // TODO: call login API/socket
+    authStore
+      .login(authInformation.username, authInformation.password)
+      .then((success) => {
+        if (!success) {
+          authInformation.error =
+            authStore.error || "Erreur lors de la connexion";
+        } else {
+          authInformation.error = "";
+          // Redirection automatique après login si besoin (router.push('/home'))
+          // router.push('/home');
+        }
+      });
   }
 }
 </script>

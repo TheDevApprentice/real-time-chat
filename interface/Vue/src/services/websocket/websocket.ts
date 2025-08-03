@@ -1,12 +1,57 @@
  // src/services/websocket/websocket.ts
 
-// ===== WEBSOCKET SERVICE SECURISE & METIER =====
-// Toute authentification/session est gérée côté backend local via cookie sécurisé (HttpOnly/Secure)
-// Le frontend ne manipule aucun token, le cookie de session est envoyé automatiquement par Electron
+// ===== SOCKET.IO-CLIENT SERVICE POUR TOUTE L'APP =====
+import { io, Socket } from 'socket.io-client';
+
 
 const WS_URL = import.meta.env.VITE_WEBSOCKET_URL as string;
 const RECONNECT_INTERVAL = Number(import.meta.env.VITE_WEBSOCKET_RECONNECT_INTERVAL) || 5000;
 const DEBUG = import.meta.env.VITE_ENABLE_DEBUG_MODE === 'true';
+
+class SocketService {
+  private socket: Socket;
+
+  constructor() {
+    this.socket = io(WS_URL, {
+      autoConnect: false,
+      withCredentials: true,
+      transports: ['websocket'],
+    });
+    if (DEBUG) {
+      this.socket.onAny((event, ...args) => {
+        console.debug('[socket.io] event:', event, ...args);
+      });
+    }
+  }
+
+  connect() {
+    if (!this.socket.connected) this.socket.connect();
+  }
+  disconnect() {
+    if (this.socket.connected) this.socket.disconnect();
+  }
+  isConnected(): boolean {
+    return this.socket.connected;
+  }
+  on(event: string, cb: (...args: any[]) => void) {
+    this.socket.on(event, cb);
+  }
+  off(event: string, cb: (...args: any[]) => void) {
+    this.socket.off(event, cb);
+  }
+  emit(event: string, data?: any, cb?: (...args: any[]) => void) {
+    if (cb) {
+      this.socket.emit(event, data, cb);
+    } else {
+      this.socket.emit(event, data);
+    }
+  }
+}
+
+export const socketService = new SocketService();
+
+// Toute authentification/session est gérée côté backend local via cookie sécurisé (HttpOnly/Secure)
+// Le frontend ne manipule aucun token, le cookie de session est envoyé automatiquement par Electron
 
 // Types d'événements bas niveau
 export type WebSocketEvent = 'open' | 'close' | 'error' | 'message' | string;

@@ -1,6 +1,23 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import axiosService from '../services/axios/axios';
+import { socketService } from '../services/websocket/websocket';
+
+function setCookie(name: string, value: string, days = 7) {
+  let expires = '';
+  if (days) {
+    const date = new Date();
+    date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
+    expires = '; expires=' + date.toUTCString();
+  }
+  document.cookie = name + '=' + (value || '') + expires + '; path=/; SameSite=Lax';
+}
+function eraseCookie(name: string) {
+  document.cookie = name + '=; Max-Age=-99999999; path=/;';
+}
+function getCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  return match ? match[2] : null;
+}
 
 export const useAuthStore = defineStore('auth', () => {
   // --- State ---
@@ -12,166 +29,92 @@ export const useAuthStore = defineStore('auth', () => {
 
   // --- Actions ---
 
-  // Get user display name
-  async function getUserDisplayName() {
-    if (import.meta.env.DEV) {
-      console.log('[AuthStore] getUserDisplayName called');
-    }
+  // --- Auth via socket.io-client ---
+
+  function tryAutoAuth() {
+    const token = getCookie('sessionToken');
+    if (!token) return false;
     loading.value = true;
-    error.value = null;
-    try {
-      const response = await axiosService.get('/api/user/display-name');
-      if (import.meta.env.DEV) {
-        console.log('[AuthStore] getUserDisplayName response', response.data);
-      }
-      if (response.data && response.data.displayName) {
-        user.value = response.data.displayName;
-        return true;
+    socketService.connect();
+    socketService.emit('authenticate', { token }, (res: any) => {
+      if (res && res.success) {
+        isAuthenticated.value = true;
+        user.value = res.name;
+        error.value = null;
       } else {
-        error.value = 'Nom d\'affichage non trouvé';
-        return false;
+        isAuthenticated.value = false;
+        user.value = null;
+        error.value = res?.error || 'Session invalide';
+        eraseCookie('sessionToken');
       }
-    } catch (err: any) {
-      if (import.meta.env.DEV) {
-        console.error('[AuthStore] getUserDisplayName error', err);
-      }
-      error.value = err?.message + ' getUserDisplayName method' || 'Erreur lors de la récupération du nom d\'affichage.';
-      return false;
-    } finally {
       loading.value = false;
-    }
+    });
   }
 
-  // Get user preferences
-  async function getUserPreference() {
-    if (import.meta.env.DEV) {
-      console.log('[AuthStore] getUserPreference called');
-    }
-    loading.value = true;
-    preferences.value = null;
-    error.value = null;
-    try {
-      const response = await axiosService.get('/api/user/preference');
-      if (import.meta.env.DEV) {
-        console.log('[AuthStore] getUserPreference response', response.data);
-      }
-      if (response.data && response.data.preferences) {
-        preferences.value = response.data.preferences;
-        return true;
-      } else {
-        error.value = 'Préférences non trouvées';
-        return false;
-      }
-    } catch (err: any) {
-      if (import.meta.env.DEV) {
-        console.error('[AuthStore] getUserPreference error', err);
-      }
-      error.value = err?.message + ' getUserPreference method' || 'Erreur lors de la récupération des préférences.';
-      return false;
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  // Login
   async function login(username: string, password: string) {
-    if (import.meta.env.DEV) {
-      console.log('[AuthStore] login called', { username });
-    }
     loading.value = true;
     error.value = null;
-    try {
-      const response = await axiosService.post('/api/login', { username, password });
-      if (import.meta.env.DEV) {
-        console.log('[AuthStore] login response', response.data);
-      }
-      if (response.data.success) {
-        isAuthenticated.value = true;
-        const responseCsrf = await axiosService.get('/api/csrf');
-        console.log('[AuthStore] csrf response', responseCsrf.data);
-
-        const responseHello = await axiosService.get('/api/hello');
-        console.log('[AuthStore] hello response', responseHello.data);
-        return true;
-      } else {
-        error.value = response.data.message + ' login method';
-        isAuthenticated.value = false;
-        return false;
-      }
-    } catch (err: any) {
-      if (import.meta.env.DEV) {
-        console.error('[AuthStore] login error', err);
-      }
-      error.value = err?.message + ' login method' || 'Erreur lors de la connexion.';
-      isAuthenticated.value = false;
-      return false;
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  // Reauth
-  async function reauth() {
-    loading.value = true;
-    error.value = null;
-    try {
-      const response = await axiosService.get('/api/reauth');
-      if (response.data.success) {
-        isAuthenticated.value = true;
-        if (import.meta.env.DEV) {
-          console.log('[AuthStore] reauth success', response.data);
+    socketService.connect();
+    return new Promise<boolean>((resolve) => {
+      socketService.emit('login', { username, password }, (res: any) => {
+        if (res && res.error) {
+          error.value = res.error;
+          isAuthenticated.value = false;
+          user.value = null;
+          loading.value = false;
+          resolve(false);
+          return;
         }
-        return true;
-      } else {
-        isAuthenticated.value = false;
-        error.value = response.data.message;
-        return false;
-      }
-    } catch (err: any) {
-      if (import.meta.env.DEV) {
-        console.error('[AuthStore] reauth error', err);
-      }
-      isAuthenticated.value = false;
-      error.value = err?.message || 'Erreur lors de la reauth.';
-      return false;
-    } finally {
-      loading.value = false;
-    }
+        // Succès
+        isAuthenticated.value = true;
+        user.value = res.name;
+        error.value = null;
+        if (res.token) setCookie('sessionToken', res.token);
+        loading.value = false;
+        resolve(true);
+      });
+    });
   }
 
-  // Logout
-  async function logout() {
-    if (import.meta.env.DEV) {
-      console.log('[AuthStore] logout called');
-    }
+  async function register(username: string, password: string, confirm: string) {
     loading.value = true;
-    try {
-      await axiosService.get('/api/logout');
-      if (import.meta.env.DEV) {
-        console.log('[AuthStore] logout success');
-      }
-    } catch (err: any) {
-      if (import.meta.env.DEV) {
-        console.error('[AuthStore] logout error', err);
-      }
-      // Ignorer l'erreur
-    } finally {
-      isAuthenticated.value = false;
-      loading.value = false;
-    }
+    error.value = null;
+    socketService.connect();
+    return new Promise<boolean>((resolve) => {
+      socketService.emit('register', { username, password, confirmPassword: confirm }, (res: any) => {
+        if (res && res.error) {
+          error.value = res.error;
+          loading.value = false;
+          resolve(false);
+          return;
+        }
+        // Succès inscription, invite à se connecter
+        error.value = 'Compte créé avec succès ! Connectez-vous.';
+        loading.value = false;
+        resolve(true);
+      });
+    });
   }
 
+  async function logout() {
+    loading.value = true;
+    error.value = null;
+    socketService.emit('logout', {}, (res: any) => {
+      isAuthenticated.value = false;
+      user.value = null;
+      eraseCookie('sessionToken');
+      loading.value = false;
+    });
+  }
 
   return {
     isAuthenticated,
     user,
-    preferences,
     loading,
     error,
     login,
+    register,
     logout,
-    reauth,
-    getUserDisplayName,
-    getUserPreference
+    tryAutoAuth,
   };
 });

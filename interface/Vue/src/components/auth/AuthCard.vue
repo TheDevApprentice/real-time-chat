@@ -27,7 +27,7 @@
               </span>
               <input
                 id="username"
-                v-model="username"
+                v-model="authInformation.username"
                 type="text"
                 required
                 :placeholder="
@@ -56,7 +56,7 @@
               </span>
               <input
                 id="password"
-                v-model="password"
+                v-model="authInformation.password"
                 type="password"
                 required
                 placeholder="Mot de passe"
@@ -81,7 +81,7 @@
               </span>
               <input
                 id="confirm"
-                v-model="confirm"
+                v-model="authInformation.confirm"
                 type="password"
                 required
                 placeholder="Confirmer le mot de passe"
@@ -92,7 +92,7 @@
           <button type="submit" class="auth-btn">
             {{ mode === "login" ? "Se connecter" : "Créer mon compte" }}
           </button>
-          <p v-if="error" class="auth-error">{{ error }}</p>
+          <p v-if="authInformation.error" class="auth-error">{{ authInformation.error }}</p>
         </form>
       </CardTemplate>
     </template>
@@ -118,20 +118,16 @@ const TabsContainer = defineAsyncComponent(
   () => import("../TabsContainer.vue")
 );
 
-const username = ref("");
-const password = ref("");
-const confirm = ref("");
-const error = ref("");
-
 const props = defineProps<{
   mode: string;
   tabs: Tabs[];
-  onSubmit: (username: string, password?: string, confirm?: string, error?: string) => void;
+  authInformation: { username?: string, password?: string, confirm?: string, error?: string };
+  onSubmit: () => void;
 }>();
 
 const emit = defineEmits<{
   (e: "update:mode", mode: string): void;
-  (e: "submit", username: string, password?: string, confirm?: string, error?: string): void;
+  (e: "submit"): void;
 }>();
 
 function updateMode(mode: string) {
@@ -141,7 +137,7 @@ function updateMode(mode: string) {
 }
 
 function onSubmit() {
-  emit("submit", username.value, password.value, confirm.value, error.value);
+  emit("submit");
 }
 </script>
 
