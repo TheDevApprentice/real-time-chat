@@ -24,19 +24,6 @@
           </div>
           <!-- Version desktop : tout le layout -->
           <div class="hidden md:block">
-            <SearchBar :modelValue="searchQuery" @update:modelValue="updateSearchQuery($event)" placeholder="Rechercher" >
-              <template v-if="searchQuery && filteredUsers.length > 0" #results>
-                <SearchBarUserCard
-                  v-for="user in filteredUsers"
-                  :key="user.name"
-                  :avatar="user.avatar"
-                  :name="user.name"
-                />
-              </template>
-              <template v-if="searchQuery && filteredUsers.length === 0" #no-result>
-                <SearchBarUserCard :noresult="true" />
-              </template>
-            </SearchBar>
             <div class="auth-header-text improved-auth-header">
               <h1 class="auth-title gradient-title-v3">
                 <span class="title-rt">{{ typedRealTime }}</span>
@@ -54,55 +41,6 @@
               <div class="auth-bg-container">
                 <span class="auth-bg-circle circle-1"></span>
                 <span class="auth-bg-circle circle-2"></span>
-              </div>
-
-              <div class="flex flex-col">
-                <div v-if="showChat" class="demo-large-avatars md:flex">
-                  <LargeAvatar avatar="🤖" name="Bot Hugo" :mode="mode.value" />
-                  <LargeAvatar
-                    avatar="🧛"
-                    name="Bot Lidya"
-                    :mode="mode.value"
-                  />
-                  <LargeAvatar
-                    avatar=""
-                    name="Bot Christine"
-                    :mode="mode.value"
-                  />
-                  <LargeAvatar
-                    avatar=""
-                    name="Bot Frédéric"
-                    :mode="mode.value"
-                  />
-                  <LargeAvatar
-                    avatar="🕵"
-                    name="Bot Mistery"
-                    :mode="mode.value"
-                  />
-                </div>
-                <div v-if="showChat" class="demo-avatars md:flex">
-                  <ChatHeader avatar="🤖" name="Bot Hugo" :active="true" />
-                  <ChatHeader avatar="🧛" name="Bot Lidya" :active="true" />
-                  <ChatHeader avatar="🤡" name="Bot Christine" :active="true" />
-                  <ChatHeader avatar="🐺" name="Bot Frédéric" :active="true" />
-                  <ChatHeader avatar="🕵" name="Bot Mistery" :active="true" />
-                </div>
-                <div v-if="showChat" class="demo-chat-items md:flex">
-                  <UserConversationItem
-                    :participants="[
-                      { name: 'Bot Hugo', avatar: '🤖' },
-                    ]"
-                    title="Bot Hugo"
-                    :lastMessage="{ text: 'Hello ! 😀', author: 'Bot Hugo', date: new Date().toISOString(), isMine: false, unread: true }"
-                  />
-                  <UserConversationItem
-                    :participants="[
-                      { name: 'Bot Lidya', avatar: '🧛' },
-                    ]"
-                    title="Bot Lidya"
-                    :lastMessage="{ text: 'Hello ! 😀', author: 'Bot Lidya', date: (() => { const d = new Date(); d.setDate(d.getDate()-1); return d.toISOString(); })(), isMine: false, unread: true }"
-                  />
-                </div>
               </div>
               <AuthCard
                 :mode="mode.value"
@@ -406,37 +344,6 @@ function onSubmit(
   50% {
     transform: translateY(20px) scale(1.1);
   }
-}
-
-.demo-large-avatars {
-  display: flex;
-  flex-direction: row;
-  width: 100%;
-  gap: 1rem;
-  position: absolute;
-  top: -35%;
-  left: -520px;
-  animation: fade-in 0.9s ease-in-out;
-}
-.demo-avatars {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  gap: 1rem;
-  position: absolute;
-  top: -15%;
-  left: -520px;
-  animation: fade-in 0.9s ease-in-out;
-}
-.demo-chat-items {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  gap: 1rem;
-  position: absolute;
-  top: 70%;
-  left: -520px;
-  animation: fade-in 0.9s ease-in-out;
 }
 
 .chat-preview {
