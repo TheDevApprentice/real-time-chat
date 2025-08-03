@@ -80,11 +80,23 @@ const formattedDate = computed(() => {
   right: 0.8rem;
   top: 50%;
   transform: translateY(-50%);
-  width: 0.65em;
-  height: 0.65em;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: #ff4b7d;
-  box-shadow: 0 0 6px 0 #ff4b7d44;
+  background: #ff4e6a;
+  box-shadow: 0 0 0 0 rgba(255, 78, 106, 0.7);
+  animation: unread-pulse 1.1s cubic-bezier(0.4,0,0.6,1) infinite;
+}
+@keyframes unread-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 78, 106, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(255, 78, 106, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 78, 106, 0);
+  }
 }
 .avatars {
   display: flex;
@@ -92,6 +104,7 @@ const formattedDate = computed(() => {
   justify-content: center;
   position: relative;
   top: 0.66rem;
+  left: -0.8rem;
   min-width: 56px;
   max-width: 70px;
 }
@@ -107,6 +120,8 @@ const formattedDate = computed(() => {
 }
 .conv-content {
   flex: 1 1 0;
+  position: relative;
+  left: -0.9rem;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -137,11 +152,24 @@ const formattedDate = computed(() => {
 }
 .unread-dot {
   display: inline-block;
-  width: 0.55em;
-  height: 0.55em;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: #ff4b7d;
+  background: #ff4e6a;
   margin-left: 0.5em;
+  box-shadow: 0 0 0 0 rgba(255, 78, 106, 0.7);
+  animation: unread-pulse 1.1s cubic-bezier(0.4,0,0.6,1) infinite;
+}
+@keyframes unread-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 78, 106, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(255, 78, 106, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 78, 106, 0);
+  }
 }
 .conv-meta {
   display: flex;

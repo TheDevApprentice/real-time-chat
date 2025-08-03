@@ -9,7 +9,7 @@
               :mode="mode.value"
               :tabs="[
                 { id: 'login', text: 'Connexion' },
-                { id: 'register', text: 'Créer un compte' },
+                { id: 'register', text: 'Créer mon compte' },
               ]"
               @update:mode="updateMode($event)"
               @submit="
@@ -108,7 +108,7 @@
                 :mode="mode.value"
                 :tabs="[
                   { id: 'login', text: 'Connexion' },
-                  { id: 'register', text: 'Créer un compte' },
+                  { id: 'register', text: 'Créer mon compte' },
                 ]"
                 @update:mode="updateMode($event)"
                 @submit="
@@ -127,7 +127,9 @@
                   :key="idx"
                   :speaker="bubble.speaker"
                   :text="bubble.text"
+                  :date="bubble.date"
                   :isTyping="bubble.isTyping"
+                  :isWriting="bubble.isWriting"
                   :animationDelay="`${idx * 0.22}s`"
                 />
                 <BarChat />
@@ -217,13 +219,13 @@ function updateSearchQuery(searchQueryChanged: string) {
   console.log("Login Page searchQuery changed : ", searchQueryChanged);
   searchQuery.value = searchQueryChanged;
 }
-const chatBubbles = ref<Bubble[]>([]);
+const chatBubbles = reactive<Bubble[]>([]);
 const messages = [
-  { text: "Hello ! 😀", speaker: 0 },
-  { text: "How are you ?", speaker: 1 },
-  { text: "Fine thx ! 😁", speaker: 0 },
-  { text: "Where do you want to go this we ? 😄", speaker: 1 },
-  { text: "I want to go to the beach ! 😃", speaker: 0 },
+  { text: "Hello ! 😀", speaker: 0, date: new Date().toLocaleDateString()},
+  { text: "How are you ?", speaker: 1, date: new Date().toLocaleDateString()},
+  { text: "Fine thx ! 😁", speaker: 0, date: new Date().toLocaleDateString()},
+  { text: "Where do you want to go this we ? 😄", speaker: 1, date: new Date().toLocaleDateString()},
+  { text: "I want to go to the beach ! 😃", speaker: 0, date: new Date().toLocaleDateString()},
 ];
 
 const typeMessage = async (text: string, bubble: Bubble) => {
@@ -260,10 +262,11 @@ async function AnimChat() {
       const bubble: Bubble = {
         speaker: msg.speaker,
         text: "",
+        date: msg.date,
         isTyping: true,
         isWriting: false,
       };
-      chatBubbles.value.push(bubble);
+      chatBubbles.push(bubble);
       await nextTick();
       await new Promise((res) => setTimeout(res, 1000));
       bubble.isTyping = false;
@@ -278,11 +281,14 @@ async function AnimChat() {
       const bubble: Bubble = {
         speaker: msg.speaker,
         text: "",
-        isTyping: false,
-        isWriting: true,
+        date: msg.date,
+        isTyping: true,
+        isWriting: false,
       };
-      chatBubbles.value.push(bubble);
+      chatBubbles.push(bubble);
       await nextTick();
+      bubble.isTyping = false;
+      bubble.isWriting = true;
       await typeMessage(msg.text, bubble);
       bubble.isWriting = false;
       await nextTick();
@@ -435,7 +441,7 @@ function onSubmit(
 
 .chat-preview {
   position: absolute;
-  top: -4%;
+  top: -25%;
   right: -480px;
   width: auto;
   display: flex;

@@ -9,6 +9,7 @@
           :key="idx"
           :speaker="bubble.speaker"
           :text="bubble.text"
+          :date="bubble.date"
           :isTyping="bubble.isTyping"
           :animationDelay="`${idx * 0.22}s`"
         />
@@ -21,17 +22,9 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import PageTemplate from "../PageTemplate.vue";
-import ChatBubble from "./bubbleChat/ChatBubble.vue";
+import ChatBubble, { type Bubble } from "./bubbleChat/ChatBubble.vue";
 import BarChat from "./barChat/BarChat.vue";
 import ChatHeader from "./headerChat/ChatHeader.vue";
-
-// simulate chat conversation with typewriter effect
-interface Bubble {
-  speaker: number;
-  text: string;
-  isTyping?: boolean;
-  isWriting?: boolean;
-}
 
 const chatBubbles = ref<Bubble[]>([]);
 </script>

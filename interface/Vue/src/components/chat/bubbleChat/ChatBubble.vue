@@ -14,27 +14,45 @@
       <span class="typewriter" :style="{ '--typewriter-chars': text.length }">
         {{ text }}
       </span>
+      <span v-if="isTyping === false && isWriting === false" class="chat-bubble-date">{{ formattedDate }}</span>
     </span>
   </div>
 </template>
 
 <script setup lang="ts">
-import { defineProps } from "vue";
+import { computed, defineProps } from "vue";
 
 // simulate chat conversation with typewriter effect
 export interface Bubble {
   speaker: number;
   text: string;
-  isTyping?: boolean;
-  isWriting?: boolean;
+  date: string;
+  isTyping: boolean;
+  isWriting: boolean;
 }
 
-defineProps<{
+const props = defineProps<{
   speaker: number;
   text: string;
-  isTyping?: boolean;
+  date: string;
+  isTyping: boolean;
+  isWriting: boolean;
   animationDelay?: string;
 }>();
+
+const formattedDate = computed(() => {
+  const d = new Date(props.date);
+  if (isNaN(d.getTime())) return '';
+  const now = new Date();
+  const isToday = d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (isToday) {
+    return time;
+  } else {
+    const date = d.toLocaleDateString([], { day: 'numeric', month: 'numeric', year: '2-digit' });
+    return `${date}, ${time}`;
+  }
+});
 </script>
 
 <style scoped>
@@ -51,6 +69,10 @@ defineProps<{
   box-shadow: 0 2px 8px 0 rgba(68, 102, 214, 0.08);
   animation: bubble-pop 0.45s cubic-bezier(0.4, 1.6, 0.4, 1) both;
   word-break: break-word;
+}
+.chat-bubble-date {
+  font-size: 0.8rem;
+  color: #8ea6d6;
 }
 .chat-bubble.left {
   background: linear-gradient(90deg, #8b44d6c1 65%, #d65bff9d 100%);

@@ -90,7 +90,7 @@
             </div>
           </div>
           <button type="submit" class="auth-btn">
-            {{ mode === "login" ? "Se connecter" : "Créer un compte" }}
+            {{ mode === "login" ? "Se connecter" : "Créer mon compte" }}
           </button>
           <p v-if="error" class="auth-error">{{ error }}</p>
         </form>
