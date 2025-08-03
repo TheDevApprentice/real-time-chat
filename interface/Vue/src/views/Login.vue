@@ -24,6 +24,14 @@
           </div>
           <!-- Version desktop : tout le layout -->
           <div class="hidden md:block">
+            <SearchBar :modelValue="searchQuery" @update:modelValue="searchQuery = $event" placeholder="Rechercher" >
+              <template #results>
+                <SearchBarUserCard v-for="user in users" :key="user.name" :avatar="user.avatar" :name="user.name" />
+              </template>
+              <!-- <template #no-result>
+                <SearchBarUserCard :noresult="false"/>
+              </template> -->
+            </SearchBar>
             <div class="auth-header-text improved-auth-header">
               <h1 class="auth-title gradient-title-v3">
                 <span class="title-rt">{{ typedRealTime }}</span>
@@ -139,10 +147,16 @@ import LoadingOverlay from "../components/LoadingOverlay.vue";
 const realTimeFull = "Real‑Time";
 const chatFull = "Chat";
 const typedRealTime = ref("");
+const searchQuery = ref("");
 const typedChat = ref("");
 const showCursor = ref(false);
 const showChat = ref(false);
 
+const users = [
+  { name: "Bot Hugo", avatar: "🤖" },
+  { name: "Bot Lidya", avatar: "🧛" },
+  { name: "Bot Christine", avatar: "🤡" },
+];
 watch(typedChat, (val) => {
   showCursor.value = val.length < chatFull.length;
 });
@@ -168,7 +182,12 @@ const AuthCard = defineAsyncComponent(
 const UserConversationItem = defineAsyncComponent(
   () => import("../components/chat/UserConversationItem.vue")
 );
-
+const SearchBar = defineAsyncComponent(
+  () => import("../components/SearchBar.vue")
+);
+const SearchBarUserCard = defineAsyncComponent(
+  () => import("../components/SearchBarUserCard.vue")
+);
 const mode = reactive({ value: "login" });
 const authInformation = reactive({
   username: "",
