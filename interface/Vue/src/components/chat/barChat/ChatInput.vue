@@ -49,6 +49,7 @@ watch(() => props.modelValue, async () => {
   font-size: 1.03em;
   padding: 0.5em 1em;
   border-radius: 1rem;
+  margin-left: 0.2rem;
   box-shadow: none;
   transition: background 0.18s;
   resize: none;
