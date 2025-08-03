@@ -11,7 +11,7 @@
       class="search-input"
       :placeholder="placeholder"
       :value="modelValue"
-      @input="$emit('update:modelValue', modelValue)"
+      @input="event => $emit('update:modelValue', event.target.value)"
       @keydown.enter="$emit('search', modelValue)"
       :disabled="disabled"
     />

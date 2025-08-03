@@ -24,13 +24,18 @@
           </div>
           <!-- Version desktop : tout le layout -->
           <div class="hidden md:block">
-            <SearchBar :modelValue="searchQuery" @update:modelValue="searchQuery = $event" placeholder="Rechercher" >
-              <template #results>
-                <SearchBarUserCard v-for="user in users" :key="user.name" :avatar="user.avatar" :name="user.name" />
+            <SearchBar :modelValue="searchQuery" @update:modelValue="updateSearchQuery($event)" placeholder="Rechercher" >
+              <template v-if="searchQuery && filteredUsers.length > 0" #results>
+                <SearchBarUserCard
+                  v-for="user in filteredUsers"
+                  :key="user.name"
+                  :avatar="user.avatar"
+                  :name="user.name"
+                />
               </template>
-              <!-- <template #no-result>
-                <SearchBarUserCard :noresult="false"/>
-              </template> -->
+              <template v-if="searchQuery && filteredUsers.length === 0" #no-result>
+                <SearchBarUserCard :noresult="true" />
+              </template>
             </SearchBar>
             <div class="auth-header-text improved-auth-header">
               <h1 class="auth-title gradient-title-v3">
@@ -139,7 +144,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick, reactive } from "vue";
+import { ref, onMounted, watch, nextTick, reactive, computed } from "vue";
 import { defineAsyncComponent } from "vue";
 import type { Bubble } from "../components/chat/bubbleChat/ChatBubble.vue";
 import LoadingOverlay from "../components/LoadingOverlay.vue";
@@ -157,6 +162,13 @@ const users = [
   { name: "Bot Lidya", avatar: "🧛" },
   { name: "Bot Christine", avatar: "🤡" },
 ];
+
+const filteredUsers = computed(() => {
+  if (!searchQuery.value) return [];
+  return users.filter(u =>
+    u.name.toLowerCase().includes(searchQuery.value.toLowerCase())
+  );
+});
 watch(typedChat, (val) => {
   showCursor.value = val.length < chatFull.length;
 });
@@ -200,6 +212,10 @@ const authInformation = reactive({
 function updateMode(modeChanged: string) {
   console.log("Login Page mode changed : ", modeChanged);
   mode.value = modeChanged;
+}
+function updateSearchQuery(searchQueryChanged: string) {
+  console.log("Login Page searchQuery changed : ", searchQueryChanged);
+  searchQuery.value = searchQueryChanged;
 }
 const chatBubbles = ref<Bubble[]>([]);
 const messages = [
