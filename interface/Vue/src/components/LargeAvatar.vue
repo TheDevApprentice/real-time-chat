@@ -2,7 +2,7 @@
   <Suspense>
     <template #default>
       <div
-        v-if="mode !== 'login'"
+        v-if="mode !== undefined && mode !== 'login'"
         class="chat-header-avatar flex justify-center -mt-6"
       >
         <div
@@ -60,16 +60,19 @@ import { computed } from "vue";
 import LoadingOverlay from "../components/LoadingOverlay.vue";
 
 const props = defineProps<{
-  mode: string;
+  mode?: string | undefined;
   avatar?: string | undefined;
   name?: string | undefined;
 }>();
 
 const avatar = computed(() => {
-  return props.avatar || (props.name ? props.name.trim().split(/\s+/).map(w => w[0]).filter(Boolean).slice(0,1).concat(props.name.trim().split(/\s+/).map(w => w[0]).filter(Boolean).slice(-1)).join('').toUpperCase() : '🤖') || '🤖';
+  if (props.mode !== undefined) {
+    return props.avatar || (props.name ? props.name.trim().split(/\s+/).map(w => w[0]).filter(Boolean).slice(0,1).concat(props.name.trim().split(/\s+/).map(w => w[0]).filter(Boolean).slice(-1)).join('').toUpperCase() : '🤖');
+  }
+  else {
+    return props.avatar;
+  }
 });
-
-
 </script>
 
 <style scoped>
