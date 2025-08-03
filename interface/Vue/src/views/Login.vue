@@ -61,12 +61,34 @@
                     name="Bot Frédéric"
                     :mode="mode.value"
                   />
+                  <LargeAvatar
+                    avatar="🕵"
+                    name="Bot Mistery"
+                    :mode="mode.value"
+                  />
                 </div>
                 <div v-if="showChat" class="demo-avatars md:flex">
                   <ChatHeader avatar="🤖" name="Bot Hugo" :active="true" />
                   <ChatHeader avatar="🧛" name="Bot Lidya" :active="true" />
                   <ChatHeader avatar="🤡" name="Bot Christine" :active="true" />
                   <ChatHeader avatar="🐺" name="Bot Frédéric" :active="true" />
+                  <ChatHeader avatar="🕵" name="Bot Mistery" :active="true" />
+                </div>
+                <div v-if="showChat" class="demo-chat-items md:flex">
+                  <UserConversationItem
+                    :participants="[
+                      { name: 'Bot Hugo', avatar: '🤖' },
+                    ]"
+                    title="Bot Hugo"
+                    :lastMessage="{ text: 'Hello ! 😀', author: 'Bot Hugo', date: new Date().toISOString(), isMine: false, unread: true }"
+                  />
+                  <UserConversationItem
+                    :participants="[
+                      { name: 'Bot Lidya', avatar: '🧛' },
+                    ]"
+                    title="Bot Lidya"
+                    :lastMessage="{ text: 'Hello ! 😀', author: 'Bot Lidya', date: (() => { const d = new Date(); d.setDate(d.getDate()-1); return d.toISOString(); })(), isMine: false, unread: true }"
+                  />
                 </div>
               </div>
               <AuthCard
@@ -112,6 +134,7 @@
 import { ref, onMounted, watch, nextTick, reactive } from "vue";
 import { defineAsyncComponent } from "vue";
 import type { Bubble } from "../components/chat/bubbleChat/ChatBubble.vue";
+import LoadingOverlay from "../components/LoadingOverlay.vue";
 
 const realTimeFull = "Real‑Time";
 const chatFull = "Chat";
@@ -136,10 +159,15 @@ const ChatHeader = defineAsyncComponent(
 const PageTemplate = defineAsyncComponent(
   () => import("../components/PageTemplate.vue")
 );
-
-import LoadingOverlay from "../components/LoadingOverlay.vue";
-import LargeAvatar from "../components/LargeAvatar.vue";
-import AuthCard from "../components/auth/AuthCard.vue";
+const LargeAvatar = defineAsyncComponent(
+  () => import("../components/LargeAvatar.vue")
+);
+const AuthCard = defineAsyncComponent(
+  () => import("../components/auth/AuthCard.vue")
+);
+const UserConversationItem = defineAsyncComponent(
+  () => import("../components/chat/UserConversationItem.vue")
+);
 
 const mode = reactive({ value: "login" });
 const authInformation = reactive({
@@ -345,7 +373,7 @@ function onSubmit(
   width: 100%;
   gap: 1rem;
   position: absolute;
-  top: -10%;
+  top: -35%;
   left: -520px;
   animation: fade-in 0.9s ease-in-out;
 }
@@ -355,7 +383,17 @@ function onSubmit(
   width: 100%;
   gap: 1rem;
   position: absolute;
-  top: 15%;
+  top: -15%;
+  left: -520px;
+  animation: fade-in 0.9s ease-in-out;
+}
+.demo-chat-items {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 1rem;
+  position: absolute;
+  top: 70%;
   left: -520px;
   animation: fade-in 0.9s ease-in-out;
 }
