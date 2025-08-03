@@ -21,20 +21,23 @@
 <script setup lang="ts">
 import LoadingOverlay from "../components/LoadingOverlay.vue";
 
-interface Tabs {
+export interface Tabs {
   id: string;
   text: string;
 }
-defineProps<{
-  mode: "login" | "register";
+
+const props = defineProps<{
+  mode: string;
   tabs: Tabs[];
 }>();
 
 const emit = defineEmits<{
-  (e: "update:mode", mode: "login" | "register"): void;
+  (e: "update:mode", mode: string): void;
 }>();
 
-function updateMode(mode: "login" | "register") {
+function updateMode(mode: string) {
+  console.log("Tabs Container mode", props.mode);
+  console.log("Tabs Container tab.id", props.tabs.find(tab => tab.id === mode)?.id);
   emit("update:mode", mode);
 }
 </script>

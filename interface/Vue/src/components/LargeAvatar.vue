@@ -60,7 +60,7 @@ import { computed } from "vue";
 import LoadingOverlay from "../components/LoadingOverlay.vue";
 
 const props = defineProps<{
-  mode: "login" | "register";
+  mode: string;
   avatar?: string | undefined;
   name?: string | undefined;
 }>();
