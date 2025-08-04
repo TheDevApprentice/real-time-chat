@@ -7,42 +7,74 @@
             <div class="z-10 flex">
               <!-- Primary Sidebar -->
               <nav
-                class="flex-col h-[calc(100vh-0rem)] group flex-shrink-0 border transition-all duration-300 ease-in-out w-16 hover:w-56"
+                class="sidebar-glass flex flex-col h-screen w-23 hover:w-56 transition-all duration-300 ease-in-out group relative border-r border-custom"
               >
-                <div class="w-full flex flex-row gap-2 mt-8">
+                <!-- Avatar principal -->
+                <div class="flex mt-6 items-center gap-3 px-3 py-2">
                   <LargeAvatar avatar="🤖" name="Bot Hugo" />
-                  <h1
-                    class="text-2xl font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                  <span
+                    class="sidebar-title group-hover:opacity-100 opacity-0 transition-opacity font-bold text-lg"
+                    >Hugo</span
                   >
-                    Hugo
-                  </h1>
                 </div>
-                <div class="h-2 bg-gray-200 mt-2 mb-2 h-[1px]"></div>
-                <!-- Espacement divider -->
-                <div class="w-full flex flex-row gap-2 mt-8">
-                  <h1 class="mx-2">Rooms</h1>
-                  <button
-                    class="bg-gray-200 rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                <!-- Divider -->
+                <div class="sidebar-divider my-2"></div>
+                <!-- Rooms header + add -->
+                <div class="flex items-center justify-between px-2 py-2">
+                  <span
+                    class="sidebar-section transition-opacity"
+                    >Rooms</span
                   >
-                    +
+                  <button
+                    class="sidebar-btn-add opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                    title="Ajouter une room"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                      <circle
+                        cx="10"
+                        cy="10"
+                        r="10"
+                        fill="currentColor"
+                        opacity="0.15"
+                      />
+                      <path
+                        d="M10 5v10M5 10h10"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                      />
+                    </svg>
                   </button>
                 </div>
-
-                <div class="w-full flex flex-row gap-2 mt-8">
-                  <LargeAvatar avatar="🤖" name="Bot Hugo" />
-                  <h1
-                    class="text-2xl font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                <!-- Liste des rooms -->
+                <ul class="flex flex-col gap-2 mt-2 px-2">
+                  <li
+                    v-for="room in rooms"
+                    :key="room.id"
+                    :class="[
+                      'sidebar-room',
+                      room.active ? 'sidebar-room-active' : '',
+                    ]"
                   >
-                    Hugo
-                  </h1>
-                </div>
-                <div class="w-full flex flex-row gap-2 mt-8">
-                  <LargeAvatar avatar="🤖" name="Bot Hugo" />
-                  <h1
-                    class="text-2xl font-bold opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    Hugo
-                  </h1>
+                  <div class="flex mt-3">
+                    <LargeAvatar :avatar="room.avatar" :name="room.name" />
+                    <span
+                      class="sidebar-room-label group-hover:opacity-100 opacity-0 transition-opacity"
+                      >{{ room.name }}</span
+                    >
+                  </div>
+       
+                  </li>
+                </ul>
+                <div class="flex-1"></div>
+                <!-- Paramètres / déconnexion -->
+                <div class="flex flex-col gap-2 px-2 pb-4">
+                  <button class="sidebar-btn-action" title="Paramètres">
+                    <span>⚙️</span>
+                  </button>
+                  <button class="sidebar-btn-action" title="Déconnexion">
+                    <span>🚪</span>
+                  </button>
                 </div>
               </nav>
               <!-- Zone de chat -->
@@ -152,6 +184,13 @@ const messages = [
   },
 ];
 
+// Simulation de rooms pour la sidebar (à remplacer par tes vraies données)
+const rooms = [
+  { id: 1, name: "Hugo", avatar: "🤖", active: true },
+  { id: 2, name: "Mélanie", avatar: "🤖", active: false },
+  { id: 3, name: "Bot Alpha", avatar: "🤖", active: false },
+];
+
 const typeMessage = async (text: string, bubble: Bubble) => {
   bubble.text = "";
   for (const char of text) {
@@ -236,5 +275,73 @@ onMounted(async () => {
 }
 .scroll-bar::-webkit-scrollbar {
   display: none;
+}
+
+.sidebar-glass {
+  background: rgba(30, 34, 44, 0.72);
+  backdrop-filter: blur(14px);
+  border-right: 1.5px solid rgba(120, 120, 160, 0.12);
+}
+.sidebar-divider {
+  height: 1.5px;
+  background: #fff;
+  opacity: 0.08;
+  border-radius: 2px;
+}
+.sidebar-title {
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+.sidebar-section {
+  margin-left: 0.7rem;
+  color: #dbeafe;
+  font-weight: 600;
+  font-size: 1rem;
+}
+.sidebar-btn-add {
+  background: #6c47ff;
+  color: #fff;
+  border-radius: 50%;
+  width: 2.2rem;
+  height: 2.2rem;
+  font-size: 1.3rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.sidebar-btn-add:hover {
+  background: #825fff;
+  box-shadow: 0 4px 16px rgba(108, 71, 255, 0.12);
+}
+.sidebar-room {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+  color: #dbeafe;
+}
+.sidebar-room:hover,
+.sidebar-room-active {
+  background: rgba(108, 71, 255, 0.11);
+  color: #fff;
+}
+.sidebar-room-label {
+  font-weight: 500;
+  color: #dbeafe;
+  transition: color 0.2s;
+}
+.sidebar-btn-action {
+  background: transparent;
+  color: #b5b8c9;
+  border-radius: 8px;
+  padding: 0.5rem;
+  transition: background 0.2s, color 0.2s;
+  font-size: 1.3rem;
+}
+.sidebar-btn-action:hover {
+  background: rgba(108, 71, 255, 0.13);
+  color: #fff;
 }
 </style>
