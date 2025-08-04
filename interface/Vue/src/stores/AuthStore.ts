@@ -23,7 +23,6 @@ export const useAuthStore = defineStore('auth', () => {
   // --- State ---
   const isAuthenticated = ref(true);
   const user = ref<string | null>(null);
-  const preferences = ref<any | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
