@@ -7,7 +7,7 @@
             <div class="z-10 flex">
               <!-- Primary Sidebar -->
               <nav
-                class="sidebar-glass flex flex-col h-screen w-23 hover:w-56 transition-all duration-300 ease-in-out group relative border-r border-custom"
+                class="sidebar-glass flex flex-col h-screen w-27 hover:w-56 transition-all duration-300 ease-in-out group relative border-r border-custom"
               >
                 <!-- Avatar principal -->
                 <div class="flex mt-6 items-center gap-3 px-3 py-2">
@@ -68,11 +68,11 @@
                 </ul>
                 <div class="flex-1"></div>
                 <!-- Paramètres / déconnexion -->
-                <div class="flex flex-col gap-2 px-2 pb-4">
-                  <button class="sidebar-btn-action" title="Paramètres">
+                <div class="flex flex-row gap-2 justify-end pb-3">
+                  <button class="sidebar-btn-action px-1 mr-0.2 ml-1" title="Paramètres">
                     <span>⚙️</span>
                   </button>
-                  <button class="sidebar-btn-action" title="Déconnexion">
+                  <button class="sidebar-btn-action px-1 mr-1 ml-0.2" title="Déconnexion">
                     <span>🚪</span>
                   </button>
                 </div>
@@ -336,6 +336,7 @@ onMounted(async () => {
   background: transparent;
   color: #b5b8c9;
   border-radius: 8px;
+  width: 100%;
   padding: 0.5rem;
   transition: background 0.2s, color 0.2s;
   font-size: 1.3rem;
