@@ -145,25 +145,49 @@
                     </template>
                   </SearchBar>
                 </div>
-                <div
-                  class="flex h-full w-full flex-col gap-4 mt-[4.5rem] mx-1 py-0.2 rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in"
-                >
-                  <ChatHeader avatar="🤖" name="Bot Mélanie" :active="true" />
+                <div class="grid grid-cols-1 md:grid-cols-2">  <!-- The goal is to be able to place up to 4 chat in the desktop mode so the user can have mutliple chat open at the same time -->
+                    <!-- Chat 1 -->
                   <div
-                    class="scroll-bar flex flex-col h-[calc(80vh-6rem)] overflow-y-auto scroll-w-0 scroll-h-0"
+                    class="flex h-full w-full flex-col gap-4 mt-[4.5rem] mx-1 py-0.2 rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in"
                   >
-                    <ChatBubble
-                      v-for="(bubble, idx) in chatBubbles"
-                      :key="idx"
-                      :speaker="bubble.speaker"
-                      :text="bubble.text"
-                      :date="bubble.date"
-                      :isTyping="bubble.isTyping"
-                      :isWriting="bubble.isWriting"
-                      :animationDelay="`${idx * 0.22}s`"
-                    />
+                    <ChatHeader avatar="🤖" name="Bot Mélanie" :active="true" />
+                    <div
+                      class="scroll-bar flex flex-col h-[calc(80vh-6rem)] overflow-y-auto scroll-w-0 scroll-h-0"
+                    >
+                      <ChatBubble
+                        v-for="(bubble, idx) in chatBubbles"
+                        :key="idx"
+                        :speaker="bubble.speaker"
+                        :text="bubble.text"
+                        :date="bubble.date"
+                        :isTyping="bubble.isTyping"
+                        :isWriting="bubble.isWriting"
+                        :animationDelay="`${idx * 0.22}s`"
+                      />
+                    </div>
+                    <BarChat />
                   </div>
-                  <BarChat />
+                  <!-- Chat 2 -->
+                  <div
+                    class="flex h-full w-full flex-col gap-4 mt-[4.5rem] mx-3 rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in"
+                  >
+                    <ChatHeader avatar="🤖" name="Bot Mélanie" :active="true" />
+                    <div
+                      class="scroll-bar flex flex-col h-[calc(80vh-6rem)] overflow-y-auto scroll-w-0 scroll-h-0"
+                    >
+                      <ChatBubble
+                        v-for="(bubble, idx) in chatBubbles"
+                        :key="idx"
+                        :speaker="bubble.speaker"
+                        :text="bubble.text"
+                        :date="bubble.date"
+                        :isTyping="bubble.isTyping"
+                        :isWriting="bubble.isWriting"
+                        :animationDelay="`${idx * 0.22}s`"
+                      />
+                    </div>
+                    <BarChat />
+                  </div>
                 </div>
               </section>
             </div>
