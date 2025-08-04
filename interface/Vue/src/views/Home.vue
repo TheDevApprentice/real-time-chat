@@ -7,13 +7,14 @@
             <div class="z-10 flex">
               <!-- Primary Sidebar -->
               <nav
-                class="sidebar-glass flex flex-col h-screen w-27 hover:w-56 transition-all duration-300 ease-in-out group relative border-r border-custom"
+                class="sidebar-glass flex flex-col h-screen w-23 hover:w-56 transition-all duration-300 ease-in-out group relative border-r border-custom"
               >
-                <!-- Avatar principal -->
-                <div class="flex mt-6 items-center gap-3 px-3 py-2">
-                  <LargeAvatar avatar="🤖" name="Bot Hugo" />
+                <div class="flex mt-2">
+                  <div class="mt-6 ml-4">
+                    <LargeAvatar avatar="🤖" name="Bot Hugo" />
+                  </div>
                   <span
-                    class="sidebar-title group-hover:opacity-100 opacity-0 transition-opacity font-bold text-lg"
+                    class="sidebar-room-label mt-4.5 ml-2 group-hover:opacity-100 opacity-0 transition-opacity"
                     >Hugo</span
                   >
                 </div>
@@ -21,10 +22,7 @@
                 <div class="sidebar-divider my-2"></div>
                 <!-- Rooms header + add -->
                 <div class="flex items-center justify-between px-2 py-2">
-                  <span
-                    class="sidebar-section transition-opacity"
-                    >Rooms</span
-                  >
+                  <span class="sidebar-section transition-opacity">Rooms</span>
                   <button
                     class="sidebar-btn-add opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
                     title="Ajouter une room"
@@ -56,31 +54,96 @@
                       room.active ? 'sidebar-room-active' : '',
                     ]"
                   >
-                  <div class="flex mt-3">
-                    <LargeAvatar :avatar="room.avatar" :name="room.name" />
-                    <span
-                      class="sidebar-room-label group-hover:opacity-100 opacity-0 transition-opacity"
-                      >{{ room.name }}</span
-                    >
-                  </div>
-       
+                    <div class="flex mt-2 py-1">
+                      <div class="mt-3">
+                        <LargeAvatar :avatar="room.avatar" :name="room.name" />
+                      </div>
+                      <span
+                        class="sidebar-room-label mt-2 ml-2 group-hover:opacity-100 opacity-0 transition-opacity"
+                        >{{ room.name }}</span
+                      >
+                    </div>
                   </li>
                 </ul>
                 <div class="flex-1"></div>
                 <!-- Paramètres / déconnexion -->
                 <div class="flex flex-row gap-2 justify-end pb-3">
-                  <button class="sidebar-btn-action px-1 mr-0.2 ml-1" title="Paramètres">
-                    <span>⚙️</span>
+                  <button
+                    class="sidebar-btn-action px-1 mr-0.2 ml-1"
+                    title="Paramètres"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="22"
+                      height="22"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                      />
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                    </svg>
                   </button>
-                  <button class="sidebar-btn-action px-1 mr-1 ml-0.2" title="Déconnexion">
-                    <span>🚪</span>
+                  <button
+                    class="sidebar-btn-action sidebar-btn-logout px-1 mr-1 ml-0.2"
+                    title="Déconnexion"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="22"
+                      height="22"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6A2.25 2.25 0 0 0 5.25 5.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m-6-3h12m0 0l-3-3m3 3l-3 3"
+                        stroke="currentColor"
+                      />
+                    </svg>
                   </button>
                 </div>
               </nav>
               <!-- Zone de chat -->
               <section class="flex-1">
+                <div class="search-bar">
+            <SearchBar
+              v-if="authStore.isAuthenticated"
+              :modelValue="searchQuery"
+              @update:modelValue="updateSearchQuery($event)"
+              placeholder="Rechercher"
+            >
+              <template v-if="searchQuery && filteredUsers.length > 0" #results>
+                <SearchBarUserCard
+                  v-for="user in filteredUsers"
+                  :key="user.name"
+                  :avatar="user.avatar"
+                  :name="user.name"
+                />
+              </template>
+              <template
+                v-if="searchQuery && filteredUsers.length === 0"
+                #no-result
+              >
+                <SearchBarUserCard :noresult="true" />
+              </template>
+            </SearchBar>
+          </div>
                 <div
-                  class="flex h-full w-full flex-col gap-4 mt-[4.5rem] rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in"
+                  class="flex h-full w-full flex-col gap-4 mt-[4.5rem] mx-1 py-0.2 rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in"
                 >
                   <ChatHeader avatar="🤖" name="Bot Mélanie" :active="true" />
                   <div
@@ -114,7 +177,7 @@
 <script setup lang="ts">
 import LoadingOverlay from "../components/LoadingOverlay.vue";
 import LargeAvatar from "../components/LargeAvatar.vue";
-import { reactive, nextTick, onMounted, ref, defineAsyncComponent } from "vue";
+import { reactive, nextTick, onMounted, ref, defineAsyncComponent, computed } from "vue";
 import type { Bubble } from "../components/chat/bubbleChat/ChatBubble.vue";
 import { useAuthStore } from "../stores/AuthStore";
 
@@ -130,6 +193,31 @@ const ChatHeader = defineAsyncComponent(
 const PageTemplate = defineAsyncComponent(
   () => import("../components/PageTemplate.vue")
 );
+const SearchBar = defineAsyncComponent(
+  () => import("../components/SearchBar.vue")
+);
+const SearchBarUserCard = defineAsyncComponent(
+  () => import("../components/SearchBarUserCard.vue")
+);
+
+const searchQuery = ref("");
+const users = [
+  { name: "Bot Hugo", avatar: "🤖" },
+  { name: "Bot Lidya", avatar: "🧛" },
+  { name: "Bot Christine", avatar: "🤡" },
+];
+
+const filteredUsers = computed(() => {
+  if (!searchQuery.value) return [];
+  return users.filter((u) =>
+    u.name.toLowerCase().includes(searchQuery.value.toLowerCase())
+  );
+});
+
+function updateSearchQuery(searchQueryChanged: string) {
+  console.log("Login Page searchQuery changed : ", searchQueryChanged);
+  searchQuery.value = searchQueryChanged;
+}
 const authStore = useAuthStore();
 const realTimeFull = "Real‑Time";
 const chatFull = "Chat";
@@ -188,7 +276,7 @@ const messages = [
 const rooms = [
   { id: 1, name: "Hugo", avatar: "🤖", active: true },
   { id: 2, name: "Mélanie", avatar: "🤖", active: false },
-  { id: 3, name: "Bot Alpha", avatar: "🤖", active: false },
+  { id: 3, name: "Alpha", avatar: "🤖", active: false },
 ];
 
 const typeMessage = async (text: string, bubble: Bubble) => {
@@ -333,16 +421,59 @@ onMounted(async () => {
   transition: color 0.2s;
 }
 .sidebar-btn-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   color: #b5b8c9;
   border-radius: 8px;
   width: 100%;
   padding: 0.5rem;
-  transition: background 0.2s, color 0.2s;
+  box-shadow: 0 0px 6px 0px rgba(81, 146, 211, 0.57);
+  transition: background 0.2s, box-shadow 0.2s, color 0.2s;
   font-size: 1.3rem;
 }
 .sidebar-btn-action:hover {
   background: rgba(108, 71, 255, 0.13);
+  box-shadow: 0 0px 10px 0px rgba(81, 146, 211, 0.686);
   color: #fff;
 }
+
+.sidebar-btn-logout {
+  color: #ef4444;
+}
+.sidebar-btn-logout:hover {
+  background: rgba(239, 68, 68, 0.13);
+  color: #fff;
+}
+.search-bar {
+  display: flex;
+  justify-self: center;
+  align-self: center;
+  gap: 0.7rem;
+  z-index: 30;
+  position: absolute;
+  padding: 1.3rem 2.2rem 0.5rem 0;
+  top: -0.3rem;
+  transform: translateX(2%);
+}
+/* button {
+  color: #090909;
+  padding: 0.7em 1.7em;
+  font-size: 18px;
+  border-radius: 0.5em;
+  background: #e8e8e8;
+  cursor: pointer;
+  border: 1px solid #e8e8e8;
+  transition: all 0.3s;
+  box-shadow: 6px 6px 12px #c5c5c5, -6px -6px 12px #ffffff;
+}
+
+button:hover {
+  border: 1px solid white;
+}
+
+button:active {
+  box-shadow: 4px 4px 12px #c5c5c5, -4px -4px 12px #ffffff;
+} */
 </style>
