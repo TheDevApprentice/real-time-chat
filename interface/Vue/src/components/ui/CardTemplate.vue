@@ -11,8 +11,9 @@
 <style scoped>
 /* elevate card above background shapes */
 .auth-card {
-  position: relative;
   z-index: 1;
+  height: 100%;
+  min-height: 450px;
   width: 360px;
 }
 
@@ -29,6 +30,5 @@
   border: 1.5px solid rgba(68, 102, 214, 0.1);
   padding: 2.5rem 1.5rem 2rem 1.5rem;
   animation: card-fade-slide-in 0.7s cubic-bezier(0.4, 1.3, 0.4, 1) both;
-  position: relative;
 }
 </style>

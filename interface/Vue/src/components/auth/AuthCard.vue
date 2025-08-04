@@ -103,7 +103,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
 import LoadingOverlay from "../LoadingOverlay.vue";
 import type { Tabs } from "../TabsContainer.vue";
 import { defineAsyncComponent } from "vue";
@@ -149,6 +148,7 @@ function onSubmit() {
   border-radius: 1.5rem;
   padding: 0;
   min-width: 0;
+  height: 100%;
   width: 100%;
   display: flex;
   flex-direction: column;
