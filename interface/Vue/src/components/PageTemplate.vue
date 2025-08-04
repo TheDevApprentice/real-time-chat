@@ -8,9 +8,7 @@
             <LanguageSwitcher />
           </div>
         </div>
-        <div class="">
-          <slot name="content" />
-        </div>
+        <slot name="content" />
       </div>
     </template>
     <template #fallback>
@@ -43,12 +41,6 @@ const LoadingOverlay = defineAsyncComponent(() => import('./LoadingOverlay.vue')
   gap: 0.7rem;
 }
 .page-template {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
   background: var(--color-background);
 }
 </style>

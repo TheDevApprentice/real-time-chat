@@ -1,6 +1,8 @@
 <template>
-  <router-view />
-  <PwaStatus />
+  <div class="w-[100vw] h-[100vh] items-center justify-center flex">
+    <router-view />
+    <PwaStatus />
+  </div>
 </template>
 
 <script setup lang="ts">
