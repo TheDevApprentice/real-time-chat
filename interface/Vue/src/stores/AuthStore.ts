@@ -21,7 +21,7 @@ function getCookie(name: string): string | null {
 
 export const useAuthStore = defineStore('auth', () => {
   // --- State ---
-  const isAuthenticated = ref(false);
+  const isAuthenticated = ref(true);
   const user = ref<string | null>(null);
   const preferences = ref<any | null>(null);
   const loading = ref(false);
