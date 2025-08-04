@@ -120,28 +120,31 @@
               <!-- Zone de chat -->
               <section class="flex-1">
                 <div class="search-bar">
-            <SearchBar
-              v-if="authStore.isAuthenticated"
-              :modelValue="searchQuery"
-              @update:modelValue="updateSearchQuery($event)"
-              placeholder="Rechercher"
-            >
-              <template v-if="searchQuery && filteredUsers.length > 0" #results>
-                <SearchBarUserCard
-                  v-for="user in filteredUsers"
-                  :key="user.name"
-                  :avatar="user.avatar"
-                  :name="user.name"
-                />
-              </template>
-              <template
-                v-if="searchQuery && filteredUsers.length === 0"
-                #no-result
-              >
-                <SearchBarUserCard :noresult="true" />
-              </template>
-            </SearchBar>
-          </div>
+                  <SearchBar
+                    v-if="authStore.isAuthenticated"
+                    :modelValue="searchQuery"
+                    @update:modelValue="updateSearchQuery($event)"
+                    placeholder="Rechercher"
+                  >
+                    <template
+                      v-if="searchQuery && filteredUsers.length > 0"
+                      #results
+                    >
+                      <SearchBarUserCard
+                        v-for="user in filteredUsers"
+                        :key="user.name"
+                        :avatar="user.avatar"
+                        :name="user.name"
+                      />
+                    </template>
+                    <template
+                      v-if="searchQuery && filteredUsers.length === 0"
+                      #no-result
+                    >
+                      <SearchBarUserCard :noresult="true" />
+                    </template>
+                  </SearchBar>
+                </div>
                 <div
                   class="flex h-full w-full flex-col gap-4 mt-[4.5rem] mx-1 py-0.2 rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in"
                 >
@@ -177,7 +180,14 @@
 <script setup lang="ts">
 import LoadingOverlay from "../components/LoadingOverlay.vue";
 import LargeAvatar from "../components/LargeAvatar.vue";
-import { reactive, nextTick, onMounted, ref, defineAsyncComponent, computed } from "vue";
+import {
+  reactive,
+  nextTick,
+  onMounted,
+  ref,
+  defineAsyncComponent,
+  computed,
+} from "vue";
 import type { Bubble } from "../components/chat/bubbleChat/ChatBubble.vue";
 import { useAuthStore } from "../stores/AuthStore";
 
@@ -399,7 +409,24 @@ onMounted(async () => {
 .sidebar-btn-add:hover {
   background: #825fff;
   box-shadow: 0 4px 16px rgba(108, 71, 255, 0.12);
+  animation: pulse-btn 0.7s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+@keyframes pulse-btn {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 4px 16px rgba(108, 71, 255, 0.12);
+  }
+  50% {
+    transform: scale(1.11);
+    box-shadow: 0 0px 24px 4px rgba(108, 71, 255, 0.17);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 4px 16px rgba(108, 71, 255, 0.12);
+  }
+}
+
 .sidebar-room {
   display: flex;
   align-items: center;
