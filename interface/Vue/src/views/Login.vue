@@ -184,7 +184,7 @@ async function AnimChat() {
         speaker: msg.speaker,
         text: "",
         date: msg.date,
-        isTyping: true,
+        isTyping: false,
         isWriting: false,
       };
       chatBubbles.push(bubble);
