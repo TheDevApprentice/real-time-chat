@@ -68,7 +68,7 @@
                   </li>
                 </ul>
                 <div class="sidebar-divider my-2"></div>
-                <!-- Rooms header + add -->
+                <!-- Amis header + add -->
                 <div class="flex items-center justify-between px-2 py-2">
                   <span class="sidebar-section transition-opacity">Amis</span>
                   <button
@@ -188,7 +188,7 @@
                   </SearchBar>
                 </div>
                 <div
-                  class="h-full w-full grid grid-cols-[320px_minmax(900px,_1fr)_0px] grid-rows-1 gap-2 mx-1 mt-[4.5rem] bg-white/10 rounded-xl shadow-lg animate-fade-in"
+                  class="h-full w-full grid grid-cols-[300px_minmax(800px,_1fr)_0px] grid-rows-1 gap-2 mx-1 mt-[4.5rem] bg-white/10 rounded-xl shadow-lg animate-fade-in"
                 >
                   <div class="col-span-1 row-span-1">
                     <UserConversationItem
@@ -202,7 +202,7 @@
                       :active="conv.active"
                     />
                   </div>
-                  <div class="col-span-1 row-span-1">
+                  <div class="col-span-1">
                     <ChatGrid
                       :openedChats="openedChats"
                       :nbOpenChats="nbOpenChats"

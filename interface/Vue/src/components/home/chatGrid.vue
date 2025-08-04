@@ -1,5 +1,5 @@
 <template>
-  <div :class="`grid grid-cols-1 md:grid-cols-${openedChats.length} `">
+  <div :class="`grid grid-cols-1 md:grid-cols-${nbOpenChats} `">
     <div
       v-for="(chat, idx) in openedChats"
       :key="chat.id"
