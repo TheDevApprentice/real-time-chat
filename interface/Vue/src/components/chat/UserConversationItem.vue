@@ -1,5 +1,5 @@
  <template>
-  <div class="user-conv-item" :class="{ active, unread: lastMessage?.unread }" @click="$emit('click')">
+  <div :class="[ displayFullContent ? 'user-conv-item' : 'user-conv-item-full', { active, unread: lastMessage?.unread && displayFullContent && displayDate }]" @click="$emit('click')">
     <div class="avatars">
       <LargeAvatar
         v-for="(user, idx) in displayedParticipants"
@@ -9,7 +9,7 @@
       />
       <span v-if="extraCount > 0" class="extra-count">+{{ extraCount }}</span>
     </div>
-    <div class="conv-content">
+    <div v-if="displayFullContent" class="conv-content ">
       <div class="conv-title">
         <span>{{ title }}</span>
       </div>
@@ -19,7 +19,7 @@
         <span v-if="lastMessage?.unread" class="unread-dot"></span>
       </div>
     </div>
-    <div class="conv-meta">
+    <div v-if="displayFullContent && displayDate" class="conv-meta">
       <span class="date">{{ formattedDate }}</span>
     </div>
   </div>
@@ -30,6 +30,8 @@ import { computed } from 'vue';
 import LargeAvatar from '../LargeAvatar.vue';
 
 const props = defineProps<{
+  displayFullContent?: boolean;
+  displayDate?: boolean;
   participants: { name: string, avatar: string }[];
   title?: string;
   lastMessage?: { text: string, author: string, date: string, isMine: boolean, unread: boolean };
@@ -56,6 +58,19 @@ const formattedDate = computed(() => {
 </script>
 
 <style scoped>
+.user-conv-item-full {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 0.75rem 1.1rem;
+  border-radius: 1.2rem;
+  background: rgba(255,255,255,0.04);
+  transition: background 0.18s, box-shadow 0.18s;
+  cursor: pointer;
+  margin-bottom: 0.4rem;
+  position: relative;
+}
 .user-conv-item {
   display: flex;
   align-items: center;

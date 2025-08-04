@@ -7,7 +7,9 @@
             <div class="z-10 flex">
               <!-- Primary Sidebar -->
               <nav
-                class="sidebar-glass flex flex-col h-screen w-23 hover:w-56 transition-all duration-300 ease-in-out group relative border-r border-custom"
+                class="sidebar-glass flex flex-col h-screen w-23 hover:w-66 transition-all duration-300 ease-in-out group relative border-r border-custom"
+                @mouseenter="sidebarHovered = true"
+                @mouseleave="sidebarHovered = false"
               >
                 <div class="flex mt-2">
                   <div class="mt-6 ml-4">
@@ -90,38 +92,19 @@
                     </svg>
                   </button>
                 </div>
-                <div class="flex flex-col gap-2 mt-2 px-2">
-                  <UserConversationItem
-                    :participants="[{ name: 'Bot Lidya', avatar: '🧛' }]"
-                    title="Bot Lidya"
-                    :lastMessage="{
-                      text: 'Hello ! 😀',
-                      author: 'Bot Lidya',
-                      date: (() => {
-                        const d = new Date();
-                        d.setDate(d.getDate() - 1);
-                        return d.toISOString();
-                      })(),
-                      isMine: false,
-                      unread: true,
-                    }"
-                  />
-                  <UserConversationItem
-                    :participants="[{ name: 'Bot Lidya', avatar: '🧛' }]"
-                    title="Bot Lidya"
-                    :lastMessage="{
-                      text: 'Hello ! 😀',
-                      author: 'Bot Lidya',
-                      date: (() => {
-                        const d = new Date();
-                        d.setDate(d.getDate() - 1);
-                        return d.toISOString();
-                      })(),
-                      isMine: false,
-                      unread: true,
-                    }"
-                  />
-                  
+                <div class="flex mt-2 px-2">
+                  <div class="flex flex-col gap-2">
+                    <UserConversationItem
+                      :displayFullContent="sidebarHovered"
+                      :displayDate="false"
+                      v-for="conv in mockConversations"
+                      :key="conv.id"
+                      :participants="conv.participants"
+                      :title="conv.title"
+                      :lastMessage="conv.lastMessage"
+                      :active="conv.active"
+                    />
+                  </div>
                 </div>
                 <div class="flex-1"></div>
                 <!-- Paramètres / déconnexion -->
@@ -204,12 +187,41 @@
                     </template>
                   </SearchBar>
                 </div>
-                <!-- <ChatGrid /> -->
-                 <!-- Ici on va designé la liste de UserConversationItem  -->
+                <div
+                  class="h-full w-full grid grid-cols-[320px_minmax(900px,_1fr)_0px] grid-rows-1 gap-2 mx-1 mt-[4.5rem] bg-white/10 rounded-xl shadow-lg animate-fade-in"
+                >
+                  <div class="col-span-1 row-span-1">
+                    <UserConversationItem
+                      :displayFullContent="true"
+                      :displayDate="true"
+                      v-for="conv in mockConversations"
+                      :key="conv.id"
+                      :participants="conv.participants"
+                      :title="conv.title"
+                      :lastMessage="conv.lastMessage"
+                      :active="conv.active"
+                    />
+                  </div>
+                  <div class="col-span-1 row-span-1">
+                    <ChatGrid
+                      :openedChats="openedChats"
+                      :nbOpenChats="nbOpenChats"
+                      :messages="messages"
+                      :chatBubbles="chatBubbles"
+                    />
+                  </div>
+                </div>
               </section>
             </div>
           </div>
-          <InfoModal v-if="showInfoModal" headerTitle="Déconnexion" message="Êtes-vous sûr de vouloir vous déconnecter ?" type="warning" @onok="logout" @close="closeInfoModal" />
+          <InfoModal
+            v-if="showInfoModal"
+            headerTitle="Déconnexion"
+            message="Êtes-vous sûr de vouloir vous déconnecter ?"
+            type="warning"
+            @onok="logout"
+            @close="closeInfoModal"
+          />
         </template>
       </PageTemplate>
     </template>
@@ -222,28 +234,14 @@
 <script setup lang="ts">
 import LoadingOverlay from "../components/LoadingOverlay.vue";
 import LargeAvatar from "../components/LargeAvatar.vue";
-import {
-  reactive,
-  nextTick,
-  onMounted,
-  ref,
-  defineAsyncComponent,
-  computed,
-} from "vue";
+import { reactive, onMounted, ref, defineAsyncComponent, computed } from "vue";
 import type { Bubble } from "../components/chat/bubbleChat/ChatBubble.vue";
 import { useAuthStore } from "../stores/AuthStore";
 import UserConversationItem from "../components/chat/UserConversationItem.vue";
 import InfoModal from "../components/InfoModal.vue";
-import ChatGrid from "../components/home/chatGrid.vue";
 
-const ChatBubble = defineAsyncComponent(
-  () => import("../components/chat/bubbleChat/ChatBubble.vue")
-);
-const BarChat = defineAsyncComponent(
-  () => import("../components/chat/barChat/BarChat.vue")
-);
-const ChatHeader = defineAsyncComponent(
-  () => import("../components/chat/headerChat/ChatHeader.vue")
+const ChatGrid = defineAsyncComponent(
+  () => import("../components/home/chatGrid.vue")
 );
 const PageTemplate = defineAsyncComponent(
   () => import("../components/PageTemplate.vue")
@@ -254,7 +252,7 @@ const SearchBar = defineAsyncComponent(
 const SearchBarUserCard = defineAsyncComponent(
   () => import("../components/SearchBarUserCard.vue")
 );
-
+const sidebarHovered = ref(false);
 const searchQuery = ref("");
 const users = [
   { name: "Bot Hugo", avatar: "🤖" },
@@ -275,13 +273,7 @@ function updateSearchQuery(searchQueryChanged: string) {
 }
 
 const authStore = useAuthStore();
-const realTimeFull = "Real‑Time";
-const chatFull = "Chat";
-const typedRealTime = ref("");
-const typedChat = ref("");
 const showInfoModal = ref(false);
-const showCursor = ref(false);
-const showChat = ref(false);
 const chatBubbles = reactive<Bubble[]>([]);
 const messages = [
   { text: "Hello ! 😀", speaker: 0, date: new Date().toLocaleDateString() },
@@ -336,89 +328,43 @@ const rooms = [
 ];
 
 // MOCK pour la démo : à remplacer par ta logique d'ouverture réelle
-const nbChatsOuverts = 1; // Change ce nombre pour tester 1, 2, 3 ou 4 chats
+const nbOpenChats = ref(4); // Change ce nombre pour tester 1, 2, 3 ou 4 chats
 const openedChats = [
   { id: 1, name: "Hugo", avatar: "🤖", bubbles: chatBubbles },
   { id: 2, name: "Mélanie", avatar: "🤖", bubbles: chatBubbles },
   { id: 3, name: "Alpha", avatar: "🤖", bubbles: chatBubbles },
   { id: 4, name: "Lidya", avatar: "🧛", bubbles: chatBubbles },
-].slice(0, nbChatsOuverts); // Simule l'ouverture de 1 à 4 chats
+].slice(0, nbOpenChats.value); // Simule l'ouverture de 1 à 4 chats
 
-const typeMessage = async (text: string, bubble: Bubble) => {
-  bubble.text = "";
-  for (const char of text) {
-    bubble.text += char;
-    await nextTick();
-    await new Promise((r) => setTimeout(r, 70));
-  }
-};
-
-async function AnimTypeTitle() {
-  // Typewriter pour "Real‑Time"
-  for (let i = 0; i <= realTimeFull.length; i++) {
-    typedRealTime.value = realTimeFull.slice(0, i);
-    await new Promise((res) => setTimeout(res, 60));
-  }
-  await new Promise((res) => setTimeout(res, 200));
-  // Typewriter pour "Chat"
-  for (let i = 0; i <= chatFull.length; i++) {
-    typedChat.value = chatFull.slice(0, i);
-    await new Promise((res) => setTimeout(res, 90));
-  }
-  showCursor.value = false;
-}
-
-async function AnimChat() {
-  showChat.value = true;
-  await new Promise((res) => setTimeout(res, 200));
-
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
-    if (msg.speaker === 0) {
-      const bubble: Bubble = {
-        speaker: msg.speaker,
-        text: "",
-        date: msg.date,
-        isTyping: true,
-        isWriting: false,
-      };
-      chatBubbles.push(bubble);
-      await nextTick();
-      await new Promise((res) => setTimeout(res, 1000));
-      bubble.isTyping = false;
-      bubble.isWriting = true;
-      await nextTick();
-      await typeMessage(msg.text, bubble);
-      bubble.isWriting = false;
-      await nextTick();
-      await new Promise((res) => setTimeout(res, 120));
-      await nextTick();
-    } else {
-      const bubble: Bubble = {
-        speaker: msg.speaker,
-        text: "",
-        date: msg.date,
-        isTyping: false,
-        isWriting: false,
-      };
-      chatBubbles.push(bubble);
-      await nextTick();
-      bubble.isWriting = true;
-      await typeMessage(msg.text, bubble);
-      bubble.isWriting = false;
-      await nextTick();
-      await new Promise((res) => setTimeout(res, 120));
-      await nextTick();
-    }
-  }
-}
-
-onMounted(async () => {
-  await AnimTypeTitle();
-  await new Promise((res) => setTimeout(res, 200));
-  await AnimChat();
-  await new Promise((res) => setTimeout(res, 200));
-});
+const mockConversations = [
+  {
+    id: 1,
+    participants: [{ name: "Bot Lidya", avatar: "🧛" }],
+    title: "Bot Lidya",
+    lastMessage: {
+      text: "Hello ! 😀",
+      author: "Bot Lidya",
+      date: new Date().toISOString(),
+      isMine: false,
+      unread: true,
+    },
+    active: false,
+  },
+  {
+    id: 2,
+    participants: [{ name: "Mélanie", avatar: "🤖" }],
+    title: "Bot Mélanie",
+    lastMessage: {
+      text: "À tout de suite !",
+      author: "Moi",
+      date: new Date(Date.now() - 3600 * 1000).toISOString(),
+      isMine: true,
+      unread: false,
+    },
+    active: false,
+  },
+  // Ajoute d'autres mocks si besoin
+];
 
 function askLogout() {
   openInfoModal();
@@ -460,7 +406,7 @@ function closeInfoModal() {
   border-radius: 2px;
 }
 .sidebar-title {
-    color: var(--color-text);
+  color: var(--color-text);
   letter-spacing: 0.02em;
 }
 .sidebar-section {
@@ -509,13 +455,11 @@ function closeInfoModal() {
   cursor: pointer;
   transition: background 0.2s;
   color: var(--color-text);
-
 }
 .sidebar-room:hover,
 .sidebar-room-active {
   background: rgba(108, 71, 255, 0.11);
   color: var(--color-text);
-
 }
 .sidebar-room-label {
   font-weight: 500;

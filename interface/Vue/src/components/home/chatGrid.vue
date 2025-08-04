@@ -3,7 +3,7 @@
     <div
       v-for="(chat, idx) in openedChats"
       :key="chat.id"
-      class="flex h-full w-full flex-col gap-4 mt-[4.5rem] mx-1 rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in"
+      class="flex flex-col gap-4 mx-1 rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in"
     >
       <ChatHeader :avatar="chat.avatar" :name="chat.name" :active="true" />
       <div class="scroll-bar flex flex-col h-[calc(80vh-6rem)] overflow-y-auto">
@@ -20,16 +20,8 @@
 </template>
 
 <script setup lang="ts">
-import {
-  reactive,
-  nextTick,
-  onMounted,
-  ref,
-  defineAsyncComponent,
-  computed,
-} from "vue";
+import { nextTick, onMounted, ref, defineAsyncComponent } from "vue";
 import type { Bubble } from "../chat/bubbleChat/ChatBubble.vue";
-import { useAuthStore } from "../../stores/AuthStore";
 
 const ChatBubble = defineAsyncComponent(
   () => import("../chat/bubbleChat/ChatBubble.vue")
@@ -41,75 +33,27 @@ const ChatHeader = defineAsyncComponent(
   () => import("../chat/headerChat/ChatHeader.vue")
 );
 
-const authStore = useAuthStore();
+const props = defineProps<{
+  openedChats: {
+    id: number;
+    name: string;
+    avatar: string;
+    bubbles: Bubble[];
+  }[];
+  nbOpenChats: number;
+  messages: {
+    text: string;
+    speaker: number;
+    date: string;
+  }[];
+  chatBubbles: Bubble[];
+}>();
 const realTimeFull = "Real‑Time";
 const chatFull = "Chat";
 const typedRealTime = ref("");
 const typedChat = ref("");
-const showInfoModal = ref(false);
 const showCursor = ref(false);
 const showChat = ref(false);
-const chatBubbles = reactive<Bubble[]>([]);
-const messages = [
-  { text: "Hello ! 😀", speaker: 0, date: new Date().toLocaleDateString() },
-  { text: "How are you ?", speaker: 1, date: new Date().toLocaleDateString() },
-  { text: "Fine thx ! 😁", speaker: 0, date: new Date().toLocaleDateString() },
-  {
-    text: "Where do you want to go this we ? 😄",
-    speaker: 1,
-    date: new Date().toLocaleDateString(),
-  },
-  {
-    text: "I want to go to the beach ! 😃",
-    speaker: 0,
-    date: new Date().toLocaleDateString(),
-  },
-  {
-    text: "Yes let's go  ! 😃",
-    speaker: 1,
-    date: new Date().toLocaleDateString(),
-  },
-  {
-    text: "Awesome ! 😃",
-    speaker: 0,
-    date: new Date().toLocaleDateString(),
-  },
-  {
-    text: "Awesome ! 😃",
-    speaker: 1,
-    date: new Date().toLocaleDateString(),
-  },
-  {
-    text: "Awesome ! 😃",
-    speaker: 0,
-    date: new Date().toLocaleDateString(),
-  },
-  {
-    text: "Awesome ! 😃",
-    speaker: 1,
-    date: new Date().toLocaleDateString(),
-  },
-  {
-    text: "Awesome ! 😃",
-    speaker: 0,
-    date: new Date().toLocaleDateString(),
-  },
-];
-
-// Simulation de rooms pour la sidebar (à remplacer par tes vraies données)
-const rooms = [
-  { id: 1, name: "Famille", avatar: "👪", active: false },
-  { id: 2, name: "Mes Canards", avatar: "🦆", active: false },
-];
-
-// MOCK pour la démo : à remplacer par ta logique d'ouverture réelle
-const nbChatsOuverts = 1; // Change ce nombre pour tester 1, 2, 3 ou 4 chats
-const openedChats = [
-  { id: 1, name: "Hugo", avatar: "🤖", bubbles: chatBubbles },
-  { id: 2, name: "Mélanie", avatar: "🤖", bubbles: chatBubbles },
-  { id: 3, name: "Alpha", avatar: "🤖", bubbles: chatBubbles },
-  { id: 4, name: "Lidya", avatar: "🧛", bubbles: chatBubbles },
-].slice(0, nbChatsOuverts); // Simule l'ouverture de 1 à 4 chats
 
 const typeMessage = async (text: string, bubble: Bubble) => {
   bubble.text = "";
@@ -139,8 +83,8 @@ async function AnimChat() {
   showChat.value = true;
   await new Promise((res) => setTimeout(res, 200));
 
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
+  for (let i = 0; i < props.messages.length; i++) {
+    const msg = props.messages[i];
     if (msg.speaker === 0) {
       const bubble: Bubble = {
         speaker: msg.speaker,
@@ -149,7 +93,7 @@ async function AnimChat() {
         isTyping: true,
         isWriting: false,
       };
-      chatBubbles.push(bubble);
+      props.chatBubbles.push(bubble);
       await nextTick();
       await new Promise((res) => setTimeout(res, 1000));
       bubble.isTyping = false;
@@ -168,7 +112,7 @@ async function AnimChat() {
         isTyping: false,
         isWriting: false,
       };
-      chatBubbles.push(bubble);
+      props.chatBubbles.push(bubble);
       await nextTick();
       bubble.isWriting = true;
       await typeMessage(msg.text, bubble);
@@ -186,23 +130,6 @@ onMounted(async () => {
   await AnimChat();
   await new Promise((res) => setTimeout(res, 200));
 });
-
-function askLogout() {
-  openInfoModal();
-}
-
-function openInfoModal() {
-  showInfoModal.value = true;
-}
-
-function logout() {
-  authStore.logout();
-  closeInfoModal();
-}
-
-function closeInfoModal() {
-  showInfoModal.value = false;
-}
 </script>
 
 <style scoped>
