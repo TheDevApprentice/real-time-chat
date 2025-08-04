@@ -39,10 +39,12 @@ const inputValueProxy = computed({
   align-items: center;
   gap: 0.55rem;
   margin-top: 0.7rem;
+  width: 100%;
 }
 
 .chat-bar.chat-bar-redesign {
   display: flex;
+  width: 100%;
   align-items: flex-start;
   gap: 0.5rem;
   background: rgba(255, 255, 255, 0.08);
