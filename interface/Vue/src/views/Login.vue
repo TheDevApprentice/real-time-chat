@@ -4,7 +4,7 @@
       <PageTemplate>
         <template #content>
           <div
-            class="w-full max-w-5xl px-4 grid grid-cols-1 md:grid-cols-2 gap-8 items-start"
+            class="w-full max-w-7xl px-4 grid grid-cols-1 md:grid-cols-2 gap-8 items-start"
           >
             <!-- Header: visible md+ -->
             <div class="hidden md:flex flex-col items-center col-span-2">
@@ -21,7 +21,7 @@
               </p>
             </div>
             <!-- AuthCard: always visible -->
-            <div class="relative sm:block md:flex lg:flex xl:flex justify-center">
+            <div class="relative md:flex">
               <!-- background circles -->
               <div class="absolute -top-32 -left-32 w-[140%] h-[140%] z-0">
                 <span class="auth-bg-circle circle-1"></span>
@@ -41,7 +41,7 @@
             <!-- Chat Preview: visible md+ -->
             <div
               v-if="showChat"
-              class="hidden md:flex flex-col gap-4 rounded-lg border border-indigo-200 bg-white/10 shadow-lg p-4 overflow-hidden animate-fade-in"
+              class="hidden md:flex flex-col gap-4 rounded-xl bg-white/10 shadow-lg p-4 overflow-hidden animate-fade-in"
             >
               <ChatHeader avatar="🤖" name="Bot Mélanie" :active="true" />
               <ChatBubble
