@@ -317,7 +317,6 @@
 
 }  
 
-
 /* Sur-couches contraste élevé mode sombre */
 :root[data-theme='dark'][data-contrast='high'] {
   /* High Contrast overrides */

@@ -3,22 +3,11 @@
     <template #default>
       <PageTemplate>
         <template #content>
-          <!-- Version mobile/tablette : CardTemplate seul -->
-          <div class="block md:hidden w-full justify-center items-center">
-            <AuthCard
-              :mode="mode.value"
-              :tabs="[
-                { id: 'login', text: 'Connexion' },
-                { id: 'register', text: 'Créer mon compte' },
-              ]"
-              :authInformation="authInformation"
-              @update:mode="updateMode($event)"
-              @submit="onSubmit"
-            />
-          </div>
-          <!-- Version desktop : tout le layout -->
-          <div class="hidden md:block">
-            <div class="auth-header-text improved-auth-header">
+          <div
+            class="w-full max-w-5xl px-4 grid grid-cols-1 md:grid-cols-2 gap-8 items-start"
+          >
+            <!-- Header: visible md+ -->
+            <div class="hidden md:flex flex-col items-center col-span-2">
               <h1 class="auth-title gradient-title-v3">
                 <span class="title-rt">{{ typedRealTime }}</span>
                 <span class="title-chat-glow">
@@ -31,8 +20,10 @@
                 Rejoignez la conversation en direct
               </p>
             </div>
-            <div class="auth-wrapper flex-col md:flex-row">
-              <div class="auth-bg-container">
+            <!-- AuthCard: always visible -->
+            <div class="relative sm:block md:flex lg:flex xl:flex justify-center">
+              <!-- background circles -->
+              <div class="absolute -top-32 -left-32 w-[140%] h-[140%] z-0">
                 <span class="auth-bg-circle circle-1"></span>
                 <span class="auth-bg-circle circle-2"></span>
               </div>
@@ -46,20 +37,24 @@
                 @update:mode="updateMode($event)"
                 @submit="onSubmit"
               />
-              <div v-if="showChat" class="chat-preview hidden md:flex">
-                <ChatHeader avatar="🤖" name="Bot Mélanie" :active="true" />
-                <ChatBubble
-                  v-for="(bubble, idx) in chatBubbles"
-                  :key="idx"
-                  :speaker="bubble.speaker"
-                  :text="bubble.text"
-                  :date="bubble.date"
-                  :isTyping="bubble.isTyping"
-                  :isWriting="bubble.isWriting"
-                  :animationDelay="`${idx * 0.22}s`"
-                />
-                <BarChat />
-              </div>
+            </div>
+            <!-- Chat Preview: visible md+ -->
+            <div
+              v-if="showChat"
+              class="hidden md:flex flex-col gap-4 rounded-lg border border-indigo-200 bg-white/10 shadow-lg p-4 overflow-hidden animate-fade-in"
+            >
+              <ChatHeader avatar="🤖" name="Bot Mélanie" :active="true" />
+              <ChatBubble
+                v-for="(bubble, idx) in chatBubbles"
+                :key="idx"
+                :speaker="bubble.speaker"
+                :text="bubble.text"
+                :date="bubble.date"
+                :isTyping="bubble.isTyping"
+                :isWriting="bubble.isWriting"
+                :animationDelay="`${idx * 0.22}s`"
+              />
+              <BarChat />
             </div>
           </div>
         </template>
@@ -213,14 +208,18 @@ onMounted(async () => {
 });
 
 import { useAuthStore } from "../stores/AuthStore";
-import { useRouter } from 'vue-router';
+import { useRouter } from "vue-router";
 const authStore = useAuthStore();
 const router = useRouter();
 
 function onSubmit() {
   console.log("Auth information Login Page received : ", authInformation);
   if (mode.value === "register") {
-    if (!authInformation.username || !authInformation.password || !authInformation.confirm) {
+    if (
+      !authInformation.username ||
+      !authInformation.password ||
+      !authInformation.confirm
+    ) {
       authInformation.error = "Veuillez remplir tous les champs.";
       return;
     }
@@ -235,7 +234,11 @@ function onSubmit() {
       authInformation.confirm
     );
     authStore
-      .register(authInformation.username, authInformation.password, authInformation.confirm)
+      .register(
+        authInformation.username,
+        authInformation.password,
+        authInformation.confirm
+      )
       .then((success) => {
         if (!success) {
           authInformation.error =
@@ -260,7 +263,7 @@ function onSubmit() {
             authStore.error || "Erreur lors de la connexion";
         } else {
           authInformation.error = "";
-          router.push('/home');
+          router.push("/home");
         }
       });
   }
