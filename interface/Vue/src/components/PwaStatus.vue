@@ -1,4 +1,4 @@
-<template>
+<!-- <template>
   <transition name="fade">
     <div v-if="show" class="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 px-4 py-2 rounded-xl shadow-xl bg-[var(--page-accent-color,#4466d6)] text-white font-semibold flex items-center gap-3 animate-bounce-in">
       <span v-if="offline">Vous êtes hors ligne.</span>
@@ -56,4 +56,10 @@ onMounted(() => {
   60% { transform: scale(1.03) translateY(-6px); opacity: 1; }
   100% { transform: scale(1) translateY(0); }
 }
-</style>
+</style> -->
+
+<template>
+
+</template>
+
+<script></script>

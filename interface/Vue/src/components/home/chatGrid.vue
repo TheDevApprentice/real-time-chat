@@ -1,7 +1,7 @@
 <template>
-  <div :class="`grid grid-cols-1 md:grid-cols-${nbOpenChats} `">
+  <div v-bind:class="`grid grid-cols-${props.nbOpenChats}`">
     <div
-      v-for="(chat, idx) in openedChats"
+      v-for="(chat) in props.openedChats"
       :key="chat.id"
       class="flex flex-col gap-4 mx-1 rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in"
     >
@@ -34,13 +34,13 @@ const ChatHeader = defineAsyncComponent(
 );
 
 const props = defineProps<{
+  nbOpenChats: number;
   openedChats: {
     id: number;
     name: string;
     avatar: string;
     bubbles: Bubble[];
   }[];
-  nbOpenChats: number;
   messages: {
     text: string;
     speaker: number;
@@ -125,6 +125,8 @@ async function AnimChat() {
 }
 
 onMounted(async () => {
+  console.log("openedChats", props.openedChats.length);
+  console.log("`grid grid-cols-${openedChats.length} grid-rows-1`", `grid grid-cols-${props.openedChats.length} grid-rows-1`);
   await AnimTypeTitle();
   await new Promise((res) => setTimeout(res, 200));
   await AnimChat();

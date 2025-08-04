@@ -188,7 +188,7 @@
                   </SearchBar>
                 </div>
                 <div
-                  class="h-full w-full grid grid-cols-[300px_minmax(800px,_1fr)_0px] grid-rows-1 gap-2 mx-1 mt-[4.5rem] bg-white/10 rounded-xl shadow-lg animate-fade-in"
+                  class="h-full w-full grid grid-cols-[310px_minmax(400px,_1fr)_0px] grid-rows-1 gap-2 mx-1 mt-[4.5rem] bg-white/10 rounded-xl shadow-lg animate-fade-in"
                 >
                   <div class="col-span-1 row-span-1">
                     <UserConversationItem
@@ -202,10 +202,10 @@
                       :active="conv.active"
                     />
                   </div>
-                  <div class="col-span-1">
+                  <div class="col-span-1 row-span-1">
                     <ChatGrid
-                      :openedChats="openedChats"
                       :nbOpenChats="nbOpenChats"
+                      :openedChats="openedChats"
                       :messages="messages"
                       :chatBubbles="chatBubbles"
                     />
@@ -233,13 +233,19 @@
 
 <script setup lang="ts">
 import LoadingOverlay from "../components/LoadingOverlay.vue";
-import LargeAvatar from "../components/LargeAvatar.vue";
 import { reactive, onMounted, ref, defineAsyncComponent, computed } from "vue";
 import type { Bubble } from "../components/chat/bubbleChat/ChatBubble.vue";
 import { useAuthStore } from "../stores/AuthStore";
-import UserConversationItem from "../components/chat/UserConversationItem.vue";
-import InfoModal from "../components/InfoModal.vue";
 
+const LargeAvatar = defineAsyncComponent(
+  () => import("../components/LargeAvatar.vue")
+);
+const UserConversationItem = defineAsyncComponent(
+  () => import("../components/chat/UserConversationItem.vue")
+);
+const InfoModal = defineAsyncComponent(
+  () => import("../components/InfoModal.vue")
+);
 const ChatGrid = defineAsyncComponent(
   () => import("../components/home/chatGrid.vue")
 );
