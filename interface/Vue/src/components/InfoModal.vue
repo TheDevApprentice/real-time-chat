@@ -1,7 +1,7 @@
 <template>
   <Modal>
     <template #header>
-      <span>Session expirée</span>
+      <span>{{ headerTitle }}</span>
     </template>
     <template #content>
       <div class="modal-icon" :class="type">
@@ -96,6 +96,7 @@
 import Modal from './Modal.vue'
 export type InfoModalType = 'info' | 'warning' | 'delete' | 'default' | 'error'
 const props = defineProps<{
+  headerTitle: string
   message: string
   type?: InfoModalType
   onOk?: () => void

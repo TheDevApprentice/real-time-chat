@@ -65,6 +65,64 @@
                     </div>
                   </li>
                 </ul>
+                <div class="sidebar-divider my-2"></div>
+                <!-- Rooms header + add -->
+                <div class="flex items-center justify-between px-2 py-2">
+                  <span class="sidebar-section transition-opacity">Amis</span>
+                  <button
+                    class="sidebar-btn-add opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                    title="Ajouter une room"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                      <circle
+                        cx="10"
+                        cy="10"
+                        r="10"
+                        fill="currentColor"
+                        opacity="0.15"
+                      />
+                      <path
+                        d="M10 5v10M5 10h10"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
+                <div class="flex flex-col gap-2 mt-2 px-2">
+                  <UserConversationItem
+                    :participants="[{ name: 'Bot Lidya', avatar: '🧛' }]"
+                    title="Bot Lidya"
+                    :lastMessage="{
+                      text: 'Hello ! 😀',
+                      author: 'Bot Lidya',
+                      date: (() => {
+                        const d = new Date();
+                        d.setDate(d.getDate() - 1);
+                        return d.toISOString();
+                      })(),
+                      isMine: false,
+                      unread: true,
+                    }"
+                  />
+                  <UserConversationItem
+                    :participants="[{ name: 'Bot Lidya', avatar: '🧛' }]"
+                    title="Bot Lidya"
+                    :lastMessage="{
+                      text: 'Hello ! 😀',
+                      author: 'Bot Lidya',
+                      date: (() => {
+                        const d = new Date();
+                        d.setDate(d.getDate() - 1);
+                        return d.toISOString();
+                      })(),
+                      isMine: false,
+                      unread: true,
+                    }"
+                  />
+                  
+                </div>
                 <div class="flex-1"></div>
                 <!-- Paramètres / déconnexion -->
                 <div class="flex flex-row gap-2 justify-end pb-3">
@@ -97,6 +155,7 @@
                   <button
                     class="sidebar-btn-action sidebar-btn-logout px-1 mr-1 ml-0.2"
                     title="Déconnexion"
+                    @click="askLogout"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -145,55 +204,12 @@
                     </template>
                   </SearchBar>
                 </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 md:grid-rows-2">
-                  <!-- The goal is to be able to place up to 4 chat in the desktop mode so the user can have mutliple chat open at the same time -->
-                  <!-- Chat 1 -->
-                  <div
-                    class="flex h-full w-full flex-col gap-4 mt-[4.5rem] mx-1 py-0.2 rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in"
-                  >
-                    <ChatHeader avatar="🤖" name="Bot Mélanie" :active="true" />
-                    <div
-                      class="scroll-bar flex flex-col h-[calc(80vh-6rem)] overflow-y-auto scroll-w-0 scroll-h-0"
-                    >
-                      <ChatBubble
-                        v-for="(bubble, idx) in chatBubbles"
-                        :key="idx"
-                        :speaker="bubble.speaker"
-                        :text="bubble.text"
-                        :date="bubble.date"
-                        :isTyping="bubble.isTyping"
-                        :isWriting="bubble.isWriting"
-                        :animationDelay="`${idx * 0.22}s`"
-                      />
-                    </div>
-                    <BarChat />
-                  </div>
-                  <!-- Chat 2 -->
-                  <div
-                    class="flex h-full w-full flex-col gap-4 mt-[4.5rem] mx-3 rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in"
-                  >
-                    <ChatHeader avatar="🤖" name="Bot Mélanie" :active="true" />
-                    <div
-                      class="scroll-bar flex flex-col h-[calc(80vh-6rem)] overflow-y-auto scroll-w-0 scroll-h-0"
-                    >
-                      <ChatBubble
-                        v-for="(bubble, idx) in chatBubbles"
-                        :key="idx"
-                        :speaker="bubble.speaker"
-                        :text="bubble.text"
-                        :date="bubble.date"
-                        :isTyping="bubble.isTyping"
-                        :isWriting="bubble.isWriting"
-                        :animationDelay="`${idx * 0.22}s`"
-                      />
-                    </div>
-                    <BarChat />
-                  </div>
-                </div>
+                <!-- <ChatGrid /> -->
+                 <!-- Ici on va designé la liste de UserConversationItem  -->
               </section>
             </div>
           </div>
+          <InfoModal v-if="showInfoModal" headerTitle="Déconnexion" message="Êtes-vous sûr de vouloir vous déconnecter ?" type="warning" @onok="logout" @close="closeInfoModal" />
         </template>
       </PageTemplate>
     </template>
@@ -216,6 +232,9 @@ import {
 } from "vue";
 import type { Bubble } from "../components/chat/bubbleChat/ChatBubble.vue";
 import { useAuthStore } from "../stores/AuthStore";
+import UserConversationItem from "../components/chat/UserConversationItem.vue";
+import InfoModal from "../components/InfoModal.vue";
+import ChatGrid from "../components/home/chatGrid.vue";
 
 const ChatBubble = defineAsyncComponent(
   () => import("../components/chat/bubbleChat/ChatBubble.vue")
@@ -254,11 +273,13 @@ function updateSearchQuery(searchQueryChanged: string) {
   console.log("Login Page searchQuery changed : ", searchQueryChanged);
   searchQuery.value = searchQueryChanged;
 }
+
 const authStore = useAuthStore();
 const realTimeFull = "Real‑Time";
 const chatFull = "Chat";
 const typedRealTime = ref("");
 const typedChat = ref("");
+const showInfoModal = ref(false);
 const showCursor = ref(false);
 const showChat = ref(false);
 const chatBubbles = reactive<Bubble[]>([]);
@@ -310,10 +331,18 @@ const messages = [
 
 // Simulation de rooms pour la sidebar (à remplacer par tes vraies données)
 const rooms = [
-  { id: 1, name: "Hugo", avatar: "🤖", active: true },
-  { id: 2, name: "Mélanie", avatar: "🤖", active: false },
-  { id: 3, name: "Alpha", avatar: "🤖", active: false },
+  { id: 1, name: "Famille", avatar: "👪", active: false },
+  { id: 2, name: "Mes Canards", avatar: "🦆", active: false },
 ];
+
+// MOCK pour la démo : à remplacer par ta logique d'ouverture réelle
+const nbChatsOuverts = 1; // Change ce nombre pour tester 1, 2, 3 ou 4 chats
+const openedChats = [
+  { id: 1, name: "Hugo", avatar: "🤖", bubbles: chatBubbles },
+  { id: 2, name: "Mélanie", avatar: "🤖", bubbles: chatBubbles },
+  { id: 3, name: "Alpha", avatar: "🤖", bubbles: chatBubbles },
+  { id: 4, name: "Lidya", avatar: "🧛", bubbles: chatBubbles },
+].slice(0, nbChatsOuverts); // Simule l'ouverture de 1 à 4 chats
 
 const typeMessage = async (text: string, bubble: Bubble) => {
   bubble.text = "";
@@ -390,6 +419,23 @@ onMounted(async () => {
   await AnimChat();
   await new Promise((res) => setTimeout(res, 200));
 });
+
+function askLogout() {
+  openInfoModal();
+}
+
+function openInfoModal() {
+  showInfoModal.value = true;
+}
+
+function logout() {
+  authStore.logout();
+  closeInfoModal();
+}
+
+function closeInfoModal() {
+  showInfoModal.value = false;
+}
 </script>
 
 <style scoped>
@@ -402,7 +448,8 @@ onMounted(async () => {
 }
 
 .sidebar-glass {
-  background: rgba(30, 34, 44, 0.72);
+  /* background: rgba(30, 34, 44, 0.72); */
+  background: var(--background);
   backdrop-filter: blur(14px);
   border-right: 1.5px solid rgba(120, 120, 160, 0.12);
 }
@@ -413,12 +460,12 @@ onMounted(async () => {
   border-radius: 2px;
 }
 .sidebar-title {
-  color: #fff;
+    color: var(--color-text);
   letter-spacing: 0.02em;
 }
 .sidebar-section {
   margin-left: 0.7rem;
-  color: #dbeafe;
+  color: var(--color-text);
   font-weight: 600;
   font-size: 1rem;
 }
@@ -461,16 +508,19 @@ onMounted(async () => {
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.2s;
-  color: #dbeafe;
+  color: var(--color-text);
+
 }
 .sidebar-room:hover,
 .sidebar-room-active {
   background: rgba(108, 71, 255, 0.11);
-  color: #fff;
+  color: var(--color-text);
+
 }
 .sidebar-room-label {
   font-weight: 500;
-  color: #dbeafe;
+  color: var(--color-text);
+
   transition: color 0.2s;
 }
 .sidebar-btn-action {
@@ -478,7 +528,8 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   background: transparent;
-  color: #b5b8c9;
+  color: var(--color-text);
+
   border-radius: 8px;
   width: 100%;
   padding: 0.5rem;
