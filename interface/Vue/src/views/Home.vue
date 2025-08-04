@@ -145,8 +145,10 @@
                     </template>
                   </SearchBar>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2">  <!-- The goal is to be able to place up to 4 chat in the desktop mode so the user can have mutliple chat open at the same time -->
-                    <!-- Chat 1 -->
+
+                <div class="grid grid-cols-1 md:grid-cols-2 md:grid-rows-2">
+                  <!-- The goal is to be able to place up to 4 chat in the desktop mode so the user can have mutliple chat open at the same time -->
+                  <!-- Chat 1 -->
                   <div
                     class="flex h-full w-full flex-col gap-4 mt-[4.5rem] mx-1 py-0.2 rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in"
                   >
