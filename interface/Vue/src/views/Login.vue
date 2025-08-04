@@ -21,7 +21,7 @@
               </p>
             </div>
             <!-- AuthCard: always visible -->
-            <div class="relative md:flex">
+            <div class="relative w-full max-w-7xl flex-col md:flex md:translate-x-[55%]">
               <!-- background circles -->
               <div class="absolute -top-32 -left-32 w-[140%] h-[140%] z-0">
                 <span class="auth-bg-circle circle-1"></span>
@@ -41,7 +41,7 @@
             <!-- Chat Preview: visible md+ -->
             <div
               v-if="showChat"
-              class="hidden md:flex flex-col gap-4 rounded-xl bg-white/10 shadow-lg p-4 overflow-hidden animate-fade-in"
+              class="hidden md:flex flex-col gap-4 rounded-xl bg-white/10 shadow-lg p-4 overflow-hidden animate-fade-in md:translate-x-[80%] md:translate-y-[-10%] "
             >
               <ChatHeader avatar="🤖" name="Bot Mélanie" :active="true" />
               <ChatBubble
