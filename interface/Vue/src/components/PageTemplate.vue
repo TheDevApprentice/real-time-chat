@@ -80,6 +80,9 @@ function updateSearchQuery(searchQueryChanged: string) {
 </script>
 
 <style scoped>
+.page-template {
+  background: var(--color-background);
+}
 .page-template-header {
   width: 100%;
   display: flex;
@@ -105,11 +108,9 @@ function updateSearchQuery(searchQueryChanged: string) {
   z-index: 30;
   position: fixed;
   padding: 1.3rem 2.2rem 0.5rem 0;
-  top: -0.2rem;
+  top: -0.3rem;
   left: 50%;
   transform: translateX(-50%);
 }
-.page-template {
-  background: var(--color-background);
-}
+
 </style>
