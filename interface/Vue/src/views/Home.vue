@@ -3,39 +3,68 @@
     <template #default>
       <PageTemplate>
         <template #content>
-          <div class="relative w-full h-full overflow-hidden">
-            <div class="auth-bg-container">
-              <span class="auth-bg-circle circle-1"></span>
-              <span class="auth-bg-circle circle-2"></span>
-            </div>
-            <div class="relative z-10 flex w-[100vw] h-[100vh]">
+          <div class="w-[100vw] h-[100vh]">
+            <div class="z-10 flex">
               <!-- Primary Sidebar -->
               <nav
-                class="group relative flex-shrink-0 border transition-all duration-300 ease-in-out w-16 hover:w-56"
+                class="flex-col h-[calc(100vh-0rem)] group flex-shrink-0 border transition-all duration-300 ease-in-out w-16 hover:w-56"
               >
-                <div class="w-full h-full flex items-start">
-                  <div class="flex flex-row items-center mt-8">
-                    <LargeAvatar avatar="🤖" name="Bot Hugo" />
-                    <h1 class="text-2xl font-bold ml-2">Hugo</h1>
-                  </div>
+                <div class="w-full flex flex-row gap-2 mt-8">
+                  <LargeAvatar avatar="🤖" name="Bot Hugo" />
+                  <h1
+                    class="text-2xl font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    Hugo
+                  </h1>
+                </div>
+                <div class="h-2 bg-gray-200 mt-2 mb-2 h-[1px]"></div>
+                <!-- Espacement divider -->
+                <div class="w-full flex flex-row gap-2 mt-8">
+                  <h1 class="mx-2">Rooms</h1>
+                  <button
+                    class="bg-gray-200 rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    +
+                  </button>
+                </div>
+
+                <div class="w-full flex flex-row gap-2 mt-8">
+                  <LargeAvatar avatar="🤖" name="Bot Hugo" />
+                  <h1
+                    class="text-2xl font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    Hugo
+                  </h1>
+                </div>
+                <div class="w-full flex flex-row gap-2 mt-8">
+                  <LargeAvatar avatar="🤖" name="Bot Hugo" />
+                  <h1
+                    class="text-2xl font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    Hugo
+                  </h1>
                 </div>
               </nav>
               <!-- Zone de chat -->
               <section class="flex-1">
                 <div
-                  class="flex flex-col gap-4 mt-[4.5rem] rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in"
+                  class="flex h-full w-full flex-col gap-4 mt-[4.5rem] rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in"
                 >
                   <ChatHeader avatar="🤖" name="Bot Mélanie" :active="true" />
-                  <ChatBubble
-                    v-for="(bubble, idx) in chatBubbles"
-                    :key="idx"
-                    :speaker="bubble.speaker"
-                    :text="bubble.text"
-                    :date="bubble.date"
-                    :isTyping="bubble.isTyping"
-                    :isWriting="bubble.isWriting"
-                    :animationDelay="`${idx * 0.22}s`"
-                  />
+                  <div
+                    class="scroll-bar flex flex-col h-[calc(80vh-6rem)] overflow-y-auto scroll-w-0 scroll-h-0"
+                  >
+                    <ChatBubble
+                      v-for="(bubble, idx) in chatBubbles"
+                      :key="idx"
+                      :speaker="bubble.speaker"
+                      :text="bubble.text"
+                      :date="bubble.date"
+                      :isTyping="bubble.isTyping"
+                      :isWriting="bubble.isWriting"
+                      :animationDelay="`${idx * 0.22}s`"
+                    />
+                  </div>
                   <BarChat />
                 </div>
               </section>
@@ -88,6 +117,36 @@ const messages = [
   },
   {
     text: "I want to go to the beach ! 😃",
+    speaker: 0,
+    date: new Date().toLocaleDateString(),
+  },
+  {
+    text: "Yes let's go  ! 😃",
+    speaker: 1,
+    date: new Date().toLocaleDateString(),
+  },
+  {
+    text: "Awesome ! 😃",
+    speaker: 0,
+    date: new Date().toLocaleDateString(),
+  },
+  {
+    text: "Awesome ! 😃",
+    speaker: 1,
+    date: new Date().toLocaleDateString(),
+  },
+  {
+    text: "Awesome ! 😃",
+    speaker: 0,
+    date: new Date().toLocaleDateString(),
+  },
+  {
+    text: "Awesome ! 😃",
+    speaker: 1,
+    date: new Date().toLocaleDateString(),
+  },
+  {
+    text: "Awesome ! 😃",
     speaker: 0,
     date: new Date().toLocaleDateString(),
   },
@@ -147,12 +206,11 @@ async function AnimChat() {
         speaker: msg.speaker,
         text: "",
         date: msg.date,
-        isTyping: true,
+        isTyping: false,
         isWriting: false,
       };
       chatBubbles.push(bubble);
       await nextTick();
-      bubble.isTyping = false;
       bubble.isWriting = true;
       await typeMessage(msg.text, bubble);
       bubble.isWriting = false;
@@ -171,4 +229,12 @@ onMounted(async () => {
 });
 </script>
 
-<style scoped></style>
+<style scoped>
+.scroll-bar {
+  scrollbar-width: none;
+  scroll-behavior: smooth;
+}
+.scroll-bar::-webkit-scrollbar {
+  display: none;
+}
+</style>
