@@ -27,7 +27,7 @@
                   <span class="sidebar-section transition-opacity">Rooms</span>
                   <button
                     class="sidebar-btn-add opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                    title="Ajouter une room"
+                    title="Créer une room"
                   >
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                       <circle
@@ -73,7 +73,7 @@
                   <span class="sidebar-section transition-opacity">Amis</span>
                   <button
                     class="sidebar-btn-add opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                    title="Ajouter une room"
+                    title="Ajouter un ami"
                   >
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                       <circle

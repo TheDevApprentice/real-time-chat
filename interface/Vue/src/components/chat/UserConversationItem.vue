@@ -83,10 +83,14 @@ const formattedDate = computed(() => {
   box-shadow: 0 2px 8px 0 rgba(68, 102, 214, 0.07);
   position: relative;
 }
+
+.user-conv-item:hover,
 .user-conv-item.active {
-  background: linear-gradient(90deg, #4466d6 70%, #5b7fff 100%);
+  background: linear-gradient(90deg, #4466d66d 70%, #5b7fff7d 100%);
   box-shadow: 0 2px 12px 0 rgba(68, 102, 214, 0.13);
+  color: var(--color-text);
 }
+
 .user-conv-item.unread::after {
   content: '';
   position: absolute;
