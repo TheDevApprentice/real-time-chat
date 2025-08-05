@@ -17,6 +17,7 @@
                 :key="user.name"
                 :avatar="user.avatar"
                 :name="user.name"
+                @action="handleAddFriend($event)"
               />
             </template>
             <template
@@ -36,6 +37,7 @@
             :name="friend.name"
             :pendingInvitation="friend.pendingInvitation"
             :isFriend="friend.isFriend"
+            @action="handleAddFriend($event)"
           />
         </div>
         <button class="modal-btn" @click="handleClose">Fermer</button>
@@ -71,10 +73,10 @@ const filteredUsers = computed(() => {
   );
 });
 
-const addedFriends = [
+const addedFriends = ref([
   { name: "Bot Hugo", avatar: "🤖", pendingInvitation: true, isFriend: false },
   { name: "Bot Lidya", avatar: "🧛", pendingInvitation: false, isFriend: true },
-];
+]);
 
 function updateSearchQuery(searchQueryChanged: string) {
   console.log("Login Page searchQuery changed : ", searchQueryChanged);
@@ -84,6 +86,29 @@ function updateSearchQuery(searchQueryChanged: string) {
 function handleClose() {
   emit("close");
 }
+function handleAddFriend(e: { name: string; avatar: string }) {
+  console.log("Add friend", e);
+  // Ajoute l'ami avec pendingInvitation à true
+  addedFriends.value.push({
+    name: e.name,
+    avatar: e.avatar,
+    pendingInvitation: true,
+    isFriend: false,
+  });
+
+  searchQuery.value = "";
+  // Après 1 seconde, simule la validation (ami accepté)
+  setTimeout(() => {
+    const addedFriend = addedFriends.value.find((f) => f.name === e.name);
+    if (addedFriend) {
+      addedFriend.pendingInvitation = false;
+      addedFriend.isFriend = true;
+      // Pas besoin de filter/push, Vue est réactif sur les objets du tableau
+      console.log("Friend validated", addedFriend);
+    }
+  }, 3000);
+}
+
 </script>
 
 <style scoped>
