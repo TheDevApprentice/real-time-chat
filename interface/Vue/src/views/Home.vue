@@ -21,6 +21,7 @@
                 :closeAddFriendModal="closeAddFriendModal"
                 :openCreateRoomModal="openCreateRoomModal"
                 :closeCreateRoomModal="closeCreateRoomModal"
+                :updateSideBarHover="updateSideBarHover"
               />
               <div
                 class="w-full min-h-0 min-w-0 h-full grid grid-cols-1 grid-rows-1 gap-2 bg-white/10 rounded-xl shadow-lg animate-fade-in"
@@ -28,10 +29,13 @@
                 <!-- Zone bouton d'actions et de recherche cette zone se superpose avec le parent : PageTemplate qui laisse en haut à droite des bouton qui permettent de faire la gestion rapide du theme et de la lanque
                  il faut donc que cette zone soit libre -->
                 <UpperChatZone
+                  :sidebarHovered="sidebarHovered"
                   :searchQuery="searchQuery"
                   :users="users"
                   :filteredUsers="filteredUsers"
                   :updateSearchQuery="updateSearchQuery"
+                  @add-friend="openAddFriendModal"
+                  @create-room="openCreateRoomModal"
                 />
                 <ChatZone
                   :conversations="mockConversations"
@@ -101,8 +105,8 @@ const mockMessages: Bubble[] = [
     date: new Date().toLocaleDateString(),
     isTyping: false,
     isWriting: false,
-    isSent: false,
-    isRead: false,
+    isSent: true,
+    isRead: true,
   },
   {
     text: "How are you ?",
@@ -110,8 +114,8 @@ const mockMessages: Bubble[] = [
     date: new Date().toLocaleDateString(),
     isTyping: false,
     isWriting: false,
-    isSent: false,
-    isRead: false,
+    isSent: true,
+    isRead: true,
   },
   {
     text: "Fine thx ! 😁",
@@ -119,8 +123,8 @@ const mockMessages: Bubble[] = [
     date: new Date().toLocaleDateString(),
     isTyping: false,
     isWriting: false,
-    isSent: false,
-    isRead: false,
+    isSent: true,
+    isRead: true,
   },
   {
     text: "Where do you want to go this we ? 😄",
@@ -128,8 +132,8 @@ const mockMessages: Bubble[] = [
     date: new Date().toLocaleDateString(),
     isTyping: false,
     isWriting: false,
-    isSent: false,
-    isRead: false,
+    isSent: true,
+    isRead: true,
   },
   {
     text: "I want to go to the beach ! 😃",
@@ -137,8 +141,8 @@ const mockMessages: Bubble[] = [
     date: new Date().toLocaleDateString(),
     isTyping: false,
     isWriting: false,
-    isSent: false,
-    isRead: false,
+    isSent: true,
+    isRead: true,
   },
   {
     text: "Yes let's go  ! 😃",
@@ -146,8 +150,8 @@ const mockMessages: Bubble[] = [
     date: new Date().toLocaleDateString(),
     isTyping: false,
     isWriting: false,
-    isSent: false,
-    isRead: false,
+    isSent: true,
+    isRead: true,
   },
   {
     text: "Awesome ! 😃",
@@ -155,8 +159,8 @@ const mockMessages: Bubble[] = [
     date: new Date().toLocaleDateString(),
     isTyping: false,
     isWriting: false,
-    isSent: false,
-    isRead: false,
+    isSent: true,
+    isRead: true,
   },
   {
     text: "Awesome ! 😃",
@@ -164,8 +168,8 @@ const mockMessages: Bubble[] = [
     date: new Date().toLocaleDateString(),
     isTyping: false,
     isWriting: false,
-    isSent: false,
-    isRead: false,
+    isSent: true,
+    isRead: true,
   },
   {
     text: "Awesome ! 😃",
@@ -173,8 +177,8 @@ const mockMessages: Bubble[] = [
     date: new Date().toLocaleDateString(),
     isTyping: false,
     isWriting: false,
-    isSent: false,
-    isRead: false,
+    isSent: true,
+    isRead: true,
   },
   {
     text: "Awesome ! 😃",
@@ -182,8 +186,8 @@ const mockMessages: Bubble[] = [
     date: new Date().toLocaleDateString(),
     isTyping: false,
     isWriting: false,
-    isSent: false,
-    isRead: false,
+    isSent: true,
+    isRead: true,
   },
   {
     text: "Awesome ! 😃",
@@ -191,7 +195,25 @@ const mockMessages: Bubble[] = [
     date: new Date().toLocaleDateString(),
     isTyping: false,
     isWriting: false,
-    isSent: false,
+    isSent: true,
+    isRead: true,
+  },
+  {
+    text: "Ciao !",
+    speaker: 1,
+    date: new Date().toLocaleDateString(),
+    isTyping: false,
+    isWriting: false,
+    isSent: true,
+    isRead: true,
+  },
+  {
+    text: "Ciao !",
+    speaker: 0,
+    date: new Date().toLocaleDateString(),
+    isTyping: false,
+    isWriting: false,
+    isSent: true,
     isRead: false,
   },
 ];
@@ -202,48 +224,53 @@ const rooms: Room[] = [
   { id: 2, name: "Mes Canards", avatar: "🦆", active: false },
 ];
 
-// MOCK pour la démo : à remplacer par ta logique d'ouverture réelle
-const openConversations = computed(() =>
-  [
-    { id: 1, name: "Hugo", avatar: "🤖", messages: mockMessages },
-    { id: 2, name: "Mélanie", avatar: "🤖", messages: mockMessages },
-    { id: 3, name: "Alpha", avatar: "🤖", messages: mockMessages },
-    // { id: 4, name: "Lidya", avatar: "🧛", messages: mockMessages },
-  ]
-);
-
 const mockConversations: Conversation[] = [
   {
     id: 1,
     participants: [{ name: "Bot Lidya", avatar: "🧛" }],
-    title: "Bot Lidya",
+    avatar: "👪",
+    name: "Famille",
+    type: "room",
     messages: mockMessages,
-    lastMessage: {
-      text: "Hello ! 😀",
-      author: "Bot Lidya",
-      date: new Date().toISOString(),
-      isMine: false,
-      unread: true,
-    },
-    active: false,
+    active: true,
+    mostRecent: true,
   },
   {
     id: 2,
     participants: [{ name: "Mélanie", avatar: "🤖" }],
-    title: "Bot Mélanie",
+    avatar: "🦆",
+    name: "Mes Canards",
+    type: "room",
     messages: mockMessages,
-    lastMessage: {
-      text: "À tout de suite !",
-      author: "Moi",
-      date: new Date(Date.now() - 3600 * 1000).toISOString(),
-      isMine: true,
-      unread: false,
-    },
     active: false,
+    mostRecent: false,
+  },
+  {
+    id: 3,
+    participants: [{ name: "Bot Lidya", avatar: "🧛" }],
+    avatar: "🧛",
+    name: "Bot Lidya",
+    type: "user",
+    messages: mockMessages,
+    active: true,
+    mostRecent: true,
+  },
+  {
+    id: 4,
+    participants: [{ name: "Mélanie", avatar: "🤖" }],
+    avatar: "🤖",
+    name: "Bot Mélanie",
+    type: "user",
+    messages: mockMessages,
+    active: true,
+    mostRecent: false,
   },
   // Ajoute d'autres mocks si besoin
 ];
-
+// MOCK pour la démo : à remplacer par ta logique d'ouverture réelle
+const openConversations = computed(() =>
+  mockConversations.filter((conv) => conv.active)
+);
 
 function askLogout() {
   openInfoModal();
@@ -276,6 +303,11 @@ function openCreateRoomModal() {
 
 function closeCreateRoomModal() {
   createRoomModalisOpen.value = false;
+}
+function updateSideBarHover(value: boolean) {
+  setTimeout(() => {
+    sidebarHovered.value = value;
+  }, 150);
 }
 </script>
 

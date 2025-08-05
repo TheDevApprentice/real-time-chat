@@ -3,25 +3,31 @@
     name="fade-slide"
     appear
   >
-    <div :class="[ displayFullContent ? 'user-conv-item' : 'user-conv-item-full', { active, unread: lastMessage?.unread && displayFullContent && displayDate }]" @click="$emit('click')">
+    <div :class="[ displayFullContent ? 'user-conv-item' : 'user-conv-item-full', { active, unread: lastMessage?.isRead === false && displayFullContent && displayDate }]" @click="$emit('click')">
       <div class="avatars">
-        <LargeAvatar
+        <LargeAvatar  
           v-for="(user, idx) in displayedParticipants"
           :key="user.name + idx"
           :avatar="user.avatar"
           :name="user.name"
+          v-if="type === 'user'"
+        />
+        <LargeAvatar
+          v-if="type === 'room'"
+          :avatar="avatar"
+          :name="name"
         />
         <span v-if="extraCount > 0" class="extra-count">+{{ extraCount }}</span>
       </div>
       <div v-if="displayFullContent" class="conv-content ">
         <Transition name="fade-slide-in" appear>
-          <div class="conv-title"><span>{{ title }}</span></div>
+          <div class="conv-title"><span>{{ name }}</span></div>
         </Transition>
         <Transition name="fade-slide-in" appear>
           <div class="conv-last-msg">
-            <span v-if="lastMessage?.isMine" class="me">Moi: </span>
+            <span v-if="lastMessage?.speaker === 1" class="me">Moi: </span>
             <span class="msg">{{ lastMessage?.text }}</span>
-            <span v-if="lastMessage?.unread" class="unread-dot"></span>
+            <span v-if="lastMessage?.isRead === false" class="unread-dot"></span>
           </div>
         </Transition>
       </div>
@@ -37,22 +43,27 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import LargeAvatar from '../LargeAvatar.vue';
+import type { ConversationType } from '../SideBarConversations.vue';
+import type { Bubble } from './bubbleChat/ChatBubble.vue';
 
 const props = defineProps<{
   displayFullContent?: boolean;
   displayDate?: boolean;
+  avatar?: string;
+  type?: ConversationType;
+  messages: Bubble[];
   participants: { name: string, avatar: string }[];
-  title?: string;
-  lastMessage?: { text: string, author: string, date: string, isMine: boolean, unread: boolean };
+  name?: string;
   active?: boolean;
 }>()
 
 const displayedParticipants = computed(() => props.participants);
 const extraCount = computed(() => Math.max(0, props.participants.length - 2));
+const lastMessage = computed(() => props.messages[props.messages.length - 1]);
 
 const formattedDate = computed(() => {
-  if (!props.lastMessage?.date) return '';
-  const d = new Date(props.lastMessage.date);
+  if (!lastMessage.value?.date) return '';
+  const d = new Date(lastMessage.value.date);
   if (isNaN(d.getTime())) return '';
   const now = new Date();
   const isToday = d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
@@ -84,6 +95,8 @@ const formattedDate = computed(() => {
   justify-content: center;
   gap: 1rem;
   padding: 0.75rem 1.1rem;
+  width: 100%;
+  min-width: 15.5rem;
   border-radius: 1.2rem;
   background: rgba(255,255,255,0.04);
   transition: background 0.18s, box-shadow 0.18s;

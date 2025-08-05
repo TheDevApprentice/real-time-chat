@@ -86,8 +86,10 @@
             v-for="conv in filteredConversations"
             :key="conv.id"
             :participants="conv.participants"
-            :title="conv.title"
-            :lastMessage="conv.lastMessage"
+            :name="conv.name"
+            :avatar="conv.avatar"
+            :type="conv.type"
+            :messages="conv.messages"
             :active="conv.active"
           />
           <div v-if="filteredConversations.length === 0 && searchQuery" class="text-center text-xs text-gray-400 py-4">
@@ -106,19 +108,17 @@
 import LoadingOverlay from "../components/LoadingOverlay.vue";
 import { defineAsyncComponent } from "vue";
 
+export type ConversationType = 'user' | 'room';
+
 export type Conversation = {
   id: number;
   participants: { name: string; avatar: string }[];
-  title: string;
+  name: string;
+  avatar: string;
+  type: ConversationType;
   messages: Bubble[];
-  lastMessage: {
-    text: string;
-    author: string;
-    date: string;
-    isMine: boolean;
-    unread: boolean;
-  };
   active: boolean;
+  mostRecent: boolean;
 };
 const UserConversationItem = defineAsyncComponent(
   () => import("../components/chat/UserConversationItem.vue")
@@ -139,13 +139,13 @@ const filteredConversations = computed(() => {
   const q = searchQuery.value.toLowerCase();
   return props.conversations.filter(conv => {
     // Recherche sur le titre
-    if (conv.title && conv.title.toLowerCase().includes(q)) return true;
+    if (conv.name && conv.name.toLowerCase().includes(q)) return true;
     // Recherche sur le texte des messages
     if (conv.messages.some(msg => msg.text.toLowerCase().includes(q))) return true;
     // Recherche sur les participants
     if (conv.participants.some(p => p.name.toLowerCase().includes(q))) return true;
     // Recherche sur le texte du dernier message
-    if (conv.lastMessage && conv.lastMessage.text.toLowerCase().includes(q)) return true;
+    if (conv.messages.length > 0 && conv.messages[conv.messages.length - 1].text.toLowerCase().includes(q)) return true;
     return false;
   });
 });

@@ -45,7 +45,6 @@ defineProps<{
   conversations: Conversation[];
   openConversations: OpenChat[];
 }>();
-
 </script>
 
 <style scoped>

@@ -4,8 +4,8 @@
       <div>
         <nav
           class="sidebar-glass flex flex-col h-screen w-23 hover:w-66 transition-all duration-300 ease-in-out group relative border-r border-custom"
-          @mouseenter="updateSideBarHover"
-          @mouseleave="updateSideBarHover"
+          @mouseenter="updateSideBarHover(true)"
+          @mouseleave="updateSideBarHover(false)"
         >
           <div class="flex mt-2">
             <div class="mt-6 ml-4">
@@ -56,29 +56,22 @@
             </button>
           </div>
           <!-- Liste des rooms -->
-          <ul class="flex flex-col gap-2 mt-2 px-2">
-            <li
-              v-for="room in rooms"
-              :key="room.id"
-              :class="[
-                'sidebar-room',
-                room.active ? 'sidebar-room-active' : '',
-              ]"
-            >
-              <div class="flex mt-2 py-1">
-                <div class="mt-3">
-                  <LargeAvatar :avatar="room.avatar" :name="room.name" />
-                </div>
-                <span
-                  class="sidebar-room-label mt-2 ml-2 group-hover:opacity-100 opacity-0"
-                  style="
-                    transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
-                  "
-                  >{{ room.name }}</span
-                >
-              </div>
-            </li>
-          </ul>
+          <div class="flex mt-2 px-2">
+            <div class="flex flex-col gap-2">
+              <UserConversationItem
+                :displayFullContent="sidebarHovered"
+                :displayDate="false"
+                v-for="conv in mockConversations.filter((conv) => conv.type === 'room' && conv.mostRecent)"
+                :key="conv.id"
+                :participants="conv.participants"
+                :avatar="conv.avatar"
+                :type="conv.type"
+                :name="conv.name"
+                :messages="conv.messages"
+                :active="conv.active"
+              />
+            </div>
+          </div>
           <div class="sidebar-divider my-2"></div>
           <!-- Amis header + add -->
           <div class="flex items-center justify-between px-2 py-2">
@@ -119,11 +112,13 @@
               <UserConversationItem
                 :displayFullContent="sidebarHovered"
                 :displayDate="false"
-                v-for="conv in mockConversations"
+                v-for="conv in mockConversations.filter((conv) => conv.type === 'user')"
                 :key="conv.id"
                 :participants="conv.participants"
-                :title="conv.title"
-                :lastMessage="conv.lastMessage"
+                :messages="conv.messages"
+                :avatar="conv.avatar"
+                :type="conv.type"
+                :name="conv.name"
                 :active="conv.active"
               />
             </div>
@@ -209,7 +204,7 @@
 
 <script setup lang="ts">
 import LoadingOverlay from "../components/LoadingOverlay.vue";
-import { defineAsyncComponent, ref } from "vue";
+import { defineAsyncComponent } from "vue";
 import type { Conversation } from "../components/SideBarConversations.vue";
 
 const LargeAvatar = defineAsyncComponent(
@@ -228,7 +223,7 @@ const CreateRoomModal = defineAsyncComponent(
   () => import("../components/CreateRoomModal.vue")
 );
 
-const props = defineProps<{
+defineProps<{
   rooms: Room[];
   mockConversations: Conversation[];
   showInfoModal: boolean;
@@ -243,9 +238,8 @@ const props = defineProps<{
   closeAddFriendModal: () => void;
   openCreateRoomModal: () => void;
   closeCreateRoomModal: () => void;
+  updateSideBarHover: (value: boolean) => void;
 }>();
-
-const sidebarHovered = ref(props.sidebarHovered);
 
 export type Room = {
   id: number;
@@ -253,12 +247,6 @@ export type Room = {
   avatar: string;
   active: boolean;
 };
-
-function updateSideBarHover() {
-  setTimeout(() => {
-    sidebarHovered.value = !sidebarHovered.value;
-  }, 150);
-}
 </script>
 
 <style scoped>

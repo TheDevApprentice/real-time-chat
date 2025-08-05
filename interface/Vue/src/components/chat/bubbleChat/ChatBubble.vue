@@ -88,7 +88,6 @@ export interface Bubble {
   speaker: number;
   text: string;
   date: string;
-  isMine?: boolean;
   isTyping: boolean;
   isWriting: boolean;
   isSent: boolean;

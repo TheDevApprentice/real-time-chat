@@ -27,6 +27,66 @@
             </template>
           </SearchBar>
         </div>
+        <div v-if="!sidebarHovered" class="upperzone-btns">
+          <!-- Bouton Ajouter un ami -->
+          <button
+            class="upperzone-btn"
+            title="Ajouter un ami"
+            @click="$emit('add-friend')"
+            type="button"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <circle
+                cx="12"
+                cy="7"
+                r="4"
+                stroke="currentColor"
+                stroke-width="2"
+              />
+              <path
+                d="M4 20c0-2.5 3.5-4 8-4s8 1.5 8 4"
+                stroke="currentColor"
+                stroke-width="2"
+              />
+              <path
+                d="M19 8v3m0 0v3m0-3h3m-3 0h-3"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+          <!-- Bouton Créer une room -->
+          <button
+            class="upperzone-btn"
+            title="Créer une room"
+            @click="$emit('create-room')"
+            type="button"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <rect
+                x="3"
+                y="7"
+                width="18"
+                height="10"
+                rx="2"
+                stroke="currentColor"
+                stroke-width="2"
+              />
+              <path
+                d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"
+                stroke="currentColor"
+                stroke-width="2"
+              />
+              <path
+                d="M12 12v4"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+        </div>
       </section>
     </template>
     <template #fallback>
@@ -49,12 +109,15 @@ const SearchBarUserCard = defineAsyncComponent(
 
 const authStore = useAuthStore();
 
-defineProps<{ 
-    searchQuery: string
-    users: { name: string; avatar: string }[]
-    filteredUsers: { name: string; avatar: string }[]
-    updateSearchQuery: (searchQuery: string) => void
-}>();   
+defineProps<{
+  sidebarHovered: boolean;
+  searchQuery: string;
+  users: { name: string; avatar: string }[];
+  filteredUsers: { name: string; avatar: string }[];
+  updateSearchQuery: (searchQuery: string) => void;
+}>();
+
+defineEmits(['add-friend', 'create-room'])
 </script>
 
 <style scoped>
@@ -178,5 +241,36 @@ defineProps<{
   padding: 1.3rem 2.2rem 0.5rem 0;
   top: -0.3rem;
   transform: translateX(2%);
+}
+.upperzone-btns {
+  display: flex;
+  justify-self: center;
+  align-self: center;
+  gap: 0.7rem;
+  z-index: 30;
+  position: absolute;
+  padding: 1.3rem 2.2rem 0.5rem 0;
+  top: 0.2rem;
+  left: 24rem;
+}
+.upperzone-btn {
+  display: flex;
+  align-items: center;
+
+  border-radius: 1.3rem;
+  padding: 0.15rem 1rem 0.15rem 0.7rem;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0px 0.5px 8px 3px rgba(68, 102, 214, 0.242);
+  transition: box-shadow 0.18s, background 0.18s, color 0.18s;
+  width: 100%;
+  margin-left: 0.1rem;
+  margin-right: 0.1rem;
+  max-width: 340px;
+  position: relative;
+  left: 2%;
+}
+.upperzone-btn:hover {
+  background: rgba(255, 255, 255, 0.195);
+  box-shadow: 0px 0.5px 8px 2px rgba(68, 102, 214, 0.57);
 }
 </style>
