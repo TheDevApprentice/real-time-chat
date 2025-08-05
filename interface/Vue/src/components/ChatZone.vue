@@ -4,10 +4,27 @@
       <!-- Zone de chat qui doit laisser un espace en haut pour le bouton d'actions et de recherche -->
       <section class="flex mt-[4.4rem] h-[calc(100vh-5.05rem)]">
         <div
-          class="min-h-0 min-w-0 h-full w-full grid grid-cols-[310px_minmax(400px,_1fr)_0px] grid-rows-1 gap-2 mx-1 bg-white/10 rounded-xl shadow-lg animate-fade-in"
+          class="min-w-0 w-full grid  grid-rows-1 gap-1 mx-0 bg-white/10 rounded-xl shadow-lg animate-fade-in"
+          :class="{'grid-cols-[310px_minmax(400px,_1fr)_0px]' : sidebarExpanded, 'grid-cols-[70px_minmax(400px,_1fr)_0px]' : !sidebarExpanded }"
+          style="transition: grid-template-columns 0.3s cubic-bezier(0.4,0,0.2,1);"
         >
-          <div class="col-span-1 row-span-1 w-full h-full">
-            <SideBarConversations :conversations="conversations" />
+        
+        <div class="col-span-1 row-span-1 w-full h-full relative">
+            <button
+              class="sidebar-toggle-btn absolute -right-6.5 top-20 z-40"
+              :aria-label="sidebarExpanded ? 'Réduire la barre latérale' : 'Déplier la barre latérale'"
+              @click="sidebarExpanded = !sidebarExpanded"
+              type="button"
+            >
+              <svg v-if="sidebarExpanded" width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M15 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <svg v-else width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M9 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          <div 
+          class="col-span-1 row-span-1 w-full h-full relative"
+          :class="{'' : sidebarExpanded, 'top-[-2rem] ml-4' : !sidebarExpanded }"
+          >
+            <SideBarConversations :sidebarExpanded="sidebarExpanded" :conversations="conversations" />
+          </div>
           </div>
           <div class="col-span-1 row-span-1 w-full h-full">
             <ChatGrid :openConversations="openConversations" />
@@ -23,7 +40,7 @@
 
 <script setup lang="ts">
 import LoadingOverlay from "../components/LoadingOverlay.vue";
-import { defineAsyncComponent } from "vue";
+import { defineAsyncComponent, ref } from "vue";
 import type { Bubble } from "../components/chat/bubbleChat/ChatBubble.vue";
 import type { Conversation } from "../components/SideBarConversations.vue";
 
@@ -45,6 +62,12 @@ defineProps<{
   conversations: Conversation[];
   openConversations: OpenChat[];
 }>();
+
+const sidebarExpanded = ref(true);
+
+function toggleSidebar() {
+  sidebarExpanded.value = !sidebarExpanded.value;
+}
 </script>
 
 <style scoped>
@@ -168,23 +191,22 @@ defineProps<{
   top: -0.3rem;
   transform: translateX(2%);
 }
-/* button {
-    color: #090909;
-    padding: 0.7em 1.7em;
-    font-size: 18px;
-    border-radius: 0.5em;
-    background: #e8e8e8;
-    cursor: pointer;
-    border: 1px solid #e8e8e8;
-    transition: all 0.3s;
-    box-shadow: 6px 6px 12px #c5c5c5, -6px -6px 12px #ffffff;
-  }
-  
-  button:hover {
-    border: 1px solid white;
-  }
-  
-  button:active {
-    box-shadow: 4px 4px 12px #c5c5c5, -4px -4px 12px #ffffff;
-  } */
+.sidebar-toggle-btn {
+  background: var(--background-btn, #6c47ff);
+  color: #fff;
+  border-radius: 50%;
+  width: 2.1rem;
+  height: 2.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  box-shadow: 0 2px 8px rgba(108, 71, 255, 0.08);
+  transition: background 0.18s, box-shadow 0.18s;
+  transform: translateY(-50%);
+}
+.sidebar-toggle-btn:hover {
+  background: #825fff;
+  box-shadow: 0 4px 16px rgba(108, 71, 255, 0.13);
+}
 </style>

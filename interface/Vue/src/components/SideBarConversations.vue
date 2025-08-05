@@ -4,10 +4,11 @@
       <div class="flex flex-col">
         <!-- Global enveloppe of side bar conversations-->
         <div
-          class="flex flex-row items-center px-2 py-2 relative min-h-[44px]"
+          class="flex flex-row items-center px-2 py-2 relative min-h-[44px] min-w-0"
         >
           <!-- Bouton search -->
           <button
+            v-if="sidebarExpanded"
             class="searchbar-toggle-btn mr-0.5 flex items-center justify-center w-10 h-10 rounded-full hover:bg-[#312f4e] transition"
             :aria-label="
               showSearchBar
@@ -54,6 +55,7 @@
           </transition>
 
           <button
+            v-if="sidebarExpanded"
             class="sidebar-btn-add flex items-center justify-center ml-auto w-10 h-10 min-w-[40px] min-h-[40px] max-w-[40px] max-h-[40px] shadow-md"
             title="Créer une conversation"
             @click="$emit('create-conversation')"
@@ -81,10 +83,12 @@
         <div class="flex flex-col">
           <!-- List of conversations filtrées par searchQuery -->
           <UserConversationItem
-            :displayFullContent="true"
-            :displayDate="true"
+            :displayFullContent="sidebarExpanded"
+            :displayDate="sidebarExpanded"
+            :sidebarExpanded="sidebarExpanded"
             v-for="conv in filteredConversations"
             :key="conv.id"
+
             :participants="conv.participants"
             :name="conv.name"
             :avatar="conv.avatar"
@@ -92,7 +96,10 @@
             :messages="conv.messages"
             :active="conv.active"
           />
-          <div v-if="filteredConversations.length === 0 && searchQuery" class="text-center text-xs text-gray-400 py-4">
+          <div
+            v-if="filteredConversations.length === 0 && searchQuery"
+            class="text-center text-xs text-gray-400 py-4"
+          >
             Aucune conversation trouvée.
           </div>
         </div>
@@ -108,7 +115,7 @@
 import LoadingOverlay from "../components/LoadingOverlay.vue";
 import { defineAsyncComponent } from "vue";
 
-export type ConversationType = 'user' | 'room';
+export type ConversationType = "user" | "room";
 
 export type Conversation = {
   id: number;
@@ -125,6 +132,7 @@ const UserConversationItem = defineAsyncComponent(
 );
 
 const props = defineProps<{
+  sidebarExpanded: boolean;
   conversations: Conversation[];
 }>();
 import { ref, computed } from "vue";
@@ -137,15 +145,21 @@ const searchQuery = ref("");
 const filteredConversations = computed(() => {
   if (!searchQuery.value) return props.conversations;
   const q = searchQuery.value.toLowerCase();
-  return props.conversations.filter(conv => {
+  return props.conversations.filter((conv) => {
     // Recherche sur le titre
     if (conv.name && conv.name.toLowerCase().includes(q)) return true;
     // Recherche sur le texte des messages
-    if (conv.messages.some(msg => msg.text.toLowerCase().includes(q))) return true;
+    if (conv.messages.some((msg) => msg.text.toLowerCase().includes(q)))
+      return true;
     // Recherche sur les participants
-    if (conv.participants.some(p => p.name.toLowerCase().includes(q))) return true;
+    if (conv.participants.some((p) => p.name.toLowerCase().includes(q)))
+      return true;
     // Recherche sur le texte du dernier message
-    if (conv.messages.length > 0 && conv.messages[conv.messages.length - 1].text.toLowerCase().includes(q)) return true;
+    if (
+      conv.messages.length > 0 &&
+      conv.messages[conv.messages.length - 1].text.toLowerCase().includes(q)
+    )
+      return true;
     return false;
   });
 });
@@ -161,7 +175,6 @@ function toggleSearchBar() {
     }, 0);
   }
 }
-
 </script>
 
 <style scoped>

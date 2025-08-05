@@ -3,7 +3,7 @@
     name="fade-slide"
     appear
   >
-    <div :class="[ displayFullContent ? 'user-conv-item' : 'user-conv-item-full', { active, unread: lastMessage?.isRead === false && displayFullContent && displayDate }]" @click="$emit('click')">
+    <div :class="[displayFullContent ? 'user-conv-item' : 'user-conv-item-full', { active, unread: lastMessage?.isRead === false && displayFullContent && displayDate }]" @click="$emit('click')">
       <div class="avatars">
         <LargeAvatar  
           v-for="(user, idx) in displayedParticipants"
@@ -27,12 +27,13 @@
           <div class="conv-last-msg">
             <span v-if="lastMessage?.speaker === 1" class="me">Moi: </span>
             <span class="msg">{{ lastMessage?.text }}</span>
-            <span v-if="lastMessage?.isRead === false" class="unread-dot"></span>
+
+            <span v-if="!sidebarExpanded || lastMessage?.isRead === false" class="unread-dot"></span>
           </div>
         </Transition>
       </div>
       <Transition name="fade-in" appear>
-        <div v-if="displayFullContent && displayDate" class="conv-meta">
+        <div v-if="sidebarExpanded || displayFullContent && displayDate" class="conv-meta">
           <span class="date">{{ formattedDate }}</span>
         </div>
       </Transition>
@@ -49,6 +50,7 @@ import type { Bubble } from './bubbleChat/ChatBubble.vue';
 const props = defineProps<{
   displayFullContent?: boolean;
   displayDate?: boolean;
+  sidebarExpanded?: boolean;
   avatar?: string;
   type?: ConversationType;
   messages: Bubble[];
@@ -96,7 +98,7 @@ const formattedDate = computed(() => {
   gap: 1rem;
   padding: 0.75rem 1.1rem;
   width: 100%;
-  min-width: 15.5rem;
+  min-width: 15rem;
   border-radius: 1.2rem;
   background: rgba(255,255,255,0.04);
   transition: background 0.18s, box-shadow 0.18s;
