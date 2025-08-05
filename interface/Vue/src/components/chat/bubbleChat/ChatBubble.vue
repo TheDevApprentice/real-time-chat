@@ -24,7 +24,7 @@
         <!-- Icônes envoyé/lu -->
         <span
           v-if="isTyping === false && isWriting === false && speaker === 1"
-          class="bubble-status-icons" 
+          class="bubble-status-icons"
         >
           <!-- Icône envoyé/message -->
           <svg
