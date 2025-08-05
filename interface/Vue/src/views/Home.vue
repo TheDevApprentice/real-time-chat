@@ -28,6 +28,7 @@
                   <button
                     class="sidebar-btn-add opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
                     title="Créer une room"
+                    @click="openCreateRoomModal"
                   >
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                       <circle
@@ -160,7 +161,9 @@
                   </button>
                 </div>
               </nav>
-              <div class="w-full min-h-0 min-w-0 h-full grid grid-cols-1 grid-rows-1 gap-2 bg-white/10 rounded-xl shadow-lg animate-fade-in">
+              <div
+                class="w-full min-h-0 min-w-0 h-full grid grid-cols-1 grid-rows-1 gap-2 bg-white/10 rounded-xl shadow-lg animate-fade-in"
+              >
                 <!-- Zone bouton d'actions et de recherche cette zone se superpose avec le parent : PageTemplate qui laisse en haut à droite des bouton qui permettent de faire la gestion rapide du theme et de la lanque
                  il faut donc que cette zone soit libre -->
                 <section class="flex flex-row">
@@ -191,27 +194,26 @@
                     </SearchBar>
                   </div>
                   <div class="flex absolute left-120 top-5">
-                    <input type="number" placeholder="nb of row" v-model="nbOpenChats"  min="1" max="4"/>
+                    <input
+                      type="number"
+                      placeholder="nb of row"
+                      v-model="nbOpenChats"
+                      min="1"
+                      max="4"
+                    />
                   </div>
                 </section>
                 <!-- Zone de chat qui doit laisser un espace en haut pour le bouton d'actions et de recherche -->
                 <section class="flex mt-[4.4rem] h-[calc(100vh-5.05rem)]">
                   <div
-                    class="min-h-0 min-w-0 h-full w-full grid grid-cols-[310px_minmax(400px,_1fr)_0px] grid-rows-1 gap-2 mx-1 bg-white/10 rounded-xl shadow-lg animate-fade-in "
+                    class="min-h-0 min-w-0 h-full w-full grid grid-cols-[310px_minmax(400px,_1fr)_0px] grid-rows-1 gap-2 mx-1 bg-white/10 rounded-xl shadow-lg animate-fade-in"
                   >
-                    <div class="col-span-1 row-span-1">
-                      <UserConversationItem
-                        :displayFullContent="true"
-                        :displayDate="true"
-                        v-for="conv in mockConversations"
-                        :key="conv.id"
-                        :participants="conv.participants"
-                        :title="conv.title"
-                        :lastMessage="conv.lastMessage"
-                        :active="conv.active"
+                    <div class="col-span-1 row-span-1 w-full h-full">
+                      <SideBarConversations
+                        :mockConversations="mockConversations"
                       />
                     </div>
-                    <div class="col-span-1 row-span-1">
+                    <div class="col-span-1 row-span-1 w-full h-full">
                       <ChatGrid :openedChats="openedChats" />
                     </div>
                   </div>
@@ -232,6 +234,11 @@
             headerTitle="Ajouter un ami"
             @close="closeAddFriendModal"
           />
+          <CreateRoomModal
+            v-if="createRoomModalisOpen"
+            headerTitle="Créer une room"
+            @close="closeCreateRoomModal"
+          />
         </template>
       </PageTemplate>
     </template>
@@ -246,6 +253,7 @@ import LoadingOverlay from "../components/LoadingOverlay.vue";
 import { ref, defineAsyncComponent, computed } from "vue";
 import type { Bubble } from "../components/chat/bubbleChat/ChatBubble.vue";
 import { useAuthStore } from "../stores/AuthStore";
+import type { Conversation } from "../components/SideBarConversations.vue";
 
 const LargeAvatar = defineAsyncComponent(
   () => import("../components/LargeAvatar.vue")
@@ -253,11 +261,17 @@ const LargeAvatar = defineAsyncComponent(
 const UserConversationItem = defineAsyncComponent(
   () => import("../components/chat/UserConversationItem.vue")
 );
+const SideBarConversations = defineAsyncComponent(
+  () => import("../components/SideBarConversations.vue")
+);
 const InfoModal = defineAsyncComponent(
   () => import("../components/InfoModal.vue")
 );
 const AddFriendModal = defineAsyncComponent(
   () => import("../components/AddFriendModal.vue")
+);
+const CreateRoomModal = defineAsyncComponent(
+  () => import("../components/CreateRoomModal.vue")
 );
 const ChatGrid = defineAsyncComponent(
   () => import("../components/home/chatGrid.vue")
@@ -292,6 +306,7 @@ function updateSearchQuery(searchQueryChanged: string) {
 }
 
 const addFriendModalisOpen = ref(false);
+const createRoomModalisOpen = ref(false);
 const authStore = useAuthStore();
 const showInfoModal = ref(false);
 const messages: Bubble[] = [
@@ -404,14 +419,16 @@ const rooms = [
 
 // MOCK pour la démo : à remplacer par ta logique d'ouverture réelle
 const nbOpenChats = ref(4); // Change ce nombre pour tester 1, 2, 3 ou 4 chats
-const openedChats = computed(() => [
-  { id: 1, name: "Hugo", avatar: "🤖", messages: messages },
-  { id: 2, name: "Mélanie", avatar: "🤖", messages: messages },
-  { id: 3, name: "Alpha", avatar: "🤖", messages: messages },
-  { id: 4, name: "Lidya", avatar: "🧛", messages: messages },
-].slice(0, nbOpenChats.value)); // Simule l'ouverture de 1 à 4 chats
+const openedChats = computed(() =>
+  [
+    { id: 1, name: "Hugo", avatar: "🤖", messages: messages },
+    { id: 2, name: "Mélanie", avatar: "🤖", messages: messages },
+    { id: 3, name: "Alpha", avatar: "🤖", messages: messages },
+    { id: 4, name: "Lidya", avatar: "🧛", messages: messages },
+  ].slice(0, nbOpenChats.value)
+); // Simule l'ouverture de 1 à 4 chats
 
-const mockConversations = [
+const mockConversations: Conversation[] = [
   {
     id: 1,
     participants: [{ name: "Bot Lidya", avatar: "🧛" }],
@@ -464,6 +481,14 @@ function openAddFriendModal() {
 
 function closeAddFriendModal() {
   addFriendModalisOpen.value = false;
+}
+
+function openCreateRoomModal() {
+  createRoomModalisOpen.value = true;
+}
+
+function closeCreateRoomModal() {
+  createRoomModalisOpen.value = false;
 }
 </script>
 
