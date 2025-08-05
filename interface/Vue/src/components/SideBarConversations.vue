@@ -79,17 +79,20 @@
           </button>
         </div>
         <div class="flex flex-col">
-          <!-- List of conversations-->
+          <!-- List of conversations filtrées par searchQuery -->
           <UserConversationItem
             :displayFullContent="true"
             :displayDate="true"
-            v-for="conv in props.mockConversations"
+            v-for="conv in filteredConversations"
             :key="conv.id"
             :participants="conv.participants"
             :title="conv.title"
             :lastMessage="conv.lastMessage"
             :active="conv.active"
           />
+          <div v-if="filteredConversations.length === 0 && searchQuery" class="text-center text-xs text-gray-400 py-4">
+            Aucune conversation trouvée.
+          </div>
         </div>
       </div>
     </template>
@@ -107,6 +110,7 @@ export type Conversation = {
   id: number;
   participants: { name: string; avatar: string }[];
   title: string;
+  messages: Bubble[];
   lastMessage: {
     text: string;
     author: string;
@@ -121,12 +125,31 @@ const UserConversationItem = defineAsyncComponent(
 );
 
 const props = defineProps<{
-  mockConversations: Conversation[];
+  conversations: Conversation[];
 }>();
-import { ref } from "vue";
+import { ref, computed } from "vue";
+import type { Bubble } from "./chat/bubbleChat/ChatBubble.vue";
 
 const showSearchBar = ref(false);
 const searchQuery = ref("");
+
+// Filtrage des conversations selon le searchQuery (titre, participants, dernier message)
+const filteredConversations = computed(() => {
+  if (!searchQuery.value) return props.conversations;
+  const q = searchQuery.value.toLowerCase();
+  return props.conversations.filter(conv => {
+    // Recherche sur le titre
+    if (conv.title && conv.title.toLowerCase().includes(q)) return true;
+    // Recherche sur le texte des messages
+    if (conv.messages.some(msg => msg.text.toLowerCase().includes(q))) return true;
+    // Recherche sur les participants
+    if (conv.participants.some(p => p.name.toLowerCase().includes(q))) return true;
+    // Recherche sur le texte du dernier message
+    if (conv.lastMessage && conv.lastMessage.text.toLowerCase().includes(q)) return true;
+    return false;
+  });
+});
+
 function toggleSearchBar() {
   showSearchBar.value = !showSearchBar.value;
   if (showSearchBar.value) {
@@ -138,6 +161,7 @@ function toggleSearchBar() {
     }, 0);
   }
 }
+
 </script>
 
 <style scoped>

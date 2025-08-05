@@ -27,16 +27,6 @@
             </template>
           </SearchBar>
         </div>
-        <div class="input">
-          <input
-            type="number"
-            placeholder="nb of row"
-            :value="nbOpenChats"
-            @input="updateNbOpenChats($event.target.value)"
-            min="1"
-            max="4"
-          />
-        </div>
       </section>
     </template>
     <template #fallback>
@@ -60,12 +50,10 @@ const SearchBarUserCard = defineAsyncComponent(
 const authStore = useAuthStore();
 
 defineProps<{ 
-    nbOpenChats: number 
     searchQuery: string
     users: { name: string; avatar: string }[]
     filteredUsers: { name: string; avatar: string }[]
     updateSearchQuery: (searchQuery: string) => void
-    updateNbOpenChats: (nbOpenChats: number) => void
 }>();   
 </script>
 
@@ -190,17 +178,5 @@ defineProps<{
   padding: 1.3rem 2.2rem 0.5rem 0;
   top: -0.3rem;
   transform: translateX(2%);
-}
-.input {
-  display: flex;
-  justify-self: center;
-  align-self: center;
-  gap: 0.7rem;
-  z-index: 30;
-  position: absolute;
-  width: 20%;
-  padding: 1.3rem 2.2rem 0.5rem 0;
-  top: -0.3rem;
-  transform: translateX(100%);
 }
 </style>

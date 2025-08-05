@@ -28,17 +28,14 @@
                 <!-- Zone bouton d'actions et de recherche cette zone se superpose avec le parent : PageTemplate qui laisse en haut à droite des bouton qui permettent de faire la gestion rapide du theme et de la lanque
                  il faut donc que cette zone soit libre -->
                 <UpperChatZone
-                  :nbOpenChats="nbOpenChats"
                   :searchQuery="searchQuery"
                   :users="users"
                   :filteredUsers="filteredUsers"
                   :updateSearchQuery="updateSearchQuery"
-                  :updateNbOpenChats="updateNbOpenChats"
                 />
                 <ChatZone
-                  :mockConversations="mockConversations"
-                  :openedChats="openedChats"
-                  :nbOpenChats="nbOpenChats"
+                  :conversations="mockConversations"
+                  :openConversations="openConversations"
                 />
               </div>
             </div>
@@ -97,7 +94,7 @@ const addFriendModalisOpen = ref(false);
 const createRoomModalisOpen = ref(false);
 const authStore = useAuthStore();
 const showInfoModal = ref(false);
-const messages: Bubble[] = [
+const mockMessages: Bubble[] = [
   {
     text: "Hello ! 😀",
     speaker: 0,
@@ -206,21 +203,21 @@ const rooms: Room[] = [
 ];
 
 // MOCK pour la démo : à remplacer par ta logique d'ouverture réelle
-const nbOpenChats = ref<number>(4); // Change ce nombre pour tester 1, 2, 3 ou 4 chats
-const openedChats = computed(() =>
+const openConversations = computed(() =>
   [
-    { id: 1, name: "Hugo", avatar: "🤖", messages: messages },
-    { id: 2, name: "Mélanie", avatar: "🤖", messages: messages },
-    { id: 3, name: "Alpha", avatar: "🤖", messages: messages },
-    { id: 4, name: "Lidya", avatar: "🧛", messages: messages },
-  ].slice(0, nbOpenChats.value)
-); // Simule l'ouverture de 1 à 4 chats
+    { id: 1, name: "Hugo", avatar: "🤖", messages: mockMessages },
+    { id: 2, name: "Mélanie", avatar: "🤖", messages: mockMessages },
+    { id: 3, name: "Alpha", avatar: "🤖", messages: mockMessages },
+    // { id: 4, name: "Lidya", avatar: "🧛", messages: mockMessages },
+  ]
+);
 
 const mockConversations: Conversation[] = [
   {
     id: 1,
     participants: [{ name: "Bot Lidya", avatar: "🧛" }],
     title: "Bot Lidya",
+    messages: mockMessages,
     lastMessage: {
       text: "Hello ! 😀",
       author: "Bot Lidya",
@@ -234,6 +231,7 @@ const mockConversations: Conversation[] = [
     id: 2,
     participants: [{ name: "Mélanie", avatar: "🤖" }],
     title: "Bot Mélanie",
+    messages: mockMessages,
     lastMessage: {
       text: "À tout de suite !",
       author: "Moi",
@@ -246,9 +244,7 @@ const mockConversations: Conversation[] = [
   // Ajoute d'autres mocks si besoin
 ];
 
-function updateNbOpenChats(value: number) {
-  nbOpenChats.value = value;
-}
+
 function askLogout() {
   openInfoModal();
 }

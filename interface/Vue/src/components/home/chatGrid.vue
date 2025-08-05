@@ -1,7 +1,7 @@
 <template>
   <div :class="gridClasses" class="max-h-screen h-full w-full gap-2">
     <div
-      v-for="(chat, index) in props.openedChats"
+      v-for="(chat, index) in props.openConversations"
       :key="chat.id"
       :class="getChatItemClasses(index)"
     >
@@ -14,7 +14,6 @@
 
 <script setup lang="ts">
 import { computed, defineAsyncComponent } from "vue";
-import type { Bubble } from "../chat/bubbleChat/ChatBubble.vue";
 import type { OpenChat } from "../ChatZone.vue";
 
 const ChatView = defineAsyncComponent(
@@ -22,34 +21,34 @@ const ChatView = defineAsyncComponent(
 );
 
 const props = defineProps<{
-  openedChats: OpenChat[];
+  openConversations: OpenChat[];
 }>();
 
 const gridType = computed(() => {
-  if (props.openedChats.length === 1) {
+  if (props.openConversations.length === 1) {
     return {
       cols: 1,
       rows: 1,
     };
-  } else if (props.openedChats.length === 2) {
+  } else if (props.openConversations.length === 2) {
     return {
       cols: 2,
       rows: 1,
     };
-  } else if (props.openedChats.length === 3) {
+  } else if (props.openConversations.length === 3) {
     return {
       cols: 2,
       rows: 2,
     };
-  } else if (props.openedChats.length === 4) {
+  } else if (props.openConversations.length === 4) {
     return {
       cols: 2,
       rows: 2,
     };
   }
   return {
-    cols: Math.min(props.openedChats.length, 3),
-    rows: Math.ceil(props.openedChats.length / 3),
+    cols: Math.min(props.openConversations.length, 3),
+    rows: Math.ceil(props.openConversations.length / 3),
   };
 });
 
@@ -59,7 +58,7 @@ const gridClasses = computed(() => {
 
 // Fonction pour déterminer les classes de chaque chat selon sa position
 const getChatItemClasses = (index: number) => {
-  const totalChats = props.openedChats.length;
+  const totalChats = props.openConversations.length;
   
   if (totalChats === 1) {
     // 1 chat : prend tout l'espace

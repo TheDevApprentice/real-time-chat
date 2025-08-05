@@ -7,10 +7,10 @@
           class="min-h-0 min-w-0 h-full w-full grid grid-cols-[310px_minmax(400px,_1fr)_0px] grid-rows-1 gap-2 mx-1 bg-white/10 rounded-xl shadow-lg animate-fade-in"
         >
           <div class="col-span-1 row-span-1 w-full h-full">
-            <SideBarConversations :mockConversations="mockConversations" />
+            <SideBarConversations :conversations="conversations" />
           </div>
           <div class="col-span-1 row-span-1 w-full h-full">
-            <ChatGrid :openedChats="openedChats" />
+            <ChatGrid :openConversations="openConversations" />
           </div>
         </div>
       </section>
@@ -42,10 +42,10 @@ export type OpenChat = {
 };
 
 defineProps<{
-  mockConversations: Conversation[];
-  openedChats: OpenChat[];
-  nbOpenChats: number;
+  conversations: Conversation[];
+  openConversations: OpenChat[];
 }>();
+
 </script>
 
 <style scoped>
