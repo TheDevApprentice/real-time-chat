@@ -1,28 +1,37 @@
  <template>
-  <div :class="[ displayFullContent ? 'user-conv-item' : 'user-conv-item-full', { active, unread: lastMessage?.unread && displayFullContent && displayDate }]" @click="$emit('click')">
-    <div class="avatars">
-      <LargeAvatar
-        v-for="(user, idx) in displayedParticipants"
-        :key="user.name + idx"
-        :avatar="user.avatar"
-        :name="user.name"
-      />
-      <span v-if="extraCount > 0" class="extra-count">+{{ extraCount }}</span>
-    </div>
-    <div v-if="displayFullContent" class="conv-content ">
-      <div class="conv-title">
-        <span>{{ title }}</span>
+  <Transition
+    name="fade-slide"
+    appear
+  >
+    <div :class="[ displayFullContent ? 'user-conv-item' : 'user-conv-item-full', { active, unread: lastMessage?.unread && displayFullContent && displayDate }]" @click="$emit('click')">
+      <div class="avatars">
+        <LargeAvatar
+          v-for="(user, idx) in displayedParticipants"
+          :key="user.name + idx"
+          :avatar="user.avatar"
+          :name="user.name"
+        />
+        <span v-if="extraCount > 0" class="extra-count">+{{ extraCount }}</span>
       </div>
-      <div class="conv-last-msg">
-        <span v-if="lastMessage?.isMine" class="me">Moi: </span>
-        <span class="msg">{{ lastMessage?.text }}</span>
-        <span v-if="lastMessage?.unread" class="unread-dot"></span>
+      <div v-if="displayFullContent" class="conv-content ">
+        <Transition name="fade-slide-in" appear>
+          <div class="conv-title"><span>{{ title }}</span></div>
+        </Transition>
+        <Transition name="fade-slide-in" appear>
+          <div class="conv-last-msg">
+            <span v-if="lastMessage?.isMine" class="me">Moi: </span>
+            <span class="msg">{{ lastMessage?.text }}</span>
+            <span v-if="lastMessage?.unread" class="unread-dot"></span>
+          </div>
+        </Transition>
       </div>
+      <Transition name="fade-in" appear>
+        <div v-if="displayFullContent && displayDate" class="conv-meta">
+          <span class="date">{{ formattedDate }}</span>
+        </div>
+      </Transition>
     </div>
-    <div v-if="displayFullContent && displayDate" class="conv-meta">
-      <span class="date">{{ formattedDate }}</span>
-    </div>
-  </div>
+  </Transition>
 </template>
 
 <script setup lang="ts">
@@ -202,13 +211,40 @@ const formattedDate = computed(() => {
   position: relative;
   right: 1rem;
 }
-@media (max-width: 600px) {
-  .user-conv-item {
-    padding: 0.55rem 0.5rem;
-    gap: 0.7rem;
-  }
-  .conv-title {
-    font-size: 0.98em;
-  }
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: opacity 0.18s cubic-bezier(0.4,0,0.2,1), transform 0.18s cubic-bezier(0.4,0,0.2,1);
+}
+.fade-slide-enter-from,
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(18px);
+}
+.fade-slide-enter-to,
+.fade-slide-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.fade-slide-in-enter-active {
+  transition: opacity 0.22s 0.07s cubic-bezier(0.4,0,0.2,1), transform 0.22s 0.07s cubic-bezier(0.4,0,0.2,1);
+}
+.fade-slide-in-enter-from {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+.fade-slide-in-enter-to {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.fade-in-enter-active {
+  transition: opacity 0.22s 0.13s cubic-bezier(0.4,0,0.2,1);
+}
+.fade-in-enter-from {
+  opacity: 0;
+}
+.fade-in-enter-to {
+  opacity: 1;
 }
 </style>
