@@ -27,7 +27,17 @@
             </template>
           </SearchBar>
         </div>
-<!-- ici on va ajouter une liste d'user qui on été ajouté pour le moment ca sera hardCoder -->
+        <div class="modal-added-friends">
+          <div class="modal-added-title">Amis ajoutés</div>
+          <SearchBarUserCard
+            v-for="friend in addedFriends"
+            :key="friend.name"
+            :avatar="friend.avatar"
+            :name="friend.name"
+            :pendingInvitation="friend.pendingInvitation"
+            :isFriend="friend.isFriend"
+          />
+        </div>
         <button class="modal-btn" @click="handleClose">Fermer</button>
       </div>
     </template>
@@ -60,6 +70,11 @@ const filteredUsers = computed(() => {
     u.name.toLowerCase().includes(searchQuery.value.toLowerCase())
   );
 });
+
+const addedFriends = [
+  { name: "Bot Hugo", avatar: "🤖", pendingInvitation: true, isFriend: false },
+  { name: "Bot Lidya", avatar: "🧛", pendingInvitation: false, isFriend: true },
+];
 
 function updateSearchQuery(searchQueryChanged: string) {
   console.log("Login Page searchQuery changed : ", searchQueryChanged);
@@ -113,5 +128,23 @@ function handleClose() {
   box-shadow: 0 0 12px 0 #b03a7a44;
   transform: scale(1.045);
   background-position: right center;
+}
+
+.modal-added-friends {
+  width: 100%;
+  margin-bottom: 1.5rem;
+  padding: 0.5rem 0 0.7rem 0;
+  border-top: 1px solid var(--modal-message-color, #e0e7ef);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.modal-added-title {
+  font-size: 0.99em;
+  font-weight: 600;
+  color: var(--modal-message-color);
+  margin-bottom: 0.3rem;
+  margin-left: 0.2rem;
 }
 </style>

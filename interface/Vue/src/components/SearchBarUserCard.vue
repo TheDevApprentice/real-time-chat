@@ -2,13 +2,36 @@
   <div class="search-user-card">
     <Avatar v-if="!noresult" :avatar="avatarComputed" :name="name" size="md" />
     <span v-if="!noresult" class="user-name">{{ name }}</span>
-    <button v-if="!noresult" class="add-btn" @click="$emit('action')">
-      <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="9"/>
-        <line x1="12" y1="8" x2="12" y2="16"/>
-        <line x1="8" y1="12" x2="16" y2="12"/>
-      </svg>
-    </button>
+    <button
+  v-if="!noresult"
+  class="add-btn"
+  :disabled="props.isFriend || props.pendingInvitation"
+  :aria-disabled="props.isFriend || props.pendingInvitation"
+  @click="$emit('action')"
+>
+  <template v-if="props.isFriend">
+    <!-- Icône check/ami -->
+    <svg width="20" height="20" fill="none" stroke="#19c37d" stroke-width="2.3" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" stroke="#19c37d" fill="none"/>
+      <polyline points="8,13 11,16 16,10" fill="none" stroke="#19c37d" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </template>
+  <template v-else-if="props.pendingInvitation">
+    <!-- Icône horloge/pending -->
+    <svg width="20" height="20" fill="none" stroke="#f7b500" stroke-width="2.2" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" stroke="#f7b500" fill="none"/>
+      <path d="M12 8v4l2.5 2.5" stroke="#f7b500" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </template>
+  <template v-else>
+    <!-- Icône +/ajout -->
+    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9"/>
+      <line x1="12" y1="8" x2="12" y2="16"/>
+      <line x1="8" y1="12" x2="16" y2="12"/>
+    </svg>
+  </template>
+</button>
     <span v-else class="user-name">Aucun résultat</span>
   </div>
 </template>
@@ -20,6 +43,8 @@ const props = defineProps<{
   name?: string,
   avatar?: string,
   noresult?: boolean
+  pendingInvitation?: boolean;
+  isFriend?: boolean;
 }>()
 const avatarComputed = computed(() => {
   if (props.avatar !== undefined) {
