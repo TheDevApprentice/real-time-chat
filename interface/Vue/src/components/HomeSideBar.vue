@@ -4,15 +4,18 @@
       <div>
         <nav
           class="sidebar-glass flex flex-col h-screen w-23 hover:w-66 transition-all duration-300 ease-in-out group relative border-r border-custom"
-          @mouseenter="sidebarHovered = true"
-          @mouseleave="sidebarHovered = false"
+          @mouseenter="updateSideBarHover"
+          @mouseleave="updateSideBarHover"
         >
           <div class="flex mt-2">
             <div class="mt-6 ml-4">
               <LargeAvatar avatar="🤖" name="Bot Hugo" />
             </div>
             <span
-              class="sidebar-room-label mt-4.5 ml-2 group-hover:opacity-100 opacity-0 transition-opacity"
+              class="sidebar-room-label mt-4.5 ml-2 group-hover:opacity-100 opacity-0"
+              style="
+                transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
+              "
               >Hugo</span
             >
           </div>
@@ -20,9 +23,18 @@
           <div class="sidebar-divider my-2"></div>
           <!-- Rooms header + add -->
           <div class="flex items-center justify-between px-2 py-2">
-            <span class="sidebar-section transition-opacity">Rooms</span>
+            <span
+              class="sidebar-section"
+              style="
+                transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
+              "
+              >Rooms</span
+            >
             <button
-              class="sidebar-btn-add opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+              class="sidebar-btn-add opacity-0 group-hover:opacity-100 flex items-center justify-center"
+              style="
+                transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
+              "
               title="Créer une room"
               @click="openCreateRoomModal"
             >
@@ -58,7 +70,10 @@
                   <LargeAvatar :avatar="room.avatar" :name="room.name" />
                 </div>
                 <span
-                  class="sidebar-room-label mt-2 ml-2 group-hover:opacity-100 opacity-0 transition-opacity"
+                  class="sidebar-room-label mt-2 ml-2 group-hover:opacity-100 opacity-0"
+                  style="
+                    transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
+                  "
                   >{{ room.name }}</span
                 >
               </div>
@@ -67,9 +82,18 @@
           <div class="sidebar-divider my-2"></div>
           <!-- Amis header + add -->
           <div class="flex items-center justify-between px-2 py-2">
-            <span class="sidebar-section transition-opacity">Amis</span>
+            <span
+              class="sidebar-section"
+              style="
+                transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
+              "
+              >Amis</span
+            >
             <button
-              class="sidebar-btn-add opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+              class="sidebar-btn-add opacity-0 group-hover:opacity-100 flex items-center justify-center"
+              style="
+                transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
+              "
               title="Ajouter un ami"
               @click="openAddFriendModal"
             >
@@ -229,6 +253,12 @@ export type Room = {
   avatar: string;
   active: boolean;
 };
+
+function updateSideBarHover() {
+  setTimeout(() => {
+    sidebarHovered.value = !sidebarHovered.value;
+  }, 150);
+}
 </script>
 
 <style scoped>
