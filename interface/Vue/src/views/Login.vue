@@ -52,6 +52,8 @@
                 :date="bubble.date"
                 :isTyping="bubble.isTyping"
                 :isWriting="bubble.isWriting"
+                :isSent="bubble.isSent"
+                :isRead="bubble.isRead"
                 :animationDelay="`${idx * 0.22}s`"
               />
               <BarChat />
@@ -167,6 +169,8 @@ async function AnimChat() {
         date: msg.date,
         isTyping: true,
         isWriting: false,
+        isSent: false,
+        isRead: false,
       };
       chatBubbles.push(bubble);
       await nextTick();
@@ -186,6 +190,8 @@ async function AnimChat() {
         date: msg.date,
         isTyping: false,
         isWriting: false,
+        isSent: false,
+        isRead: false,
       };
       chatBubbles.push(bubble);
       await nextTick();

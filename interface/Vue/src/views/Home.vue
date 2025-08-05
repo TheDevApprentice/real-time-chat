@@ -6,239 +6,43 @@
           <div class="w-[100vw] h-[100vh]">
             <div class="z-10 flex">
               <!-- Primary Sidebar -->
-              <nav
-                class="sidebar-glass flex flex-col h-screen w-23 hover:w-66 transition-all duration-300 ease-in-out group relative border-r border-custom"
-                @mouseenter="sidebarHovered = true"
-                @mouseleave="sidebarHovered = false"
-              >
-                <div class="flex mt-2">
-                  <div class="mt-6 ml-4">
-                    <LargeAvatar avatar="🤖" name="Bot Hugo" />
-                  </div>
-                  <span
-                    class="sidebar-room-label mt-4.5 ml-2 group-hover:opacity-100 opacity-0 transition-opacity"
-                    >Hugo</span
-                  >
-                </div>
-                <!-- Divider -->
-                <div class="sidebar-divider my-2"></div>
-                <!-- Rooms header + add -->
-                <div class="flex items-center justify-between px-2 py-2">
-                  <span class="sidebar-section transition-opacity">Rooms</span>
-                  <button
-                    class="sidebar-btn-add opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                    title="Créer une room"
-                    @click="openCreateRoomModal"
-                  >
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                      <circle
-                        cx="10"
-                        cy="10"
-                        r="10"
-                        fill="currentColor"
-                        opacity="0.15"
-                      />
-                      <path
-                        d="M10 5v10M5 10h10"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                      />
-                    </svg>
-                  </button>
-                </div>
-                <!-- Liste des rooms -->
-                <ul class="flex flex-col gap-2 mt-2 px-2">
-                  <li
-                    v-for="room in rooms"
-                    :key="room.id"
-                    :class="[
-                      'sidebar-room',
-                      room.active ? 'sidebar-room-active' : '',
-                    ]"
-                  >
-                    <div class="flex mt-2 py-1">
-                      <div class="mt-3">
-                        <LargeAvatar :avatar="room.avatar" :name="room.name" />
-                      </div>
-                      <span
-                        class="sidebar-room-label mt-2 ml-2 group-hover:opacity-100 opacity-0 transition-opacity"
-                        >{{ room.name }}</span
-                      >
-                    </div>
-                  </li>
-                </ul>
-                <div class="sidebar-divider my-2"></div>
-                <!-- Amis header + add -->
-                <div class="flex items-center justify-between px-2 py-2">
-                  <span class="sidebar-section transition-opacity">Amis</span>
-                  <button
-                    class="sidebar-btn-add opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                    title="Ajouter un ami"
-                    @click="openAddFriendModal"
-                  >
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                      <circle
-                        cx="10"
-                        cy="10"
-                        r="10"
-                        fill="currentColor"
-                        opacity="0.15"
-                      />
-                      <path
-                        d="M10 5v10M5 10h10"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                      />
-                    </svg>
-                  </button>
-                </div>
-                <div class="flex mt-2 px-2">
-                  <div class="flex flex-col gap-2">
-                    <UserConversationItem
-                      :displayFullContent="sidebarHovered"
-                      :displayDate="false"
-                      v-for="conv in mockConversations"
-                      :key="conv.id"
-                      :participants="conv.participants"
-                      :title="conv.title"
-                      :lastMessage="conv.lastMessage"
-                      :active="conv.active"
-                    />
-                  </div>
-                </div>
-                <div class="flex-1"></div>
-                <!-- Paramètres / déconnexion -->
-                <div class="flex flex-row gap-2 justify-end pb-3">
-                  <button
-                    class="sidebar-btn-action px-1 mr-0.2 ml-1"
-                    title="Paramètres"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="22"
-                      height="22"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                      />
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    class="sidebar-btn-action sidebar-btn-logout px-1 mr-1 ml-0.2"
-                    title="Déconnexion"
-                    @click="askLogout"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="22"
-                      height="22"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6A2.25 2.25 0 0 0 5.25 5.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m-6-3h12m0 0l-3-3m3 3l-3 3"
-                        stroke="currentColor"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </nav>
+              <HomeSideBar
+                :rooms="rooms"
+                :mockConversations="mockConversations"
+                :showInfoModal="showInfoModal"
+                :sidebarHovered="sidebarHovered"
+                :addFriendModalisOpen="addFriendModalisOpen"
+                :createRoomModalisOpen="createRoomModalisOpen"
+                :askLogout="askLogout"
+                :openAddFriendModal="openAddFriendModal"
+                :openInfoModal="openInfoModal"
+                :logout="logout"
+                :closeInfoModal="closeInfoModal"
+                :closeAddFriendModal="closeAddFriendModal"
+                :openCreateRoomModal="openCreateRoomModal"
+                :closeCreateRoomModal="closeCreateRoomModal"
+              />
               <div
                 class="w-full min-h-0 min-w-0 h-full grid grid-cols-1 grid-rows-1 gap-2 bg-white/10 rounded-xl shadow-lg animate-fade-in"
               >
                 <!-- Zone bouton d'actions et de recherche cette zone se superpose avec le parent : PageTemplate qui laisse en haut à droite des bouton qui permettent de faire la gestion rapide du theme et de la lanque
                  il faut donc que cette zone soit libre -->
-                <section class="flex flex-row">
-                  <div class="search-bar">
-                    <SearchBar
-                      v-if="authStore.isAuthenticated"
-                      :modelValue="searchQuery"
-                      @update:modelValue="updateSearchQuery($event)"
-                      placeholder="Rechercher"
-                    >
-                      <template
-                        v-if="searchQuery && filteredUsers.length > 0"
-                        #results
-                      >
-                        <SearchBarUserCard
-                          v-for="user in filteredUsers"
-                          :key="user.name"
-                          :avatar="user.avatar"
-                          :name="user.name"
-                        />
-                      </template>
-                      <template
-                        v-if="searchQuery && filteredUsers.length === 0"
-                        #no-result
-                      >
-                        <SearchBarUserCard :noresult="true" />
-                      </template>
-                    </SearchBar>
-                  </div>
-                  <div class="flex absolute left-120 top-5">
-                    <input
-                      type="number"
-                      placeholder="nb of row"
-                      v-model="nbOpenChats"
-                      min="1"
-                      max="4"
-                    />
-                  </div>
-                </section>
-                <!-- Zone de chat qui doit laisser un espace en haut pour le bouton d'actions et de recherche -->
-                <section class="flex mt-[4.4rem] h-[calc(100vh-5.05rem)]">
-                  <div
-                    class="min-h-0 min-w-0 h-full w-full grid grid-cols-[310px_minmax(400px,_1fr)_0px] grid-rows-1 gap-2 mx-1 bg-white/10 rounded-xl shadow-lg animate-fade-in"
-                  >
-                    <div class="col-span-1 row-span-1 w-full h-full">
-                      <SideBarConversations
-                        :mockConversations="mockConversations"
-                      />
-                    </div>
-                    <div class="col-span-1 row-span-1 w-full h-full">
-                      <ChatGrid :openedChats="openedChats" />
-                    </div>
-                  </div>
-                </section>
+                <UpperChatZone
+                  :nbOpenChats="nbOpenChats"
+                  :searchQuery="searchQuery"
+                  :users="users"
+                  :filteredUsers="filteredUsers"
+                  :updateSearchQuery="updateSearchQuery"
+                  :updateNbOpenChats="updateNbOpenChats"
+                />
+                <ChatZone
+                  :mockConversations="mockConversations"
+                  :openedChats="openedChats"
+                  :nbOpenChats="nbOpenChats"
+                />
               </div>
             </div>
           </div>
-          <InfoModal
-            v-if="showInfoModal"
-            headerTitle="Déconnexion"
-            message="Êtes-vous sûr de vouloir vous déconnecter ?"
-            type="warning"
-            @onok="logout"
-            @close="closeInfoModal"
-          />
-          <AddFriendModal
-            v-if="addFriendModalisOpen"
-            headerTitle="Ajouter un ami"
-            @close="closeAddFriendModal"
-          />
-          <CreateRoomModal
-            v-if="createRoomModalisOpen"
-            headerTitle="Créer une room"
-            @close="closeCreateRoomModal"
-          />
         </template>
       </PageTemplate>
     </template>
@@ -254,37 +58,21 @@ import { ref, defineAsyncComponent, computed } from "vue";
 import type { Bubble } from "../components/chat/bubbleChat/ChatBubble.vue";
 import { useAuthStore } from "../stores/AuthStore";
 import type { Conversation } from "../components/SideBarConversations.vue";
+import type { Room } from "../components/HomeSideBar.vue";
 
-const LargeAvatar = defineAsyncComponent(
-  () => import("../components/LargeAvatar.vue")
+const HomeSideBar = defineAsyncComponent(
+  () => import("../components/HomeSideBar.vue")
 );
-const UserConversationItem = defineAsyncComponent(
-  () => import("../components/chat/UserConversationItem.vue")
-);
-const SideBarConversations = defineAsyncComponent(
-  () => import("../components/SideBarConversations.vue")
-);
-const InfoModal = defineAsyncComponent(
-  () => import("../components/InfoModal.vue")
-);
-const AddFriendModal = defineAsyncComponent(
-  () => import("../components/AddFriendModal.vue")
-);
-const CreateRoomModal = defineAsyncComponent(
-  () => import("../components/CreateRoomModal.vue")
-);
-const ChatGrid = defineAsyncComponent(
-  () => import("../components/home/chatGrid.vue")
+const ChatZone = defineAsyncComponent(
+  () => import("../components/ChatZone.vue")
 );
 const PageTemplate = defineAsyncComponent(
   () => import("../components/PageTemplate.vue")
 );
-const SearchBar = defineAsyncComponent(
-  () => import("../components/SearchBar.vue")
+const UpperChatZone = defineAsyncComponent(
+  () => import("../components/UpperChatZone.vue")
 );
-const SearchBarUserCard = defineAsyncComponent(
-  () => import("../components/SearchBarUserCard.vue")
-);
+
 const sidebarHovered = ref(false);
 const searchQuery = ref("");
 const users = [
@@ -412,13 +200,13 @@ const messages: Bubble[] = [
 ];
 
 // Simulation de rooms pour la sidebar (à remplacer par tes vraies données)
-const rooms = [
+const rooms: Room[] = [
   { id: 1, name: "Famille", avatar: "👪", active: false },
   { id: 2, name: "Mes Canards", avatar: "🦆", active: false },
 ];
 
 // MOCK pour la démo : à remplacer par ta logique d'ouverture réelle
-const nbOpenChats = ref(4); // Change ce nombre pour tester 1, 2, 3 ou 4 chats
+const nbOpenChats = ref<number>(4); // Change ce nombre pour tester 1, 2, 3 ou 4 chats
 const openedChats = computed(() =>
   [
     { id: 1, name: "Hugo", avatar: "🤖", messages: messages },
@@ -458,6 +246,9 @@ const mockConversations: Conversation[] = [
   // Ajoute d'autres mocks si besoin
 ];
 
+function updateNbOpenChats(value: number) {
+  nbOpenChats.value = value;
+}
 function askLogout() {
   openInfoModal();
 }
@@ -613,23 +404,4 @@ function closeCreateRoomModal() {
   top: -0.3rem;
   transform: translateX(2%);
 }
-/* button {
-  color: #090909;
-  padding: 0.7em 1.7em;
-  font-size: 18px;
-  border-radius: 0.5em;
-  background: #e8e8e8;
-  cursor: pointer;
-  border: 1px solid #e8e8e8;
-  transition: all 0.3s;
-  box-shadow: 6px 6px 12px #c5c5c5, -6px -6px 12px #ffffff;
-}
-
-button:hover {
-  border: 1px solid white;
-}
-
-button:active {
-  box-shadow: 4px 4px 12px #c5c5c5, -4px -4px 12px #ffffff;
-} */
 </style>

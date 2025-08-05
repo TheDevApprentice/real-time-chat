@@ -1,92 +1,51 @@
 <template>
-  <div :class="gridClasses" class="max-h-screen h-full w-full gap-2">
-    <div
-      v-for="(chat, index) in props.openedChats"
-      :key="chat.id"
-      :class="getChatItemClasses(index)"
-    >
-      <div class="h-full w-full">
-        <ChatView :chat="chat" />
-      </div>
-    </div>
-  </div>
+  <Suspense>
+    <template #default>
+      <!-- Zone de chat qui doit laisser un espace en haut pour le bouton d'actions et de recherche -->
+      <section class="flex mt-[4.4rem] h-[calc(100vh-5.05rem)]">
+        <div
+          class="min-h-0 min-w-0 h-full w-full grid grid-cols-[310px_minmax(400px,_1fr)_0px] grid-rows-1 gap-2 mx-1 bg-white/10 rounded-xl shadow-lg animate-fade-in"
+        >
+          <div class="col-span-1 row-span-1 w-full h-full">
+            <SideBarConversations :mockConversations="mockConversations" />
+          </div>
+          <div class="col-span-1 row-span-1 w-full h-full">
+            <ChatGrid :openedChats="openedChats" />
+          </div>
+        </div>
+      </section>
+    </template>
+    <template #fallback>
+      <LoadingOverlay />
+    </template>
+  </Suspense>
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent } from "vue";
-import type { Bubble } from "../chat/bubbleChat/ChatBubble.vue";
-import type { OpenChat } from "../ChatZone.vue";
+import LoadingOverlay from "../components/LoadingOverlay.vue";
+import { defineAsyncComponent } from "vue";
+import type { Bubble } from "../components/chat/bubbleChat/ChatBubble.vue";
+import type { Conversation } from "../components/SideBarConversations.vue";
 
-const ChatView = defineAsyncComponent(
-  () => import("./chatView.vue")
+const SideBarConversations = defineAsyncComponent(
+  () => import("../components/SideBarConversations.vue")
+);
+const ChatGrid = defineAsyncComponent(
+  () => import("../components/home/chatGrid.vue")
 );
 
-const props = defineProps<{
-  openedChats: OpenChat[];
-}>();
-
-const gridType = computed(() => {
-  if (props.openedChats.length === 1) {
-    return {
-      cols: 1,
-      rows: 1,
-    };
-  } else if (props.openedChats.length === 2) {
-    return {
-      cols: 2,
-      rows: 1,
-    };
-  } else if (props.openedChats.length === 3) {
-    return {
-      cols: 2,
-      rows: 2,
-    };
-  } else if (props.openedChats.length === 4) {
-    return {
-      cols: 2,
-      rows: 2,
-    };
-  }
-  return {
-    cols: Math.min(props.openedChats.length, 3),
-    rows: Math.ceil(props.openedChats.length / 3),
-  };
-});
-
-const gridClasses = computed(() => {
-  return `grid grid-cols-${gridType.value.cols} grid-rows-${gridType.value.rows}`;
-});
-
-// Fonction pour déterminer les classes de chaque chat selon sa position
-const getChatItemClasses = (index: number) => {
-  const totalChats = props.openedChats.length;
-  
-  if (totalChats === 1) {
-    // 1 chat : prend tout l'espace
-    return 'col-span-1 row-span-1';
-  } 
-  else if (totalChats === 2) {
-    // 2 chats : côte à côte
-    return 'col-span-1 row-span-1';
-  } 
-  else if (totalChats === 3) {
-    // 3 chats : 1 grand à gauche, 2 petits empilés à droite
-    if (index === 0) {
-      // Premier chat : prend 2 rangées à gauche
-      return 'col-span-1 row-span-2';
-    } else {
-      // Deuxième et troisième chat : 1 rangée chacun à droite
-      return 'col-span-1 row-span-1';
-    }
-  } 
-  else if (totalChats === 4) {
-    // 4 chats : grille 2x2 classique
-    return 'col-span-1 row-span-1';
-  }
-  
-  // Cas par défaut pour plus de 4 chats
-  return 'col-span-1 row-span-1';
+export type OpenChat = {
+  id: number;
+  name: string;
+  avatar: string;
+  messages: Bubble[];
 };
+
+defineProps<{
+  mockConversations: Conversation[];
+  openedChats: OpenChat[];
+  nbOpenChats: number;
+}>();
 </script>
 
 <style scoped>
@@ -210,4 +169,23 @@ const getChatItemClasses = (index: number) => {
   top: -0.3rem;
   transform: translateX(2%);
 }
+/* button {
+    color: #090909;
+    padding: 0.7em 1.7em;
+    font-size: 18px;
+    border-radius: 0.5em;
+    background: #e8e8e8;
+    cursor: pointer;
+    border: 1px solid #e8e8e8;
+    transition: all 0.3s;
+    box-shadow: 6px 6px 12px #c5c5c5, -6px -6px 12px #ffffff;
+  }
+  
+  button:hover {
+    border: 1px solid white;
+  }
+  
+  button:active {
+    box-shadow: 4px 4px 12px #c5c5c5, -4px -4px 12px #ffffff;
+  } */
 </style>

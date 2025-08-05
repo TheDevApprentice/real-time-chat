@@ -1,92 +1,72 @@
 <template>
-  <div :class="gridClasses" class="max-h-screen h-full w-full gap-2">
-    <div
-      v-for="(chat, index) in props.openedChats"
-      :key="chat.id"
-      :class="getChatItemClasses(index)"
-    >
-      <div class="h-full w-full">
-        <ChatView :chat="chat" />
-      </div>
-    </div>
-  </div>
+  <Suspense>
+    <template #default>
+      <!-- Zone bouton d'actions et de recherche cette zone se superpose avec le parent : PageTemplate qui laisse en haut à droite des bouton qui permettent de faire la gestion rapide du theme et de la lanque
+                   il faut donc que cette zone soit libre -->
+      <section class="flex flex-row">
+        <div class="search-bar">
+          <SearchBar
+            v-if="authStore.isAuthenticated"
+            :modelValue="searchQuery"
+            @update:modelValue="updateSearchQuery($event)"
+            placeholder="Rechercher"
+          >
+            <template v-if="searchQuery && filteredUsers.length > 0" #results>
+              <SearchBarUserCard
+                v-for="user in filteredUsers"
+                :key="user.name"
+                :avatar="user.avatar"
+                :name="user.name"
+              />
+            </template>
+            <template
+              v-if="searchQuery && filteredUsers.length === 0"
+              #no-result
+            >
+              <SearchBarUserCard :noresult="true" />
+            </template>
+          </SearchBar>
+        </div>
+        <div class="input">
+          <input
+            type="number"
+            placeholder="nb of row"
+            :value="nbOpenChats"
+            @input="updateNbOpenChats($event.target.value)"
+            min="1"
+            max="4"
+          />
+        </div>
+      </section>
+    </template>
+    <template #fallback>
+      <LoadingOverlay />
+    </template>
+  </Suspense>
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent } from "vue";
-import type { Bubble } from "../chat/bubbleChat/ChatBubble.vue";
-import type { OpenChat } from "../ChatZone.vue";
+import LoadingOverlay from "../components/LoadingOverlay.vue";
+import { defineAsyncComponent } from "vue";
+import { useAuthStore } from "../stores/AuthStore";
 
-const ChatView = defineAsyncComponent(
-  () => import("./chatView.vue")
+const SearchBar = defineAsyncComponent(
+  () => import("../components/SearchBar.vue")
+);
+const SearchBarUserCard = defineAsyncComponent(
+  () => import("../components/SearchBarUserCard.vue")
 );
 
-const props = defineProps<{
-  openedChats: OpenChat[];
-}>();
+const authStore = useAuthStore();
 
-const gridType = computed(() => {
-  if (props.openedChats.length === 1) {
-    return {
-      cols: 1,
-      rows: 1,
-    };
-  } else if (props.openedChats.length === 2) {
-    return {
-      cols: 2,
-      rows: 1,
-    };
-  } else if (props.openedChats.length === 3) {
-    return {
-      cols: 2,
-      rows: 2,
-    };
-  } else if (props.openedChats.length === 4) {
-    return {
-      cols: 2,
-      rows: 2,
-    };
-  }
-  return {
-    cols: Math.min(props.openedChats.length, 3),
-    rows: Math.ceil(props.openedChats.length / 3),
-  };
-});
-
-const gridClasses = computed(() => {
-  return `grid grid-cols-${gridType.value.cols} grid-rows-${gridType.value.rows}`;
-});
-
-// Fonction pour déterminer les classes de chaque chat selon sa position
-const getChatItemClasses = (index: number) => {
-  const totalChats = props.openedChats.length;
-  
-  if (totalChats === 1) {
-    // 1 chat : prend tout l'espace
-    return 'col-span-1 row-span-1';
-  } 
-  else if (totalChats === 2) {
-    // 2 chats : côte à côte
-    return 'col-span-1 row-span-1';
-  } 
-  else if (totalChats === 3) {
-    // 3 chats : 1 grand à gauche, 2 petits empilés à droite
-    if (index === 0) {
-      // Premier chat : prend 2 rangées à gauche
-      return 'col-span-1 row-span-2';
-    } else {
-      // Deuxième et troisième chat : 1 rangée chacun à droite
-      return 'col-span-1 row-span-1';
-    }
-  } 
-  else if (totalChats === 4) {
-    // 4 chats : grille 2x2 classique
-    return 'col-span-1 row-span-1';
-  }
-  
-  // Cas par défaut pour plus de 4 chats
-  return 'col-span-1 row-span-1';
-};
+defineProps<{ 
+    nbOpenChats: number 
+    searchQuery: string
+    users: { name: string; avatar: string }[]
+    filteredUsers: { name: string; avatar: string }[]
+    updateSearchQuery: (searchQuery: string) => void
+    updateNbOpenChats: (nbOpenChats: number) => void
+}>();   
 </script>
 
 <style scoped>
@@ -206,8 +186,21 @@ const getChatItemClasses = (index: number) => {
   gap: 0.7rem;
   z-index: 30;
   position: absolute;
+
   padding: 1.3rem 2.2rem 0.5rem 0;
   top: -0.3rem;
   transform: translateX(2%);
+}
+.input {
+  display: flex;
+  justify-self: center;
+  align-self: center;
+  gap: 0.7rem;
+  z-index: 30;
+  position: absolute;
+  width: 20%;
+  padding: 1.3rem 2.2rem 0.5rem 0;
+  top: -0.3rem;
+  transform: translateX(100%);
 }
 </style>
