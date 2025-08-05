@@ -204,10 +204,7 @@
                   </div>
                   <div class="col-span-1 row-span-1">
                     <ChatGrid
-                      :nbOpenChats="nbOpenChats"
                       :openedChats="openedChats"
-                      :messages="messages"
-                      :chatBubbles="chatBubbles"
                     />
                   </div>
                 </div>
@@ -233,7 +230,7 @@
 
 <script setup lang="ts">
 import LoadingOverlay from "../components/LoadingOverlay.vue";
-import { reactive, onMounted, ref, defineAsyncComponent, computed } from "vue";
+import { ref, defineAsyncComponent, computed } from "vue";
 import type { Bubble } from "../components/chat/bubbleChat/ChatBubble.vue";
 import { useAuthStore } from "../stores/AuthStore";
 
@@ -280,50 +277,81 @@ function updateSearchQuery(searchQueryChanged: string) {
 
 const authStore = useAuthStore();
 const showInfoModal = ref(false);
-const chatBubbles = reactive<Bubble[]>([]);
-const messages = [
-  { text: "Hello ! 😀", speaker: 0, date: new Date().toLocaleDateString() },
-  { text: "How are you ?", speaker: 1, date: new Date().toLocaleDateString() },
-  { text: "Fine thx ! 😁", speaker: 0, date: new Date().toLocaleDateString() },
+const messages : Bubble[] = [
+  { text: "Hello ! 😀", speaker: 0, date: new Date().toLocaleDateString(), isTyping: false, isWriting: false, isSent: true, isRead: true },
+  { text: "How are you ?", speaker: 1, date: new Date().toLocaleDateString(), isTyping: false, isWriting: false, isSent: true, isRead: true },
+  { text: "Fine thx ! 😁", speaker: 0, date: new Date().toLocaleDateString(), isTyping: false, isWriting: false, isSent: true, isRead: true },
   {
     text: "Where do you want to go this we ? 😄",
-    speaker: 1,
+    speaker: 1, 
     date: new Date().toLocaleDateString(),
+    isTyping: false,
+    isWriting: false,
+    isSent: true,
+    isRead: true,
   },
   {
     text: "I want to go to the beach ! 😃",
     speaker: 0,
     date: new Date().toLocaleDateString(),
+    isTyping: false,
+    isWriting: false,
+    isSent: true,
+    isRead: true,
   },
   {
     text: "Yes let's go  ! 😃",
     speaker: 1,
     date: new Date().toLocaleDateString(),
+    isTyping: false,
+    isWriting: false,
+    isSent: true,
+    isRead: true,
   },
   {
     text: "Awesome ! 😃",
     speaker: 0,
     date: new Date().toLocaleDateString(),
+    isTyping: false,
+    isWriting: false,
+    isSent: true,
+    isRead: true,
+  },  
+  {
+    text: "Awesome ! 😃",
+    speaker: 1,
+    date: new Date().toLocaleDateString(),
+    isTyping: false,
+    isWriting: false,
+    isSent: true,
+    isRead: true,
+  },
+  {
+    text: "Awesome ! 😃",
+    speaker: 0,
+    date: new Date().toLocaleDateString(),
+    isTyping: false,
+    isWriting: false,
+    isSent: true,
+    isRead: true,
   },
   {
     text: "Awesome ! 😃",
     speaker: 1,
     date: new Date().toLocaleDateString(),
+    isTyping: false,
+    isWriting: false,
+    isSent: true,
+    isRead: true,
   },
   {
     text: "Awesome ! 😃",
     speaker: 0,
     date: new Date().toLocaleDateString(),
-  },
-  {
-    text: "Awesome ! 😃",
-    speaker: 1,
-    date: new Date().toLocaleDateString(),
-  },
-  {
-    text: "Awesome ! 😃",
-    speaker: 0,
-    date: new Date().toLocaleDateString(),
+    isTyping: false,
+    isWriting: false,
+    isSent: true,
+    isRead: true,
   },
 ];
 
@@ -334,12 +362,12 @@ const rooms = [
 ];
 
 // MOCK pour la démo : à remplacer par ta logique d'ouverture réelle
-const nbOpenChats = ref(4); // Change ce nombre pour tester 1, 2, 3 ou 4 chats
+const nbOpenChats = ref(1); // Change ce nombre pour tester 1, 2, 3 ou 4 chats
 const openedChats = [
-  { id: 1, name: "Hugo", avatar: "🤖", bubbles: chatBubbles },
-  { id: 2, name: "Mélanie", avatar: "🤖", bubbles: chatBubbles },
-  { id: 3, name: "Alpha", avatar: "🤖", bubbles: chatBubbles },
-  { id: 4, name: "Lidya", avatar: "🧛", bubbles: chatBubbles },
+  { id: 1, name: "Hugo", avatar: "🤖", messages: messages },
+  { id: 2, name: "Mélanie", avatar: "🤖", messages: messages },
+  { id: 3, name: "Alpha", avatar: "🤖", messages: messages },
+  { id: 4, name: "Lidya", avatar: "🧛", messages: messages },
 ].slice(0, nbOpenChats.value); // Simule l'ouverture de 1 à 4 chats
 
 const mockConversations = [

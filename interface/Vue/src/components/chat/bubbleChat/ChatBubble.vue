@@ -29,6 +29,8 @@ export interface Bubble {
   date: string;
   isTyping: boolean;
   isWriting: boolean;
+  isSent?: boolean;
+  isRead?: boolean;
 }
 
 const props = defineProps<{

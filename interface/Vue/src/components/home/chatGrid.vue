@@ -1,136 +1,33 @@
 <template>
-  <div v-bind:class="`grid grid-cols-${props.nbOpenChats}`">
+  <div :class="gridClasses">
     <div
-      v-for="(chat) in props.openedChats"
+      v-for="chat in props.openedChats"
       :key="chat.id"
-      class="flex flex-col gap-4 mx-1 rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in"
     >
-      <ChatHeader :avatar="chat.avatar" :name="chat.name" :active="true" />
-      <div class="scroll-bar flex flex-col h-[calc(80vh-6rem)] overflow-y-auto">
-        <ChatBubble
-          v-for="(bubble, bidx) in chat.bubbles"
-          :key="bidx"
-          v-bind="bubble"
-          :animationDelay="`${bidx * 0.22}s`"
-        />
-      </div>
-      <BarChat />
+      <ChatView :chat="chat" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, ref, defineAsyncComponent } from "vue";
+import { computed, defineAsyncComponent } from "vue";
 import type { Bubble } from "../chat/bubbleChat/ChatBubble.vue";
 
-const ChatBubble = defineAsyncComponent(
-  () => import("../chat/bubbleChat/ChatBubble.vue")
-);
-const BarChat = defineAsyncComponent(
-  () => import("../chat/barChat/BarChat.vue")
-);
-const ChatHeader = defineAsyncComponent(
-  () => import("../chat/headerChat/ChatHeader.vue")
+const ChatView = defineAsyncComponent(
+  () => import("./chatView.vue")
 );
 
 const props = defineProps<{
-  nbOpenChats: number;
   openedChats: {
     id: number;
     name: string;
     avatar: string;
-    bubbles: Bubble[];
+    messages: Bubble[];
   }[];
-  messages: {
-    text: string;
-    speaker: number;
-    date: string;
-  }[];
-  chatBubbles: Bubble[];
 }>();
-const realTimeFull = "Real‑Time";
-const chatFull = "Chat";
-const typedRealTime = ref("");
-const typedChat = ref("");
-const showCursor = ref(false);
-const showChat = ref(false);
 
-const typeMessage = async (text: string, bubble: Bubble) => {
-  bubble.text = "";
-  for (const char of text) {
-    bubble.text += char;
-    await nextTick();
-    await new Promise((r) => setTimeout(r, 70));
-  }
-};
-
-async function AnimTypeTitle() {
-  // Typewriter pour "Real‑Time"
-  for (let i = 0; i <= realTimeFull.length; i++) {
-    typedRealTime.value = realTimeFull.slice(0, i);
-    await new Promise((res) => setTimeout(res, 60));
-  }
-  await new Promise((res) => setTimeout(res, 200));
-  // Typewriter pour "Chat"
-  for (let i = 0; i <= chatFull.length; i++) {
-    typedChat.value = chatFull.slice(0, i);
-    await new Promise((res) => setTimeout(res, 90));
-  }
-  showCursor.value = false;
-}
-
-async function AnimChat() {
-  showChat.value = true;
-  await new Promise((res) => setTimeout(res, 200));
-
-  for (let i = 0; i < props.messages.length; i++) {
-    const msg = props.messages[i];
-    if (msg.speaker === 0) {
-      const bubble: Bubble = {
-        speaker: msg.speaker,
-        text: "",
-        date: msg.date,
-        isTyping: true,
-        isWriting: false,
-      };
-      props.chatBubbles.push(bubble);
-      await nextTick();
-      await new Promise((res) => setTimeout(res, 1000));
-      bubble.isTyping = false;
-      bubble.isWriting = true;
-      await nextTick();
-      await typeMessage(msg.text, bubble);
-      bubble.isWriting = false;
-      await nextTick();
-      await new Promise((res) => setTimeout(res, 120));
-      await nextTick();
-    } else {
-      const bubble: Bubble = {
-        speaker: msg.speaker,
-        text: "",
-        date: msg.date,
-        isTyping: false,
-        isWriting: false,
-      };
-      props.chatBubbles.push(bubble);
-      await nextTick();
-      bubble.isWriting = true;
-      await typeMessage(msg.text, bubble);
-      bubble.isWriting = false;
-      await nextTick();
-      await new Promise((res) => setTimeout(res, 120));
-      await nextTick();
-    }
-  }
-}
-
-onMounted(async () => {
-  console.log("openedChats", props.openedChats.length);
-  console.log("`grid grid-cols-${openedChats.length} grid-rows-1`", `grid grid-cols-${props.openedChats.length} grid-rows-1`);
-  await AnimTypeTitle();
-  await new Promise((res) => setTimeout(res, 200));
-  await AnimChat();
-  await new Promise((res) => setTimeout(res, 200));
+const gridClasses = computed(() => {
+  return `grid grid-cols-${props.openedChats.length}`;
 });
 </script>
 
