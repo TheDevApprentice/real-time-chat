@@ -52,6 +52,13 @@
       await new Promise((r) => setTimeout(r, 70));
     }
   };
+  const updateBubbleStatus = async (bubble: Bubble) => {
+    bubble.isSent = true;
+    bubble.isRead = true;
+    await nextTick();
+    await new Promise((r) => setTimeout(r, 120));
+    await nextTick();
+  };
   
   async function AnimTypeTitle() {
     // Typewriter pour "Real‑Time"
@@ -81,6 +88,8 @@
           date: msg.date,
           isTyping: true,
           isWriting: false,
+          isSent: false,
+          isRead: false,
         };
         chatBubbles.value.push(bubble);
         await nextTick();
@@ -88,8 +97,10 @@
         bubble.isTyping = false;
         bubble.isWriting = true;
         await nextTick();
-        await typeMessage(msg.text, bubble);
-        bubble.isWriting = false;
+        await typeMessage(msg.text, bubble).then(() => {
+          bubble.isWriting = false;
+          updateBubbleStatus(bubble);
+        });
         await nextTick();
         await new Promise((res) => setTimeout(res, 120));
         await nextTick();
@@ -100,12 +111,16 @@
           date: msg.date,
           isTyping: false,
           isWriting: false,
+          isSent: false,
+          isRead: false,
         };
         chatBubbles.value.push(bubble);
         await nextTick();
         bubble.isWriting = true;
-        await typeMessage(msg.text, bubble);
-        bubble.isWriting = false;
+        await typeMessage(msg.text, bubble).then(() => {
+          bubble.isWriting = false;
+          updateBubbleStatus(bubble);
+        });
         await nextTick();
         await new Promise((res) => setTimeout(res, 120));
         await nextTick();
