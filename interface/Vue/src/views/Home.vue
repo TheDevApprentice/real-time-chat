@@ -159,56 +159,63 @@
                   </button>
                 </div>
               </nav>
-              <!-- Zone de chat -->
-              <section class="flex-1">
-                <div class="search-bar">
-                  <SearchBar
-                    v-if="authStore.isAuthenticated"
-                    :modelValue="searchQuery"
-                    @update:modelValue="updateSearchQuery($event)"
-                    placeholder="Rechercher"
+              <div class="w-full min-h-0 min-w-0 h-full grid grid-cols-1 grid-rows-1 gap-2 bg-white/10 rounded-xl shadow-lg animate-fade-in">
+                <!-- Zone bouton d'actions et de recherche cette zone se superpose avec le parent : PageTemplate qui laisse en haut à droite des bouton qui permettent de faire la gestion rapide du theme et de la lanque
+                 il faut donc que cette zone soit libre -->
+                <section class="flex flex-row">
+                  <div class="search-bar">
+                    <SearchBar
+                      v-if="authStore.isAuthenticated"
+                      :modelValue="searchQuery"
+                      @update:modelValue="updateSearchQuery($event)"
+                      placeholder="Rechercher"
+                    >
+                      <template
+                        v-if="searchQuery && filteredUsers.length > 0"
+                        #results
+                      >
+                        <SearchBarUserCard
+                          v-for="user in filteredUsers"
+                          :key="user.name"
+                          :avatar="user.avatar"
+                          :name="user.name"
+                        />
+                      </template>
+                      <template
+                        v-if="searchQuery && filteredUsers.length === 0"
+                        #no-result
+                      >
+                        <SearchBarUserCard :noresult="true" />
+                      </template>
+                    </SearchBar>
+                  </div>
+                  <div class="flex absolute left-120 top-5">
+                    <input type="number" placeholder="nb of row" v-model="nbOpenChats"  min="1" max="4"/>
+                  </div>
+                </section>
+                <!-- Zone de chat qui doit laisser un espace en haut pour le bouton d'actions et de recherche -->
+                <section class="flex mt-[4.4rem] h-[calc(100vh-5.05rem)]">
+                  <div
+                    class="min-h-0 min-w-0 h-full w-full grid grid-cols-[310px_minmax(400px,_1fr)_0px] grid-rows-1 gap-2 mx-1 bg-white/10 rounded-xl shadow-lg animate-fade-in "
                   >
-                    <template
-                      v-if="searchQuery && filteredUsers.length > 0"
-                      #results
-                    >
-                      <SearchBarUserCard
-                        v-for="user in filteredUsers"
-                        :key="user.name"
-                        :avatar="user.avatar"
-                        :name="user.name"
+                    <div class="col-span-1 row-span-1">
+                      <UserConversationItem
+                        :displayFullContent="true"
+                        :displayDate="true"
+                        v-for="conv in mockConversations"
+                        :key="conv.id"
+                        :participants="conv.participants"
+                        :title="conv.title"
+                        :lastMessage="conv.lastMessage"
+                        :active="conv.active"
                       />
-                    </template>
-                    <template
-                      v-if="searchQuery && filteredUsers.length === 0"
-                      #no-result
-                    >
-                      <SearchBarUserCard :noresult="true" />
-                    </template>
-                  </SearchBar>
-                </div>
-                <div
-                  class="h-full w-full grid grid-cols-[310px_minmax(400px,_1fr)_0px] grid-rows-1 gap-2 mx-1 mt-[4.5rem] bg-white/10 rounded-xl shadow-lg animate-fade-in"
-                >
-                  <div class="col-span-1 row-span-1">
-                    <UserConversationItem
-                      :displayFullContent="true"
-                      :displayDate="true"
-                      v-for="conv in mockConversations"
-                      :key="conv.id"
-                      :participants="conv.participants"
-                      :title="conv.title"
-                      :lastMessage="conv.lastMessage"
-                      :active="conv.active"
-                    />
+                    </div>
+                    <div class="col-span-1 row-span-1">
+                      <ChatGrid :openedChats="openedChats" />
+                    </div>
                   </div>
-                  <div class="col-span-1 row-span-1">
-                    <ChatGrid
-                      :openedChats="openedChats"
-                    />
-                  </div>
-                </div>
-              </section>
+                </section>
+              </div>
             </div>
           </div>
           <InfoModal
@@ -277,13 +284,37 @@ function updateSearchQuery(searchQueryChanged: string) {
 
 const authStore = useAuthStore();
 const showInfoModal = ref(false);
-const messages : Bubble[] = [
-  { text: "Hello ! 😀", speaker: 0, date: new Date().toLocaleDateString(), isTyping: false, isWriting: false, isSent: true, isRead: true },
-  { text: "How are you ?", speaker: 1, date: new Date().toLocaleDateString(), isTyping: false, isWriting: false, isSent: true, isRead: true },
-  { text: "Fine thx ! 😁", speaker: 0, date: new Date().toLocaleDateString(), isTyping: false, isWriting: false, isSent: true, isRead: true },
+const messages: Bubble[] = [
+  {
+    text: "Hello ! 😀",
+    speaker: 0,
+    date: new Date().toLocaleDateString(),
+    isTyping: false,
+    isWriting: false,
+    isSent: true,
+    isRead: true,
+  },
+  {
+    text: "How are you ?",
+    speaker: 1,
+    date: new Date().toLocaleDateString(),
+    isTyping: false,
+    isWriting: false,
+    isSent: true,
+    isRead: true,
+  },
+  {
+    text: "Fine thx ! 😁",
+    speaker: 0,
+    date: new Date().toLocaleDateString(),
+    isTyping: false,
+    isWriting: false,
+    isSent: true,
+    isRead: true,
+  },
   {
     text: "Where do you want to go this we ? 😄",
-    speaker: 1, 
+    speaker: 1,
     date: new Date().toLocaleDateString(),
     isTyping: false,
     isWriting: false,
@@ -316,7 +347,7 @@ const messages : Bubble[] = [
     isWriting: false,
     isSent: true,
     isRead: true,
-  },  
+  },
   {
     text: "Awesome ! 😃",
     speaker: 1,
@@ -362,13 +393,13 @@ const rooms = [
 ];
 
 // MOCK pour la démo : à remplacer par ta logique d'ouverture réelle
-const nbOpenChats = ref(1); // Change ce nombre pour tester 1, 2, 3 ou 4 chats
-const openedChats = [
+const nbOpenChats = ref(4); // Change ce nombre pour tester 1, 2, 3 ou 4 chats
+const openedChats = computed(() => [
   { id: 1, name: "Hugo", avatar: "🤖", messages: messages },
   { id: 2, name: "Mélanie", avatar: "🤖", messages: messages },
   { id: 3, name: "Alpha", avatar: "🤖", messages: messages },
   { id: 4, name: "Lidya", avatar: "🧛", messages: messages },
-].slice(0, nbOpenChats.value); // Simule l'ouverture de 1 à 4 chats
+].slice(0, nbOpenChats.value)); // Simule l'ouverture de 1 à 4 chats
 
 const mockConversations = [
   {
