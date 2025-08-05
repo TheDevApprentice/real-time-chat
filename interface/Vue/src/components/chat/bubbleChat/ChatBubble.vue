@@ -3,6 +3,7 @@
     :class="[
       'chat-bubble',
       speaker === 0 ? 'left bubble-enter-left' : 'right bubble-enter-right',
+      'relative',
     ]"
     :style="{ animationDelay: `${animationDelay}` }"
   >
@@ -14,10 +15,70 @@
       <span class="typewriter" :style="{ '--typewriter-chars': text.length }">
         {{ text }}
       </span>
-      <span v-if="isTyping === false && isWriting === false" class="chat-bubble-date">{{ formattedDate }}</span>
+      <div class="flex flex-row gap-3 w-full">
+        <span
+          v-if="isTyping === false && isWriting === false"
+          class="chat-bubble-date"
+          >{{ formattedDate }}</span
+        >
+        <!-- Icônes envoyé/lu -->
+        <span
+          v-if="isTyping === false && isWriting === false"
+          class="bubble-status-icons"
+        >
+          <!-- Icône envoyé/message -->
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 22 22"
+            fill="none"
+            :class="[
+              props.isSent ? 'text-sky-200' : 'text-gray-400',
+              'inline-block',
+              'align-middle',
+            ]"
+            style="vertical-align: middle; margin-right: 2px"
+          >
+            <path d="M2 11L20 2L11 20L10 13L2 11Z" fill="currentColor" />
+          </svg>
+          <!-- Icône œil/lu -->
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            :class="[
+              props.isRead ? 'text-sky-300' : 'text-gray-400',
+              'inline-block',
+              'align-middle',
+            ]"
+            style="vertical-align: middle"
+          >
+            <path
+              d="M1.5 12C3.5 7.5 8 4.5 12 4.5C16 4.5 20.5 7.5 22.5 12C20.5 16.5 16 19.5 12 19.5C8 19.5 3.5 16.5 1.5 12Z"
+              stroke="currentColor"
+              stroke-width="2"
+              fill="none"
+            />
+            <circle cx="12" cy="12" r="3" fill="currentColor" />
+          </svg>
+        </span>
+      </div>
     </span>
   </div>
 </template>
+
+<style scoped>
+.bubble-status-icons {
+  position: absolute;
+  right: 0.45rem;
+  bottom: 0.4rem;
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  z-index: 2;
+}
+</style>
 
 <script setup lang="ts">
 import { computed, defineProps } from "vue";
@@ -29,8 +90,8 @@ export interface Bubble {
   date: string;
   isTyping: boolean;
   isWriting: boolean;
-  isSent?: boolean;
-  isRead?: boolean;
+  isSent: boolean;
+  isRead: boolean;
 }
 
 const props = defineProps<{
@@ -39,19 +100,28 @@ const props = defineProps<{
   date: string;
   isTyping: boolean;
   isWriting: boolean;
+  isSent: boolean;
+  isRead: boolean;
   animationDelay?: string;
 }>();
 
 const formattedDate = computed(() => {
   const d = new Date(props.date);
-  if (isNaN(d.getTime())) return '';
+  if (isNaN(d.getTime())) return "";
   const now = new Date();
-  const isToday = d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const isToday =
+    d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear();
+  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   if (isToday) {
     return time;
   } else {
-    const date = d.toLocaleDateString([], { day: 'numeric', month: 'numeric', year: '2-digit' });
+    const date = d.toLocaleDateString([], {
+      day: "numeric",
+      month: "numeric",
+      year: "2-digit",
+    });
     return `${date}, ${time}`;
   }
 });
@@ -64,6 +134,8 @@ const formattedDate = computed(() => {
   margin-bottom: 0.1rem;
   border-radius: 0.8rem;
   max-width: 100%;
+  min-width: 10rem;
+  margin-bottom: 0.5rem;
   width: min-content;
   font-size: 0.9rem;
   line-height: 1.2;
@@ -73,6 +145,9 @@ const formattedDate = computed(() => {
   word-break: break-word;
 }
 .chat-bubble-date {
+  display: flex;
+  flex-direction: row;
+  padding-right: 0.5rem;
   font-size: 0.8rem;
   color: #8ea6d6;
 }
