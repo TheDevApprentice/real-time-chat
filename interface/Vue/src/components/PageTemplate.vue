@@ -46,7 +46,7 @@ const authStore = useAuthStore();
   justify-self: flex-end;
   align-self: flex-start;
   gap: 0.7rem;
-  z-index: 30;
+  z-index: 50;
   position: fixed;
   padding: 1.3rem 2.2rem 0.5rem 0;
 

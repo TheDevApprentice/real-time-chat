@@ -74,6 +74,7 @@
                   <button
                     class="sidebar-btn-add opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
                     title="Ajouter un ami"
+                    @click="openAddFriendModal"
                   >
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                       <circle
@@ -226,6 +227,11 @@
             @onok="logout"
             @close="closeInfoModal"
           />
+          <AddFriendModal
+            v-if="addFriendModalisOpen"
+            headerTitle="Ajouter un ami"
+            @close="closeAddFriendModal"
+          />
         </template>
       </PageTemplate>
     </template>
@@ -249,6 +255,9 @@ const UserConversationItem = defineAsyncComponent(
 );
 const InfoModal = defineAsyncComponent(
   () => import("../components/InfoModal.vue")
+);
+const AddFriendModal = defineAsyncComponent(
+  () => import("../components/AddFriendModal.vue")
 );
 const ChatGrid = defineAsyncComponent(
   () => import("../components/home/chatGrid.vue")
@@ -282,6 +291,7 @@ function updateSearchQuery(searchQueryChanged: string) {
   searchQuery.value = searchQueryChanged;
 }
 
+const addFriendModalisOpen = ref(false);
 const authStore = useAuthStore();
 const showInfoModal = ref(false);
 const messages: Bubble[] = [
@@ -446,6 +456,14 @@ function logout() {
 
 function closeInfoModal() {
   showInfoModal.value = false;
+}
+
+function openAddFriendModal() {
+  addFriendModalisOpen.value = true;
+}
+
+function closeAddFriendModal() {
+  addFriendModalisOpen.value = false;
 }
 </script>
 

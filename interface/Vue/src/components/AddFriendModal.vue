@@ -1,0 +1,117 @@
+<template>
+  <Modal>
+    <template #header>
+      <span>{{ headerTitle }}</span>
+    </template>
+    <template #content>
+      <div class="add-friend-modal-content">
+        <div class="modal-searchbar-wrapper">
+          <SearchBar
+            :modelValue="searchQuery"
+            @update:modelValue="updateSearchQuery($event)"
+            placeholder="Rechercher"
+          >
+            <template v-if="searchQuery && filteredUsers.length > 0" #results>
+              <SearchBarUserCard
+                v-for="user in filteredUsers"
+                :key="user.name"
+                :avatar="user.avatar"
+                :name="user.name"
+              />
+            </template>
+            <template
+              v-if="searchQuery && filteredUsers.length === 0"
+              #no-result
+            >
+              <SearchBarUserCard :noresult="true" />
+            </template>
+          </SearchBar>
+        </div>
+<!-- ici on va ajouter une liste d'user qui on été ajouté pour le moment ca sera hardCoder -->
+        <button class="modal-btn" @click="handleClose">Fermer</button>
+      </div>
+    </template>
+  </Modal>
+</template>
+
+<script setup lang="ts">
+import { computed, defineAsyncComponent, ref } from "vue";
+import Modal from "./Modal.vue";
+const SearchBar = defineAsyncComponent(() => import("./SearchBar.vue"));
+const SearchBarUserCard = defineAsyncComponent(
+  () => import("./SearchBarUserCard.vue")
+);
+
+const props = defineProps<{
+  headerTitle?: string;
+}>();
+const emit = defineEmits(["close"]);
+const searchQuery = ref("");
+const users = [
+  { name: "Bot Hugo", avatar: "🤖" },
+  { name: "Bot Lidya", avatar: "🧛" },
+  { name: "Bot Christine", avatar: "🤡" },
+  { name: "Bot Frédéric", avatar: "🐺" },
+  { name: "Bot Mistery", avatar: "🕵" },
+];
+const filteredUsers = computed(() => {
+  if (!searchQuery.value) return [];
+  return users.filter((u) =>
+    u.name.toLowerCase().includes(searchQuery.value.toLowerCase())
+  );
+});
+
+function updateSearchQuery(searchQueryChanged: string) {
+  console.log("Login Page searchQuery changed : ", searchQueryChanged);
+  searchQuery.value = searchQueryChanged;
+}
+
+function handleClose() {
+  emit("close");
+}
+</script>
+
+<style scoped>
+.add-friend-modal-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 320px;
+  min-height: 180px;
+  padding-top: 0.5rem;
+}
+.modal-searchbar-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+.modal-friend-results {
+  width: 100%;
+  min-height: 2.5rem;
+  margin-bottom: 1.5rem;
+}
+.modal-btn {
+  position: relative;
+  overflow: hidden;
+  background-size: 200% 100%;
+  background: var(--modal-message-btn-background-color);
+  color: var(--modal-message-btn-text-color);
+  border: none;
+  border-radius: 7px;
+  padding: 10px 24px;
+  font-size: 1em;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 2px 12px 0 #23233a33;
+  transition: background-position 0.4s ease, box-shadow 0.3s ease,
+    transform 0.2s ease;
+}
+.modal-btn:hover {
+  background: var(--modal-message-btn-background-hover-color);
+  box-shadow: 0 0 12px 0 #b03a7a44;
+  transform: scale(1.045);
+  background-position: right center;
+}
+</style>
