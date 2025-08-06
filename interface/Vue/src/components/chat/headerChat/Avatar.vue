@@ -1,16 +1,26 @@
 <template>
-  <div class="chat-header-avatar">
-    <span>{{ avatar }}</span>
+  <div class="chat-header-container">
+    <div class="chat-header-avatar">
+      <span>{{ avatar }}</span>
+    </div>
+    <span class="chat-header-name">{{ name }}</span>
+
   </div>
 </template>
 
 <script setup lang="ts">
 defineProps<{
   avatar?: string;
+  name?: string;
 }>();
 </script>
 
 <style scoped>
+.chat-header-container {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
 .chat-header-avatar {
   width: 34px;
   height: 34px;
@@ -27,6 +37,15 @@ defineProps<{
   transition: background 0.25s, box-shadow 0.25s, color 0.25s;
   margin-right: 0.3rem;
   z-index: 20;
+}
+.chat-header-name {
+  font-weight: 600;
+  color: var(--page-text-color);
+  font-size: 1.02em;
+  letter-spacing: 0.05em;
+  flex: 1;
+  text-shadow: 0 1px 2px rgba(10, 161, 255, 0.496);
+  transition: color 0.25s;
 }
 
 @keyframes float {
