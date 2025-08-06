@@ -63,7 +63,7 @@
                   :displayFullContent="sidebarHovered"
                   :displayDate="false"
                   v-for="conv in mockConversations.filter(
-                    (conv) => conv.type === 'room' && conv.mostRecent
+                    (conv) => conv.type === 'room' && conv.mostRecent === true
                   )"
                   :key="conv.id"
                   :participants="conv.participants"
@@ -116,7 +116,7 @@
                   :displayFullContent="sidebarHovered"
                   :displayDate="false"
                   v-for="conv in mockConversations.filter(
-                    (conv) => conv.type === 'user'
+                    (conv) => conv.type === 'user' && conv.mostRecent === true
                   )"
                   :key="conv.id"
                   :participants="conv.participants"
@@ -183,24 +183,6 @@
             </button>
           </div>
         </nav>
-        <InfoModal
-          v-if="showInfoModal"
-          headerTitle="Déconnexion"
-          message="Êtes-vous sûr de vouloir vous déconnecter ?"
-          type="warning"
-          @onok="logout"
-          @close="closeInfoModal"
-        />
-        <AddFriendModal
-          v-if="addFriendModalisOpen"
-          headerTitle="Ajouter un ami"
-          @close="closeAddFriendModal"
-        />
-        <CreateRoomModal
-          v-if="createRoomModalisOpen"
-          headerTitle="Créer une room"
-          @close="closeCreateRoomModal"
-        />
       </div>
     </template>
     <template #fallback>
@@ -220,15 +202,7 @@ const LargeAvatar = defineAsyncComponent(
 const UserConversationItem = defineAsyncComponent(
   () => import("../components/chat/UserConversationItem.vue")
 );
-const InfoModal = defineAsyncComponent(
-  () => import("../components/InfoModal.vue")
-);
-const AddFriendModal = defineAsyncComponent(
-  () => import("../components/AddFriendModal.vue")
-);
-const CreateRoomModal = defineAsyncComponent(
-  () => import("../components/CreateRoomModal.vue")
-);
+
 
 defineProps<{
   rooms: Room[];

@@ -1,8 +1,10 @@
 <template>
   <Suspense>
     <template #default>
-      <div class="page-template  min-w-0 w-screen h-screen relative">
-        <div class="page-template-header relative hidden md:flex lg:flex transition-all">
+      <div class="page-template min-w-0 w-screen h-screen transition-all">
+        <div
+          class="page-template-header relative hidden md:flex lg:flex transition-all"
+        >
           <div class="header-actions">
             <ThemeSwitcher />
             <LanguageSwitcher />
