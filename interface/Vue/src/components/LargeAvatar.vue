@@ -3,16 +3,15 @@
     <template #default>
       <div
         v-if="mode !== undefined && mode !== 'login'"
-        class="chat-header-avatar flex justify-center -mt-6"
+        class="chat-header-avatar flex justify-center -mt-6 relative"
       >
         <div
-          class="rounded-full shadow-lg flex items-center justify-center border-2 border-[var(--page-accent-color)]"
+          class="rounded-full shadow-lg flex items-center justify-center border-2 border-[var(--page-accent-color)] relative"
           style="
             width: 56px;
             height: 56px;
             background: rgba(255, 255, 255, 0.16);
-            backdrop-filter: blur(8px);
-          "
+            backdrop-filter: blur(8px);"
         >
           <div>
             <svg
@@ -27,17 +26,21 @@
               <ellipse cx="24" cy="36" rx="16" ry="8" />
             </svg>
           </div>
+          <!-- Badge en ligne -->
+          <span
+            class="absolute bottom-0 right-[-0.3rem] w-4 h-4 z-30 rounded-full border-2 border-[var(--background)] shadow"
+            :class="{ 'bg-green-400': isOnline, 'bg-red-400': !isOnline }"
+          ></span>
         </div>
       </div>
-      <div v-else class="chat-header-avatar flex justify-center -mt-6">
+      <div v-else class="chat-header-avatar flex justify-center -mt-6 relative">
         <div
-          class="rounded-full shadow-lg flex items-center justify-center border-2 border-[var(--page-accent-color)]"
+          class="rounded-full shadow-lg flex items-center justify-center border-2 border-[var(--page-accent-color)] relative"
           style="
             width: 56px;
             height: 56px;
             background: rgba(255, 255, 255, 0.16);
-            backdrop-filter: blur(8px);
-          "
+            backdrop-filter: blur(8px);"
         >
           <div>
             <span
@@ -46,6 +49,11 @@
               >{{ avatar || name || '🤖' }} </span
             > 
           </div>
+          <!-- Badge en ligne -->
+          <span
+            class="absolute bottom-0 right-[-0.3rem] w-4 h-4 z-30 rounded-full border-2 border-[var(--background)] shadow"
+            :class="{ 'bg-green-400': isOnline, 'bg-red-400': !isOnline }"
+          ></span>
         </div>
       </div>
     </template>
@@ -63,6 +71,7 @@ const props = defineProps<{
   mode?: string | undefined;
   avatar?: string | undefined;
   name?: string | undefined;
+  isOnline?: boolean;
 }>();
 
 const avatar = computed(() => {
@@ -90,6 +99,7 @@ const avatar = computed(() => {
   transition: background 0.25s, box-shadow 0.25s, color 0.25s;
   margin-right: 0.3rem;
   z-index: 20;
+  position: relative;
 }
 
 .chat-header-avatar:hover {
