@@ -10,7 +10,7 @@
           :class="{
             'grid-cols-[100%_minmax(400px,_1fr)_0px]':
               sidebarExpanded && conversations.filter((c) => c.active).length === 0,
-            'grid-cols-[310px_minmax(400px,_1fr)_0px]':
+            'grid-cols-[200px_minmax(400px,_1fr)_0px] md:grid-cols-[220px_minmax(400px,_1fr)_0px]':
               sidebarExpanded && conversations.filter((c) => c.active).length > 0,
             'grid-cols-[0px_minmax(400px,_1fr)_0px] md:grid-cols-[90px_minmax(400px,_1fr)_0px]': !sidebarExpanded,
           }"

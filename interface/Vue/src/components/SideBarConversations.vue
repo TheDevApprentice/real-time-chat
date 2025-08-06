@@ -84,7 +84,7 @@
           <!-- List of conversations filtrées par searchQuery -->
           <UserConversationItem
             :displayFullContent="sidebarExpanded"
-            :displayDate="sidebarExpanded"
+            :displayDate="false"
             :sidebarExpanded="sidebarExpanded"
             v-for="conv in filteredConversations"
             :key="conv.id"

@@ -34,7 +34,7 @@
         </Transition>
       </div>
       <Transition name="fade-in" appear>
-        <div v-if="sidebarExpanded || displayFullContent && displayDate" class="conv-meta">
+        <div v-if="sidebarExpanded && displayDate || displayFullContent && displayDate" class="conv-meta">
           <span class="date">{{ formattedDate }}</span>
         </div>
       </Transition>
