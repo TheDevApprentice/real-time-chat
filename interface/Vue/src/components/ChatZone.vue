@@ -2,15 +2,17 @@
   <Suspense>
     <template #default>
       <!-- Zone de chat qui doit laisser un espace en haut pour le bouton d'actions et de recherche -->
-      <section class="flex relative min-w-0 w-full h-[calc(100vh-0rem)] md:mt-[4.4rem] md:h-[calc(100vh-5.05rem)] ">
+      <section
+        class="flex relative min-w-0 w-full h-[calc(100vh-0rem)] md:mt-[4.4rem] md:h-[calc(100vh-5.05rem)]"
+      >
         <div
-          class="min-w-0 w-full relative grid grid-rows-1 gap-1 mx-0 bg-white/10 rounded-xl shadow-lg animate-fade-in"
+          class="min-w-0 w-full relative grid grid-rows-1 bg-white/10 rounded-xl shadow-lg animate-fade-in"
           :class="{
             'grid-cols-[100%_minmax(400px,_1fr)_0px]':
               sidebarExpanded && openConversations.length === 0,
             'grid-cols-[310px_minmax(400px,_1fr)_0px]':
               sidebarExpanded && openConversations.length > 0,
-            'grid-cols-[70px_minmax(400px,_1fr)_0px]': !sidebarExpanded,
+            'grid-cols-[0px_minmax(400px,_1fr)_0px] md:grid-cols-[90px_minmax(400px,_1fr)_0px]': !sidebarExpanded,
           }"
           style="
             transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -60,10 +62,10 @@
               </svg>
             </button>
             <div
-              class="col-span-1 row-span-1 w-full h-full relative"
+              class="col-span-1 row-span-1 w-full h-full "
               :class="{
-                'top-0': sidebarExpanded,
-                'top-[-2rem] left-4': !sidebarExpanded,
+                'relative top-0': sidebarExpanded,
+                'absolute mt-[-2rem] ml-4': !sidebarExpanded,
               }"
             >
               <SideBarConversations

@@ -43,8 +43,8 @@ const gridType = computed(() => {
     };
   }
   return {
-    cols: Math.min(props.openConversations.length, 3),
-    rows: Math.ceil(props.openConversations.length / 3),
+    cols: Math.min(props.openConversations.length, 4),
+    rows: Math.ceil(props.openConversations.length / 4),
   };
 });
 

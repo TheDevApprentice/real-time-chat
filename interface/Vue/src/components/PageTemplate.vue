@@ -1,10 +1,9 @@
 <template>
   <Suspense>
     <template #default>
-      <div class="page-template min-w-0 w-screen h-screen transition-all">
-        <div
-          class="page-template-header relative hidden md:flex lg:flex transition-all"
-        >
+      <div class="page-template min-w-0 ">
+        <div class="page-template-header hidden md:flex lg:flex">
+
           <div class="header-actions">
             <ThemeSwitcher />
             <LanguageSwitcher />
@@ -22,6 +21,7 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, ref } from "vue";
 import { useAuthStore } from "../stores/AuthStore";
+import Avatar from "./chat/headerChat/Avatar.vue";
 const ThemeSwitcher = defineAsyncComponent(() => import("./ThemeSwitcher.vue"));
 const LanguageSwitcher = defineAsyncComponent(
   () => import("./LanguageSwitcher.vue")
@@ -47,7 +47,7 @@ const authStore = useAuthStore();
   align-self: flex-start;
   gap: 0.7rem;
   z-index: 50;
-  position: absolute;
+  position: fixed;
   padding: 1.3rem 2.2rem 0.5rem 0;
 
   top: 0;
