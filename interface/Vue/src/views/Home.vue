@@ -3,7 +3,16 @@
     <template #default>
       <PageTemplate>
         <template #content>
-          <!-- Ici on va faire le header spécialement pour la vue mobile qui doit afficher à gauche l'avatar de l'user avec le nom et à droite le bouton pour changer le theme -->
+          <!-- Header mobile : avatar + nom à gauche, ThemeSwitcher à droite (mobile only) -->
+          <div class="flex items-center justify-between w-full px-4 py-2 bg-[var(--background)]/80 border-b border-[var(--color-text)]/10 md:hidden" style="backdrop-filter: blur(10px);">
+            <div class="flex items-center gap-2">
+              <div>
+                <Avatar avatar="🤖" name="Hugo" />
+              </div>
+            </div>
+            <ThemeSwitcher />
+          </div>
+          <!-- Fin header mobile -->
 
           <div class="w-full h-full">
             <div class="min-w-0 w-full h-full flex transition-all">
@@ -49,7 +58,7 @@
 
           <!-- Barre mobile pour actions principales (visible uniquement sur mobile) -->
           <div
-            class="absolute bottom-0 left-0 right-0 w-full flex justify-around items-center z-40 py-2 px-3 bg-[var(--background)]/80 backdrop-blur-md border-t border-[var(--color-text)]/10  transition-all"
+            class="absolute bottom-0 left-0 right-0 w-full flex justify-around items-center z-40 py-2 px-3 bg-[var(--background)]/80 backdrop-blur-md border-t border-[var(--color-text)]/10  transition-all  md:hidden"
             style="box-shadow: 0 -2px 12px 0 rgba(0, 0, 0, 0.09)"
           >
             <!-- Conversations (sidebar) -->
@@ -214,6 +223,8 @@ import type { Bubble } from "../components/chat/bubbleChat/ChatBubble.vue";
 import { useAuthStore } from "../stores/AuthStore";
 import type { Conversation } from "../components/SideBarConversations.vue";
 import type { Room } from "../components/HomeSideBar.vue";
+import ThemeSwitcher from "../components/ThemeSwitcher.vue";
+import Avatar from "../components/chat/headerChat/Avatar.vue";
 
 const HomeSideBar = defineAsyncComponent(
   () => import("../components/HomeSideBar.vue")
