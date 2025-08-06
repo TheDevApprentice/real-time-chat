@@ -1,9 +1,9 @@
 <template>
     <div
-      class="relative h-full w-full flex flex-col gap-4 mx-1 rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in transition-all"
+      class="relative h-full w-full flex flex-col gap-4 rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in transition-all"
     >
-      <ChatHeader :avatar="props.chat.avatar" :name="props.chat.name" :active="true" />
-      <div class="scroll-bar flex flex-col flex-1 overflow-y-auto min-h-0">
+      <ChatHeader :chat="props.chat" />
+      <div class="scroll-bar flex flex-col flex-1 px-1 mx-0.5 overflow-y-auto min-h-0">
         <ChatBubble
           v-for="(bubble, bidx) in chatBubbles"
           :key="bidx"
@@ -18,6 +18,7 @@
   <script setup lang="ts">
   import { nextTick, onMounted, ref, defineAsyncComponent } from "vue";
   import type { Bubble } from "../chat/bubbleChat/ChatBubble.vue";
+import type { Conversation } from "../SideBarConversations.vue";
   
   const ChatBubble = defineAsyncComponent(
     () => import("../chat/bubbleChat/ChatBubble.vue")
@@ -30,12 +31,7 @@
   );
   
   const props = defineProps<{
-    chat: {
-      id: number;
-      name: string;
-      avatar: string;
-      messages: Bubble[];
-    };
+    chat: Conversation;
   }>();
   const realTimeFull = "Real‑Time";
   const chatFull = "Chat";
