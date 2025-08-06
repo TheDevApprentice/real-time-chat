@@ -3,15 +3,15 @@
     <template #default>
       <!-- Zone de chat qui doit laisser un espace en haut pour le bouton d'actions et de recherche -->
       <section
-        class="flex relative min-w-0 w-full h-[calc(100vh-0rem)] md:mt-[4.4rem] md:h-[calc(100vh-5.05rem)]"
+        class="flex relative min-w-0 w-full h-[calc(100vh-6.5rem)] md:mt-[4.4rem] md:h-[calc(100vh-5.05rem)]"
       >
         <div
           class="min-w-0 w-full relative grid grid-rows-1 bg-white/10 rounded-xl shadow-lg animate-fade-in"
           :class="{
             'grid-cols-[100%_minmax(400px,_1fr)_0px]':
-              sidebarExpanded && openConversations.length === 0,
+              sidebarExpanded && conversations.filter((c) => c.active).length === 0,
             'grid-cols-[310px_minmax(400px,_1fr)_0px]':
-              sidebarExpanded && openConversations.length > 0,
+              sidebarExpanded && conversations.filter((c) => c.active).length > 0,
             'grid-cols-[0px_minmax(400px,_1fr)_0px] md:grid-cols-[90px_minmax(400px,_1fr)_0px]': !sidebarExpanded,
           }"
           style="
@@ -20,7 +20,7 @@
         >
           <div class="col-span-1 row-span-1 w-full h-full relative">
             <button
-              v-if="openConversations.length > 0"
+              v-if="conversations.filter((c) => c.active).length > 0"
               class="sidebar-toggle-btn absolute -right-6.5 top-20 z-40"
               :aria-label="
                 sidebarExpanded
@@ -62,7 +62,7 @@
               </svg>
             </button>
             <div
-              class="col-span-1 row-span-1 w-full h-full "
+              class="col-span-1 row-span-1 w-full h-full relative "
               :class="{
                 'relative top-0': sidebarExpanded,
                 'absolute mt-[-2rem] ml-4': !sidebarExpanded,
@@ -75,7 +75,7 @@
             </div>
           </div>
           <div class="col-span-1 row-span-1 w-full h-full relative">
-            <ChatGrid :openConversations="openConversations" />
+            <ChatGrid :conversations="conversations" />
           </div>
         </div>
       </section>
@@ -89,7 +89,6 @@
 <script setup lang="ts">
 import LoadingOverlay from "../components/LoadingOverlay.vue";
 import { defineAsyncComponent, ref } from "vue";
-import type { Bubble } from "../components/chat/bubbleChat/ChatBubble.vue";
 import type { Conversation } from "../components/SideBarConversations.vue";
 
 const SideBarConversations = defineAsyncComponent(
@@ -99,16 +98,8 @@ const ChatGrid = defineAsyncComponent(
   () => import("../components/home/chatGrid.vue")
 );
 
-export type OpenChat = {
-  id: number;
-  name: string;
-  avatar: string;
-  messages: Bubble[];
-};
-
 defineProps<{
   conversations: Conversation[];
-  openConversations: OpenChat[];
 }>();
 
 const sidebarExpanded = ref(true);

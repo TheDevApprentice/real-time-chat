@@ -542,8 +542,6 @@ body {
 
 #app {
   display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
   background-color: var(--color-background);
 }

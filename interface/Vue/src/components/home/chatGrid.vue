@@ -1,7 +1,7 @@
 <template>
-  <div :class="gridClasses" class="h-full w-full gap-2">
+  <div :class="gridClasses" class="h-full w-full gap-1">
     <div
-      v-for="(chat, index) in props.openConversations"
+      v-for="(chat, index) in props.conversations.filter((c) => c.active)"
       :key="chat.id"
       :class="getChatItemClasses(index)"
     >
@@ -12,39 +12,39 @@
 
 <script setup lang="ts">
 import { computed, defineAsyncComponent } from "vue";
-import type { OpenChat } from "../ChatZone.vue";
+import type { Conversation } from "../SideBarConversations.vue";
 
 const ChatView = defineAsyncComponent(() => import("./chatView.vue"));
 
 const props = defineProps<{
-  openConversations: OpenChat[];
+  conversations: Conversation[];
 }>();
 
 const gridType = computed(() => {
-  if (props.openConversations.length === 1) {
+  if (props.conversations.filter((c) => c.active).length === 1) {
     return {
       cols: 1,
       rows: 1,
     };
-  } else if (props.openConversations.length === 2) {
+  } else if (props.conversations.filter((c) => c.active).length === 2) {
     return {
       cols: 2,
       rows: 1,
     };
-  } else if (props.openConversations.length === 3) {
+  } else if (props.conversations.filter((c) => c.active).length === 3) {
     return {
       cols: 2,
       rows: 2,
     };
-  } else if (props.openConversations.length === 4) {
+  } else if (props.conversations.filter((c) => c.active).length === 4) {
     return {
       cols: 2,
       rows: 2,
     };
   }
   return {
-    cols: Math.min(props.openConversations.length, 4),
-    rows: Math.ceil(props.openConversations.length / 4),
+    cols: Math.min(props.conversations.filter((c) => c.active).length, 4),
+    rows: Math.ceil(props.conversations.filter((c) => c.active).length / 4),
   };
 });
 
@@ -54,7 +54,7 @@ const gridClasses = computed(() => {
 
 // Fonction pour déterminer les classes de chaque chat selon sa position
 const getChatItemClasses = (index: number) => {
-  const totalChats = props.openConversations.length;
+  const totalChats = props.conversations.filter((c) => c.active).length;
 
   if (totalChats === 1) {
     // 1 chat : prend tout l'espace

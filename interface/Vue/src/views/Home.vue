@@ -28,7 +28,7 @@
             </div>
             <!-- Fin header mobile -->
 
-            <div class="relative flex transition-all w-screen">
+            <div class="relative flex transition-all w-screen h-full">
               <!-- Primary Sidebar -->
               <HomeSideBar
                 :rooms="rooms"
@@ -60,7 +60,6 @@
               />
               <ChatZone
                 :conversations="mockConversations"
-                :openConversations="openConversations"
               />
             </div>
 
@@ -467,52 +466,52 @@ const mockConversations: Conversation[] = [
     active: false,
     mostRecent: false,
   },
-  // {
-  //   id: 7,
-  //   participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
-  //   avatar: "🤖",
-  //   name: "Bot Mélanie",
-  //   type: "user",
-  //   messages: mockMessages,
-  //   active: false,
-  //   mostRecent: false,
-  // },
-  // {
-  //   id: 8,
-  //   participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
-  //   avatar: "🤖",
-  //   name: "Bot Mélanie",
-  //   type: "user",
-  //   messages: mockMessages,
-  //   active: false,
-  //   mostRecent: false,
-  // },
-  // {
-  //   id: 9,
-  //   participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
-  //   avatar: "🤖",
-  //   name: "Bot Mélanie",
-  //   type: "user",
-  //   messages: mockMessages,
-  //   active: false,
-  //   mostRecent: true,
-  // },
-  // {
-  //   id: 10,
-  //   participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
-  //   avatar: "🤖",
-  //   name: "Bot Mélanie",
-  //   type: "user",
-  //   messages: mockMessages,
-  //   active: false,
-  //   mostRecent: true,
-  // },
+  {
+    id: 7,
+    participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
+    avatar: "🤖",
+    name: "Bot Mélanie",
+    type: "user",
+    messages: mockMessages,
+    active: false,
+    mostRecent: false,
+  },
+  {
+    id: 8,
+    participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
+    avatar: "🤖",
+    name: "Bot Mélanie",
+    type: "user",
+    messages: mockMessages,
+    active: false,
+    mostRecent: false,
+  },
+  {
+    id: 9,
+    participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
+    avatar: "🤖",
+    name: "Bot Mélanie",
+    type: "user",
+    messages: mockMessages,
+    active: false,
+    mostRecent: true,
+  },
+  {
+    id: 10,
+    participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
+    avatar: "🤖",
+    name: "Bot Mélanie",
+    type: "user",
+    messages: mockMessages,
+    active: false,
+    mostRecent: true,
+  },
   // Ajoute d'autres mocks si besoin
 ];
-// MOCK pour la démo : à remplacer par ta logique d'ouverture réelle
-const openConversations = computed(() =>
-  mockConversations.filter((conv) => conv.active)
-);
+
+async function onClose(value: Conversation) {
+  console.log("close conversation", value);
+}
 
 function askLogout() {
   openInfoModal();

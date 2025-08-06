@@ -1,12 +1,12 @@
 <template>
-  <div class="chat-header-preview">
-    <Avatar :avatar="avatar" />
-    <span class="chat-header-name">{{ name }}</span>
+  <div class="chat-header-preview px-2 mr-3">
+    <Avatar :avatar="chat.avatar" />
+    <span class="chat-header-name">{{ chat.name }}</span>
     <button
       class="chat-header-close"
       aria-label="Fermer"
-      v-if="active"
-      @click="onClose"
+      v-if="chat.active"
+      @click="closeConv()"
     >
       <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
         <path
@@ -21,18 +21,19 @@
 </template>
 
 <script setup lang="ts">
+import type { Conversation } from "../../SideBarConversations.vue";
 import Avatar from "./Avatar.vue";
 
-defineProps<{
-  avatar?: string;
-  name?: string;
-  onClose?: () => void;
-  onOpen?: () => void;
-  active?: boolean;
-  nbUnreadMessage?: number;
+const props = defineProps<{
+  chat: Conversation;
 }>();
 
-defineEmits<{ close: [] }>();
+const emit = defineEmits<{ closeConv: [Conversation] }>();
+
+async function closeConv() {
+  console.log("chat header closeConv :", props.chat);
+  emit("closeConv", props.chat);
+}
 </script>
 
 <style scoped>
@@ -40,7 +41,7 @@ defineEmits<{ close: [] }>();
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.7rem;
+  width: 100%;
   padding: 0.18rem 0.35rem 0.18rem 0.12rem;
   margin-bottom: 0.75rem;
   background: rgba(255, 255, 255, 0.163);
