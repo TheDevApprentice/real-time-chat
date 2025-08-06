@@ -2,9 +2,13 @@
   <div class="chat-header-container">
     <div class="chat-header-avatar">
       <span>{{ avatar }}</span>
+      <!-- Badge en ligne -->
+      <span
+        class="absolute bottom-0 right-[-0.2rem] w-3 h-3 z-20 rounded-full  border-2 border-[var(--background)] shadow"
+        :class="{ 'bg-green-400': isOnline, 'bg-red-400': !isOnline }"
+      ></span>
     </div>
     <span class="chat-header-name">{{ name }}</span>
-
   </div>
 </template>
 
@@ -12,6 +16,7 @@
 defineProps<{
   avatar?: string;
   name?: string;
+  isOnline?: boolean;
 }>();
 </script>
 
@@ -26,7 +31,7 @@ defineProps<{
   height: 34px;
   border-radius: 50%;
   border: 2px solid rgba(68, 151, 214, 0.371);
-  
+
   background: linear-gradient(135deg, #4466d6 60%, #5b7fff 100%);
   display: flex;
   align-items: center;
@@ -37,7 +42,19 @@ defineProps<{
   transition: background 0.25s, box-shadow 0.25s, color 0.25s;
   margin-right: 0.3rem;
   z-index: 20;
+  position: relative;
 }
+
+.badge-online {
+  z-index: 30;
+  animation: pulse 1.2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 #22c55e99; }
+  50% { box-shadow: 0 0 6px 4px #22c55e44; }
+}
+
 .chat-header-name {
   font-weight: 600;
   color: var(--page-text-color);
