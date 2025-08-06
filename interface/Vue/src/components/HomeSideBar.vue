@@ -1,9 +1,9 @@
 <template>
   <Suspense>
     <template #default>
-      <div>
+      <div class="relative h-screen hidden md:flex lg:flex transition-all">
         <nav
-          class="sidebar-glass flex flex-col h-screen w-23 hover:w-66 transition-all duration-300 ease-in-out group relative border-r border-custom"
+          class="sidebar-glass flex flex-col h-screen w-23 hover:w-53 transition-all duration-300 ease-in-out group relative border-r border-custom"
           @mouseenter="updateSideBarHover(true)"
           @mouseleave="updateSideBarHover(false)"
         >
@@ -21,108 +21,115 @@
           </div>
           <!-- Divider -->
           <div class="sidebar-divider my-2"></div>
-          <!-- Rooms header + add -->
-          <div class="flex items-center justify-between px-2 py-2">
-            <span
-              class="sidebar-section"
-              style="
-                transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
-              "
-              >Rooms</span
-            >
-            <button
-              class="sidebar-btn-add opacity-0 group-hover:opacity-100 flex items-center justify-center"
-              style="
-                transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
-              "
-              title="Créer une room"
-              @click="openCreateRoomModal"
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <circle
-                  cx="10"
-                  cy="10"
-                  r="10"
-                  fill="currentColor"
-                  opacity="0.15"
+          <div class="scroll-bar overflow-y-auto">
+            <!-- Rooms header + add -->
+            <div class="flex items-center justify-between px-2 py-2">
+              <span
+                class="sidebar-section"
+                style="
+                  transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
+                "
+                >Rooms</span
+              >
+              <button
+                class="sidebar-btn-add opacity-0 group-hover:opacity-100 flex items-center justify-center"
+                style="
+                  transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
+                "
+                title="Créer une room"
+                @click="openCreateRoomModal"
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <circle
+                    cx="10"
+                    cy="10"
+                    r="10"
+                    fill="currentColor"
+                    opacity="0.15"
+                  />
+                  <path
+                    d="M10 5v10M5 10h10"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </button>
+            </div>
+            <!-- Liste des rooms -->
+            <div class="flex mt-2 px-2">
+              <div class="flex flex-col gap-2">
+                <UserConversationItem
+                  :displayFullContent="sidebarHovered"
+                  :displayDate="false"
+                  v-for="conv in mockConversations.filter(
+                    (conv) => conv.type === 'room' && conv.mostRecent
+                  )"
+                  :key="conv.id"
+                  :participants="conv.participants"
+                  :avatar="conv.avatar"
+                  :type="conv.type"
+                  :name="conv.name"
+                  :messages="conv.messages"
+                  :active="conv.active"
                 />
-                <path
-                  d="M10 5v10M5 10h10"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
+              </div>
+            </div>
+            <div class="sidebar-divider my-2"></div>
+            <!-- Amis header + add -->
+            <div class="flex items-center justify-between px-2 py-2">
+              <span
+                class="sidebar-section"
+                style="
+                  transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
+                "
+                >Amis</span
+              >
+              <button
+                class="sidebar-btn-add opacity-0 group-hover:opacity-100 flex items-center justify-center"
+                style="
+                  transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
+                "
+                title="Ajouter un ami"
+                @click="openAddFriendModal"
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <circle
+                    cx="10"
+                    cy="10"
+                    r="10"
+                    fill="currentColor"
+                    opacity="0.15"
+                  />
+                  <path
+                    d="M10 5v10M5 10h10"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div class="flex mt-2 px-2">
+              <div class="flex flex-col gap-2">
+                <UserConversationItem
+                  :displayFullContent="sidebarHovered"
+                  :displayDate="false"
+                  v-for="conv in mockConversations.filter(
+                    (conv) => conv.type === 'user'
+                  )"
+                  :key="conv.id"
+                  :participants="conv.participants"
+                  :messages="conv.messages"
+                  :avatar="conv.avatar"
+                  :type="conv.type"
+                  :name="conv.name"
+                  :active="conv.active"
                 />
-              </svg>
-            </button>
-          </div>
-          <!-- Liste des rooms -->
-          <div class="flex mt-2 px-2">
-            <div class="flex flex-col gap-2">
-              <UserConversationItem
-                :displayFullContent="sidebarHovered"
-                :displayDate="false"
-                v-for="conv in mockConversations.filter((conv) => conv.type === 'room' && conv.mostRecent)"
-                :key="conv.id"
-                :participants="conv.participants"
-                :avatar="conv.avatar"
-                :type="conv.type"
-                :name="conv.name"
-                :messages="conv.messages"
-                :active="conv.active"
-              />
+              </div>
             </div>
           </div>
-          <div class="sidebar-divider my-2"></div>
-          <!-- Amis header + add -->
-          <div class="flex items-center justify-between px-2 py-2">
-            <span
-              class="sidebar-section"
-              style="
-                transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
-              "
-              >Amis</span
-            >
-            <button
-              class="sidebar-btn-add opacity-0 group-hover:opacity-100 flex items-center justify-center"
-              style="
-                transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
-              "
-              title="Ajouter un ami"
-              @click="openAddFriendModal"
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <circle
-                  cx="10"
-                  cy="10"
-                  r="10"
-                  fill="currentColor"
-                  opacity="0.15"
-                />
-                <path
-                  d="M10 5v10M5 10h10"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                />
-              </svg>
-            </button>
-          </div>
-          <div class="flex mt-2 px-2">
-            <div class="flex flex-col gap-2">
-              <UserConversationItem
-                :displayFullContent="sidebarHovered"
-                :displayDate="false"
-                v-for="conv in mockConversations.filter((conv) => conv.type === 'user')"
-                :key="conv.id"
-                :participants="conv.participants"
-                :messages="conv.messages"
-                :avatar="conv.avatar"
-                :type="conv.type"
-                :name="conv.name"
-                :active="conv.active"
-              />
-            </div>
-          </div>
+
           <div class="flex-1"></div>
           <!-- Paramètres / déconnexion -->
           <div class="flex flex-row gap-2 justify-end pb-3">

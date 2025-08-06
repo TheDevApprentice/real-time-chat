@@ -85,6 +85,9 @@ const formattedDate = computed(() => {
   align-items: center;
   justify-content: center;
   gap: 1rem;
+  width: 100%;
+  min-width: 0rem;
+  background: rgba(255, 255, 255, 0);
   padding: 0.75rem 1.1rem;
   border-radius: 1.2rem;
   cursor: pointer;
@@ -98,7 +101,7 @@ const formattedDate = computed(() => {
   gap: 1rem;
   padding: 0.75rem 1.1rem;
   width: 100%;
-  min-width: 15rem;
+  min-width: 0rem;
   border-radius: 1.2rem;
   background: rgba(255,255,255,0.04);
   transition: background 0.18s, box-shadow 0.18s;

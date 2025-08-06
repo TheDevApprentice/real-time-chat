@@ -3,7 +3,7 @@
     <template #default>
       <!-- Zone bouton d'actions et de recherche cette zone se superpose avec le parent : PageTemplate qui laisse en haut à droite des bouton qui permettent de faire la gestion rapide du theme et de la lanque
                    il faut donc que cette zone soit libre -->
-      <section class="flex flex-row">
+      <section class="flex-row relative hidden md:flex lg:flex transition-all">
         <div class="search-bar">
           <SearchBar
             v-if="authStore.isAuthenticated"
@@ -251,7 +251,7 @@ defineEmits(['add-friend', 'create-room'])
   position: absolute;
   padding: 1.3rem 2.2rem 0.5rem 0;
   top: 0.2rem;
-  left: 24rem;
+  left: 19rem;
 }
 .upperzone-btn {
   display: flex;

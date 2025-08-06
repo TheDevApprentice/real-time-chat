@@ -2,31 +2,77 @@
   <Suspense>
     <template #default>
       <!-- Zone de chat qui doit laisser un espace en haut pour le bouton d'actions et de recherche -->
-      <section class="flex mt-[4.4rem] h-[calc(100vh-5.05rem)]">
+      <section class="flex relative min-w-0 w-full h-[calc(100vh-0rem)] md:mt-[4.4rem] md:h-[calc(100vh-5.05rem)] ">
         <div
-          class="min-w-0 w-full grid  grid-rows-1 gap-1 mx-0 bg-white/10 rounded-xl shadow-lg animate-fade-in"
-          :class="{'grid-cols-[310px_minmax(400px,_1fr)_0px]' : sidebarExpanded, 'grid-cols-[70px_minmax(400px,_1fr)_0px]' : !sidebarExpanded }"
-          style="transition: grid-template-columns 0.3s cubic-bezier(0.4,0,0.2,1);"
+          class="min-w-0 w-full relative grid grid-rows-1 gap-1 mx-0 bg-white/10 rounded-xl shadow-lg animate-fade-in"
+          :class="{
+            'grid-cols-[100%_minmax(400px,_1fr)_0px]':
+              sidebarExpanded && openConversations.length === 0,
+            'grid-cols-[310px_minmax(400px,_1fr)_0px]':
+              sidebarExpanded && openConversations.length > 0,
+            'grid-cols-[70px_minmax(400px,_1fr)_0px]': !sidebarExpanded,
+          }"
+          style="
+            transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          "
         >
-        
-        <div class="col-span-1 row-span-1 w-full h-full relative">
+          <div class="col-span-1 row-span-1 w-full h-full relative">
             <button
+              v-if="openConversations.length > 0"
               class="sidebar-toggle-btn absolute -right-6.5 top-20 z-40"
-              :aria-label="sidebarExpanded ? 'Réduire la barre latérale' : 'Déplier la barre latérale'"
-              @click="sidebarExpanded = !sidebarExpanded"
+              :aria-label="
+                sidebarExpanded
+                  ? 'Réduire la barre latérale'
+                  : 'Déplier la barre latérale'
+              "
+              @click="toggleSidebar"
               type="button"
             >
-              <svg v-if="sidebarExpanded" width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M15 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <svg v-else width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M9 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <svg
+                v-if="sidebarExpanded"
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+              >
+                <path
+                  d="M15 19l-7-7 7-7"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              <svg
+                v-else
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+              >
+                <path
+                  d="M9 5l7 7-7 7"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
             </button>
-          <div 
-          class="col-span-1 row-span-1 w-full h-full relative"
-          :class="{'' : sidebarExpanded, 'top-[-2rem] ml-4' : !sidebarExpanded }"
-          >
-            <SideBarConversations :sidebarExpanded="sidebarExpanded" :conversations="conversations" />
+            <div
+              class="col-span-1 row-span-1 w-full h-full relative"
+              :class="{
+                'top-0': sidebarExpanded,
+                'top-[-2rem] left-4': !sidebarExpanded,
+              }"
+            >
+              <SideBarConversations
+                :sidebarExpanded="sidebarExpanded"
+                :conversations="conversations"
+              />
+            </div>
           </div>
-          </div>
-          <div class="col-span-1 row-span-1 w-full h-full">
+          <div class="col-span-1 row-span-1 w-full h-full relative">
             <ChatGrid :openConversations="openConversations" />
           </div>
         </div>
@@ -66,7 +112,9 @@ defineProps<{
 const sidebarExpanded = ref(true);
 
 function toggleSidebar() {
-  sidebarExpanded.value = !sidebarExpanded.value;
+  setTimeout(() => {
+    sidebarExpanded.value = !sidebarExpanded.value;
+  }, 400);
 }
 </script>
 

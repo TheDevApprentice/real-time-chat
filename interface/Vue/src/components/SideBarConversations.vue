@@ -1,7 +1,7 @@
 <template>
   <Suspense>
     <template #default>
-      <div class="flex flex-col">
+      <div class="flex flex-col w-full relative h-full">
         <!-- Global enveloppe of side bar conversations-->
         <div
           class="flex flex-row items-center px-2 py-2 relative min-h-[44px] min-w-0"
@@ -80,7 +80,7 @@
             </svg>
           </button>
         </div>
-        <div class="flex flex-col">
+        <div class="flex flex-col relative scroll-bar overflow-y-auto">
           <!-- List of conversations filtrées par searchQuery -->
           <UserConversationItem
             :displayFullContent="sidebarExpanded"

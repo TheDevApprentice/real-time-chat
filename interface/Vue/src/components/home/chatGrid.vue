@@ -1,13 +1,11 @@
 <template>
-  <div :class="gridClasses" class="max-h-screen h-full w-full gap-2">
+  <div :class="gridClasses" class="h-full w-full gap-2">
     <div
       v-for="(chat, index) in props.openConversations"
       :key="chat.id"
       :class="getChatItemClasses(index)"
     >
-      <div class="h-full w-full">
-        <ChatView :chat="chat" />
-      </div>
+      <ChatView :chat="chat" />
     </div>
   </div>
 </template>
@@ -16,9 +14,7 @@
 import { computed, defineAsyncComponent } from "vue";
 import type { OpenChat } from "../ChatZone.vue";
 
-const ChatView = defineAsyncComponent(
-  () => import("./chatView.vue")
-);
+const ChatView = defineAsyncComponent(() => import("./chatView.vue"));
 
 const props = defineProps<{
   openConversations: OpenChat[];
@@ -59,32 +55,29 @@ const gridClasses = computed(() => {
 // Fonction pour déterminer les classes de chaque chat selon sa position
 const getChatItemClasses = (index: number) => {
   const totalChats = props.openConversations.length;
-  
+
   if (totalChats === 1) {
     // 1 chat : prend tout l'espace
-    return 'col-span-1 row-span-1';
-  } 
-  else if (totalChats === 2) {
+    return "col-span-1 row-span-1";
+  } else if (totalChats === 2) {
     // 2 chats : côte à côte
-    return 'col-span-1 row-span-1';
-  } 
-  else if (totalChats === 3) {
+    return "col-span-1 row-span-1";
+  } else if (totalChats === 3) {
     // 3 chats : 1 grand à gauche, 2 petits empilés à droite
     if (index === 0) {
       // Premier chat : prend 2 rangées à gauche
-      return 'col-span-1 row-span-2';
+      return "col-span-1 row-span-2";
     } else {
       // Deuxième et troisième chat : 1 rangée chacun à droite
-      return 'col-span-1 row-span-1';
+      return "col-span-1 row-span-1";
     }
-  } 
-  else if (totalChats === 4) {
+  } else if (totalChats === 4) {
     // 4 chats : grille 2x2 classique
-    return 'col-span-1 row-span-1';
+    return "col-span-1 row-span-1";
   }
-  
+
   // Cas par défaut pour plus de 4 chats
-  return 'col-span-1 row-span-1';
+  return "col-span-1 row-span-1";
 };
 </script>
 

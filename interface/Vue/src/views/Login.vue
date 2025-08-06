@@ -4,7 +4,7 @@
       <PageTemplate>
         <template #content>
           <div
-            class="md:mt-[3rem] px-4 grid grid-cols-1 md:grid-cols-2 gap-8 items-start"
+            class="md:mt-[3rem] px-4 grid grid-cols-1 md:grid-cols-2 gap-8 items-start transition-all"
           >
             <!-- Header: visible md+ -->
             <div class="hidden md:flex flex-col items-center col-span-2">

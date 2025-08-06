@@ -3,7 +3,7 @@
     <template #default>
       <PageTemplate>
         <template #content>
-          <div class="w-[100vw] h-[100vh]">
+          <div class="min-w-0 w-screen h-screen">
             <div class="z-10 flex">
               <!-- Primary Sidebar -->
               <HomeSideBar
@@ -232,7 +232,7 @@ const mockConversations: Conversation[] = [
     name: "Famille",
     type: "room",
     messages: mockMessages,
-    active: true,
+    active: false,
     mostRecent: true,
   },
   {
@@ -252,7 +252,7 @@ const mockConversations: Conversation[] = [
     name: "Bot Lidya",
     type: "user",
     messages: mockMessages,
-    active: true,
+    active: false,
     mostRecent: true,
   },
   {
@@ -262,8 +262,68 @@ const mockConversations: Conversation[] = [
     name: "Bot Mélanie",
     type: "user",
     messages: mockMessages,
-    active: true,
+    active: false,
     mostRecent: false,
+  },
+  {
+    id: 5,
+    participants: [{ name: "Mélanie", avatar: "🤖" }],
+    avatar: "🤖",
+    name: "Bot Mélanie",
+    type: "user",
+    messages: mockMessages,
+    active: false,
+    mostRecent: false,
+  },
+  {
+    id: 6,
+    participants: [{ name: "Mélanie", avatar: "🤖" }],
+    avatar: "🤖",
+    name: "Bot Mélanie",
+    type: "user",
+    messages: mockMessages,
+    active: false,
+    mostRecent: false,
+  },
+  {
+    id: 7,
+    participants: [{ name: "Mélanie", avatar: "🤖" }],
+    avatar: "🤖",
+    name: "Bot Mélanie",
+    type: "user",
+    messages: mockMessages,
+    active: false,
+    mostRecent: false,
+  },
+  {
+    id: 8,
+    participants: [{ name: "Mélanie", avatar: "🤖" }],
+    avatar: "🤖",
+    name: "Bot Mélanie",
+    type: "user",
+    messages: mockMessages,
+    active: false,
+    mostRecent: true,
+  },
+  {
+    id: 9,
+    participants: [{ name: "Mélanie", avatar: "🤖" }],
+    avatar: "🤖",
+    name: "Bot Mélanie",
+    type: "user",
+    messages: mockMessages,
+    active: false,
+    mostRecent: true,
+  },
+  {
+    id: 10,
+    participants: [{ name: "Mélanie", avatar: "🤖" }],
+    avatar: "🤖",
+    name: "Bot Mélanie",
+    type: "user",
+    messages: mockMessages,
+    active: false,
+    mostRecent: true,
   },
   // Ajoute d'autres mocks si besoin
 ];

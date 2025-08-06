@@ -1,5 +1,5 @@
 <template>
-  <div class="w-[100vw] h-[100vh] items-center justify-center flex">
+  <div class="relative w-screen h-screen min-w-0 min-h-0 items-center justify-center flex">
     <router-view />
     <!-- <PwaStatus /> -->
   </div>

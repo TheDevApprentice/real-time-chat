@@ -1,6 +1,6 @@
 <template>
     <div
-      class="h-full flex flex-col gap-4 mx-1 rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in"
+      class="relative h-full w-full flex flex-col gap-4 mx-1 rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in transition-all"
     >
       <ChatHeader :avatar="props.chat.avatar" :name="props.chat.name" :active="true" />
       <div class="scroll-bar flex flex-col flex-1 overflow-y-auto min-h-0">

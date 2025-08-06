@@ -1,9 +1,8 @@
 <template>
   <Suspense>
     <template #default>
-      <div class="page-template">
-        <div class="page-template-header">
- 
+      <div class="page-template  min-w-0 w-screen h-screen relative">
+        <div class="page-template-header relative hidden md:flex lg:flex transition-all">
           <div class="header-actions">
             <ThemeSwitcher />
             <LanguageSwitcher />
@@ -38,7 +37,6 @@ const authStore = useAuthStore();
 }
 .page-template-header {
   width: 100%;
-  display: flex;
   z-index: 10;
 }
 .header-actions {
@@ -47,7 +45,7 @@ const authStore = useAuthStore();
   align-self: flex-start;
   gap: 0.7rem;
   z-index: 50;
-  position: fixed;
+  position: absolute;
   padding: 1.3rem 2.2rem 0.5rem 0;
 
   top: 0;
