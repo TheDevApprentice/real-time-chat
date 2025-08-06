@@ -10,6 +10,7 @@
           :key="user.name + idx"
           :avatar="user.avatar"
           :name="user.name"
+          :isOnline="user.isOnline"
           v-if="type === 'user'"
         />
         <LargeAvatar
@@ -54,7 +55,7 @@ const props = defineProps<{
   avatar?: string;
   type?: ConversationType;
   messages: Bubble[];
-  participants: { name: string, avatar: string }[];
+  participants: { name: string, avatar: string, isOnline: boolean }[];
   name?: string;
   active?: boolean;
 }>()

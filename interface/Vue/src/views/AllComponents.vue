@@ -84,14 +84,14 @@
                 <div v-if="showChat" class="demo-chat-items md:flex">
                   <UserConversationItem
                     :participants="[
-                      { name: 'Bot Hugo', avatar: '🤖' },
+                      { name: 'Bot Hugo', avatar: '🤖', isOnline: true },
                     ]"
                     title="Bot Hugo"
                     :lastMessage="{ text: 'Hello ! 😀', author: 'Bot Hugo', date: new Date().toISOString(), isMine: false, unread: true }"
                   />
                   <UserConversationItem
                     :participants="[
-                      { name: 'Bot Lidya', avatar: '🧛' },
+                      { name: 'Bot Lidya', avatar: '🧛', isOnline: true },
                     ]"
                     title="Bot Lidya"
                     :lastMessage="{ text: 'Hello ! 😀', author: 'Bot Lidya', date: (() => { const d = new Date(); d.setDate(d.getDate()-1); return d.toISOString(); })(), isMine: false, unread: true }"

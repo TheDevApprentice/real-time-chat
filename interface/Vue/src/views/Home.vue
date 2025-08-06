@@ -4,18 +4,27 @@
       <PageTemplate>
         <template #content>
           <div class="max-h-screen">
-            <!-- Header mobile : avatar + nom à gauche, ThemeSwitcher à droite (mobile only) -->
+            <!-- Header mobile amélioré -->
             <div
               v-if="authStore.isAuthenticated"
-              class="relative flex items-center justify-between w-full px-4 py-2 bg-[var(--background)]/80 border-b border-[var(--color-text)]/10 md:hidden"
-              style="backdrop-filter: blur(10px)"
+              class="relative flex items-center justify-between w-full px-2 py-1 rounded-t-2xl shadow-lg bg-gradient-to-r from-[var(--background)]/80 via-[var(--background-secondary)]/60 to-[var(--background)]/80 border-b border-[var(--color-text)]/10 md:hidden backdrop-blur-lg"
+              style="backdrop-filter: blur(16px)"
             >
-              <div class="flex items-center gap-2">
-                <div>
-                  <Avatar avatar="🤖" name="Hugo" />
+              <div class="flex items-center gap-3">
+                <div class="relative">
+                  <Avatar
+                    avatar="🤖"
+                    name="Hugo"
+                    :isOnline="true"
+                  />
                 </div>
               </div>
-              <ThemeSwitcher />
+              <button
+                class="flex items-center justify-center w-10 h-10 rounded-full bg-[var(--background-secondary)]/60 hover:bg-[var(--background-secondary)]/90 shadow transition-all duration-200 ring-1 ring-[var(--color-primary)]"
+                aria-label="Changer le thème"
+              >
+                <ThemeSwitcher class="text-xl" />
+              </button>
             </div>
             <!-- Fin header mobile -->
 
@@ -400,7 +409,7 @@ const rooms: Room[] = [
 const mockConversations: Conversation[] = [
   {
     id: 1,
-    participants: [{ name: "Bot Lidya", avatar: "🧛" }],
+    participants: [{ name: "Bot Lidya", avatar: "🧛", isOnline: true }],
     avatar: "👪",
     name: "Famille",
     type: "room",
@@ -410,27 +419,27 @@ const mockConversations: Conversation[] = [
   },
   {
     id: 2,
-    participants: [{ name: "Mélanie", avatar: "🤖" }],
+    participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
     avatar: "🦆",
     name: "Mes Canards",
     type: "room",
     messages: mockMessages,
-    active: true,
+    active: false,
     mostRecent: false,
   },
   {
     id: 3,
-    participants: [{ name: "Bot Lidya", avatar: "🧛" }],
+    participants: [{ name: "Bot Lidya", avatar: "🧛", isOnline: true }],
     avatar: "🧛",
     name: "Bot Lidya",
     type: "user",
     messages: mockMessages,
-    active: true,
+    active: false,
     mostRecent: true,
   },
   {
     id: 4,
-    participants: [{ name: "Mélanie", avatar: "🤖" }],
+    participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
     avatar: "🤖",
     name: "Bot Mélanie",
     type: "user",
@@ -440,7 +449,7 @@ const mockConversations: Conversation[] = [
   },
   {
     id: 5,
-    participants: [{ name: "Mélanie", avatar: "🤖" }],
+    participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
     avatar: "🤖",
     name: "Bot Mélanie",
     type: "user",
@@ -450,7 +459,7 @@ const mockConversations: Conversation[] = [
   },
   {
     id: 6,
-    participants: [{ name: "Mélanie", avatar: "🤖" }],
+    participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
     avatar: "🤖",
     name: "Bot Mélanie",
     type: "user",
@@ -460,7 +469,7 @@ const mockConversations: Conversation[] = [
   },
   // {
   //   id: 7,
-  //   participants: [{ name: "Mélanie", avatar: "🤖" }],
+  //   participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
   //   avatar: "🤖",
   //   name: "Bot Mélanie",
   //   type: "user",
@@ -470,7 +479,7 @@ const mockConversations: Conversation[] = [
   // },
   // {
   //   id: 8,
-  //   participants: [{ name: "Mélanie", avatar: "🤖" }],
+  //   participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
   //   avatar: "🤖",
   //   name: "Bot Mélanie",
   //   type: "user",
@@ -480,7 +489,7 @@ const mockConversations: Conversation[] = [
   // },
   // {
   //   id: 9,
-  //   participants: [{ name: "Mélanie", avatar: "🤖" }],
+  //   participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
   //   avatar: "🤖",
   //   name: "Bot Mélanie",
   //   type: "user",
@@ -490,7 +499,7 @@ const mockConversations: Conversation[] = [
   // },
   // {
   //   id: 10,
-  //   participants: [{ name: "Mélanie", avatar: "🤖" }],
+  //   participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
   //   avatar: "🤖",
   //   name: "Bot Mélanie",
   //   type: "user",

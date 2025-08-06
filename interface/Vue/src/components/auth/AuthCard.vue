@@ -3,7 +3,7 @@
     <template #default>
       <CardTemplate>
         <!-- Header/avatar stylisé -->
-        <LargeAvatar :mode="mode" />
+        <LargeAvatar :mode="mode" :isOnline="false" />
         <TabsContainer
           :mode="mode"
           @update:mode="updateMode($event)"

@@ -119,7 +119,7 @@ export type ConversationType = "user" | "room";
 
 export type Conversation = {
   id: number;
-  participants: { name: string; avatar: string }[];
+  participants: { name: string; avatar: string, isOnline: boolean }[];
   name: string;
   avatar: string;
   type: ConversationType;
