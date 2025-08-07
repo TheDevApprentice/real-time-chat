@@ -103,18 +103,18 @@
 </template>
 
 <script setup lang="ts">
-import LoadingOverlay from "../LoadingOverlay.vue";
-import type { Tabs } from "../TabsContainer.vue";
+import LoadingOverlay from "../layouts/LoadingOverlay.vue";
+import type { Tabs } from "../reusable/TabsContainer.vue";
 import { defineAsyncComponent } from "vue";
 
 const CardTemplate = defineAsyncComponent(
-  () => import("../ui/CardTemplate.vue")
+  () => import("../reusable/Card.vue")
 );
 const LargeAvatar = defineAsyncComponent(
-  () => import("../LargeAvatar.vue")
+  () => import("../ui/avatars/LargeAvatar.vue")
 );
 const TabsContainer = defineAsyncComponent(
-  () => import("../TabsContainer.vue")
+  () => import("../reusable/TabsContainer.vue")
 );
 
 const props = defineProps<{

@@ -112,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import LoadingOverlay from "../components/LoadingOverlay.vue";
+import LoadingOverlay from "../../layouts/LoadingOverlay.vue";
 import { defineAsyncComponent } from "vue";
 
 export type ConversationType = "user" | "room";
@@ -128,7 +128,7 @@ export type Conversation = {
   mostRecent: boolean;
 };
 const UserConversationItem = defineAsyncComponent(
-  () => import("../components/chat/UserConversationItem.vue")
+  () => import("../UserConversationItem.vue")
 );
 
 const props = defineProps<{
@@ -136,7 +136,7 @@ const props = defineProps<{
   conversations: Conversation[];
 }>();
 import { ref, computed } from "vue";
-import type { Bubble } from "./chat/bubbleChat/ChatBubble.vue";
+import type { Bubble } from "../chat/view/ChatBubble.vue";
 
 const showSearchBar = ref(false);
 const searchQuery = ref("");

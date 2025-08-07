@@ -192,36 +192,42 @@
 </template>
 
 <script setup lang="ts">
-import LoadingOverlay from "../components/LoadingOverlay.vue";
 import { defineAsyncComponent } from "vue";
-import type { Conversation } from "../components/SideBarConversations.vue";
+import type { Conversation } from "../chatZone/SideBarConversations.vue";
+import LoadingOverlay from "../../layouts/LoadingOverlay.vue";
 
 const LargeAvatar = defineAsyncComponent(
-  () => import("../components/LargeAvatar.vue")
+  () => import("../../ui/avatars/LargeAvatar.vue")
 );
 const UserConversationItem = defineAsyncComponent(
-  () => import("../components/chat/UserConversationItem.vue")
+  () => import("../UserConversationItem.vue")
 );
-
 
 defineProps<{
   rooms: Room[];
   mockConversations: Conversation[];
-  showInfoModal: boolean;
   sidebarHovered: boolean;
-  addFriendModalisOpen: boolean;
-  createRoomModalisOpen: boolean;
-  askLogout: () => void;
-  openAddFriendModal: () => void;
-  openInfoModal: () => void;
-  logout: () => void;
-  closeInfoModal: () => void;
-  closeAddFriendModal: () => void;
-  openCreateRoomModal: () => void;
-  closeCreateRoomModal: () => void;
-  updateSideBarHover: (value: boolean) => void;
 }>();
 
+const emit = defineEmits([
+  "openAddFriendModal",
+  "openCreateRoomModal",
+  "askLogout",
+  "updateSideBarHover",
+]);
+
+function openAddFriendModal() {
+  emit("openAddFriendModal");
+}
+function openCreateRoomModal() {
+  emit("openCreateRoomModal");
+}
+function askLogout() {
+  emit("askLogout");
+}
+function updateSideBarHover(value: boolean) {
+  emit("updateSideBarHover", value);
+}
 export type Room = {
   id: number;
   name: string;
