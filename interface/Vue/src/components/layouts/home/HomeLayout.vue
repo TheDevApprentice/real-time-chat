@@ -23,8 +23,7 @@
             headerTitle="Déconnexion"
             message="Êtes-vous sûr de vouloir vous déconnecter ?"
             type="warning"
-            @onok="logout"
-            @close="closeInfoModal"
+            @onOk="logout"
           />
           <AddFriendModal
             v-if="addFriendModalisOpen"
@@ -67,13 +66,15 @@ const CreateRoomModal = defineAsyncComponent(
 
 defineProps({
    sidebarExpended: Boolean,
-   askLogout: Function,
-   openAddFriendModal: Function,
-   openCreateRoomModal: Function,
-   updateSideBarExpended: Function,
 });
 
 const emit = defineEmits(["updateSideBarExpended"]);
+
+defineExpose({
+  askLogout,
+  openAddFriendModal,
+  openCreateRoomModal,
+});
 
 const authStore = useAuthStore();
 const addFriendModalisOpen = ref(false);
@@ -92,9 +93,11 @@ function openInfoModal() {
   showInfoModal.value = true;
 }
 
-function logout() {
-  authStore.logout();
-  closeInfoModal();
+async function logout() {
+  alert("logout");
+  await authStore.logout().then(() => {
+    closeInfoModal();
+  });
 }
 
 function closeInfoModal() {

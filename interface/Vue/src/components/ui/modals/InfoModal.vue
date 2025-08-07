@@ -101,13 +101,11 @@ const props = defineProps<{
   headerTitle: string
   message: string
   type?: InfoModalType
-  onOk?: () => void
 }>()
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'onOk'])
 const type = props.type || 'default'
 function handleOk() {
-  if (props.onOk) props.onOk()
-  emit('close')
+  emit('onOk')
 }
 </script>
 
