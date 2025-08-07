@@ -96,15 +96,15 @@
 </template>
 
 <script setup lang="ts">
-import LoadingOverlay from "../components/LoadingOverlay.vue";
+import LoadingOverlay from "../../layouts/LoadingOverlay.vue";
 import { defineAsyncComponent } from "vue";
-import { useAuthStore } from "../stores/AuthStore";
+import { useAuthStore } from "../../../stores/AuthStore";
 
 const SearchBar = defineAsyncComponent(
-  () => import("../components/SearchBar.vue")
+  () => import("../../ui/SearchBars/SearchBar.vue")
 );
 const SearchBarUserCard = defineAsyncComponent(
-  () => import("../components/SearchBarUserCard.vue")
+  () => import("../../ui/SearchBars/SearchBarUserCard.vue")
 );
 
 const authStore = useAuthStore();
@@ -114,10 +114,13 @@ defineProps<{
   searchQuery: string;
   users: { name: string; avatar: string }[];
   filteredUsers: { name: string; avatar: string }[];
-  updateSearchQuery: (searchQuery: string) => void;
 }>();
 
-defineEmits(['add-friend', 'create-room'])
+const emit = defineEmits(['add-friend', 'create-room', 'updateSearchQuery'])
+
+function updateSearchQuery(searchQuery: string) {
+  emit('updateSearchQuery', searchQuery)
+}
 </script>
 
 <style scoped>

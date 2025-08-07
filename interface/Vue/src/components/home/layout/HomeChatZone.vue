@@ -9,10 +9,10 @@
           class="min-w-0 w-full relative grid grid-rows-1 bg-white/10 rounded-xl shadow-lg animate-fade-in"
           :class="{
             'grid-cols-[100%_minmax(400px,_1fr)_0px]':
-              sidebarExpanded && conversations.filter((c) => c.active).length === 0,
+            sidebarExpended && conversations.filter((c) => c.active).length === 0,
             'grid-cols-[200px_minmax(400px,_1fr)_0px] md:grid-cols-[220px_minmax(400px,_1fr)_0px]':
-              sidebarExpanded && conversations.filter((c) => c.active).length > 0,
-            'grid-cols-[0px_minmax(400px,_1fr)_0px] md:grid-cols-[90px_minmax(400px,_1fr)_0px]': !sidebarExpanded,
+            sidebarExpended && conversations.filter((c) => c.active).length > 0,
+            'grid-cols-[0px_minmax(400px,_1fr)_0px] md:grid-cols-[90px_minmax(400px,_1fr)_0px]': !sidebarExpended,
           }"
           style="
             transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -23,7 +23,7 @@
               v-if="conversations.filter((c) => c.active).length > 0"
               class="sidebar-toggle-btn absolute -right-6.5 top-20 z-40"
               :aria-label="
-                sidebarExpanded
+                sidebarExpended
                   ? 'Réduire la barre latérale'
                   : 'Déplier la barre latérale'
               "
@@ -31,7 +31,7 @@
               type="button"
             >
               <svg
-                v-if="sidebarExpanded"
+                v-if="sidebarExpended"
                 width="22"
                 height="22"
                 viewBox="0 0 24 24"
@@ -64,12 +64,12 @@
             <div
               class="col-span-1 row-span-1 w-full h-full relative "
               :class="{
-                'relative top-0': sidebarExpanded,
-                'absolute mt-[-2rem] ml-4': !sidebarExpanded,
+                'relative top-0': sidebarExpended,
+                'absolute mt-[-2rem] ml-4': !sidebarExpended,
               }"
             >
               <SideBarConversations
-                :sidebarExpanded="sidebarExpanded"
+                :sidebarExpanded="sidebarExpended"
                 :conversations="conversations"
               />
             </div>
@@ -87,27 +87,25 @@
 </template>
 
 <script setup lang="ts">
-import LoadingOverlay from "../components/LoadingOverlay.vue";
-import { defineAsyncComponent, ref } from "vue";
-import type { Conversation } from "../components/SideBarConversations.vue";
+import { defineAsyncComponent } from "vue";
+import { type Conversation } from "../chatZone/SideBarConversations.vue";
 
 const SideBarConversations = defineAsyncComponent(
-  () => import("../components/SideBarConversations.vue")
+  () => import("../chatZone/SideBarConversations.vue")
 );
 const ChatGrid = defineAsyncComponent(
-  () => import("../components/home/chatGrid.vue")
+  () => import("../chatZone/ChatGrid.vue")
 );
 
-defineProps<{
+const props = defineProps<{
   conversations: Conversation[];
+  sidebarExpended: boolean;
 }>();
 
-const sidebarExpanded = ref(true);
+const emit = defineEmits(["updateSideBarExpended"]);
 
 function toggleSidebar() {
-  setTimeout(() => {
-    sidebarExpanded.value = !sidebarExpanded.value;
-  }, 400);
+  emit("updateSideBarExpended", !props.sidebarExpended);
 }
 </script>
 

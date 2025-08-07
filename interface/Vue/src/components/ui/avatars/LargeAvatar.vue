@@ -65,7 +65,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import LoadingOverlay from "../components/LoadingOverlay.vue";
+import LoadingOverlay from "../../layouts/LoadingOverlay.vue";
 
 const props = defineProps<{
   mode?: string | undefined;

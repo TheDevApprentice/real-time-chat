@@ -19,7 +19,8 @@
 </template>
 
 <script setup lang="ts">
-import LoadingOverlay from "../components/LoadingOverlay.vue";
+import LoadingOverlay from '../layouts/LoadingOverlay.vue';
+
 
 export interface Tabs {
   id: string;

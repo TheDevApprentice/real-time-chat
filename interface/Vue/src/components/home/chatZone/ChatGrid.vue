@@ -12,9 +12,9 @@
 
 <script setup lang="ts">
 import { computed, defineAsyncComponent } from "vue";
-import type { Conversation } from "../SideBarConversations.vue";
+import type { Conversation } from "./SideBarConversations.vue";
 
-const ChatView = defineAsyncComponent(() => import("./chatView.vue"));
+const ChatView = defineAsyncComponent(() => import("../chat/ChatView.vue"));
 
 const props = defineProps<{
   conversations: Conversation[];

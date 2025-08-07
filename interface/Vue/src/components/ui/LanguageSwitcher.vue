@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useLanguageStore } from '../stores/LanguageStore'
+import { useLanguageStore } from '../../stores/LanguageStore'
 // import { useAuthStore } from '../stores/AuthStore'
 
 // Store Pinia

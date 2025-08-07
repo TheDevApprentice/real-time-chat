@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // import { useAuthStore } from '../stores/AuthStore';
 // import { watch } from 'vue'
-import { useThemeStore } from '../stores/ThemeStore';
+import { useThemeStore } from '../../stores/ThemeStore';
 
 // Access the global theme store
 const themeStore = useThemeStore()

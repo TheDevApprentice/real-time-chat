@@ -71,7 +71,7 @@
 </template>
 
 <script setup lang="ts">
-import Avatar from "./chat/headerChat/Avatar.vue";
+import Avatar from "../avatars/Avatar.vue";
 import { computed } from "vue";
 const props = defineProps<{
   name?: string;
