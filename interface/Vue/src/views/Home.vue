@@ -56,7 +56,7 @@ const UpperChatZone = defineAsyncComponent(
 );
 
 const sidebarHovered = ref(false);
-const sidebarExpended = ref(false);
+const sidebarExpended = ref(true);
 const searchQuery = ref("");
 const users = [
   { name: "Bot Hugo", avatar: "🤖" },
@@ -210,7 +210,7 @@ const mockConversations: Conversation[] = [
     name: "Famille",
     type: "room",
     messages: mockMessages,
-    active: true,
+    active: false,
     mostRecent: true,
   },
   {
