@@ -1,9 +1,7 @@
 <template>
   <HomeLayout
+    ref="HomeLayoutChild"
     :sidebarExpended="sidebarExpended"
-    :askLogout="askLogout"
-    :openAddFriendModal="openAddFriendModal"
-    :openCreateRoomModal="openCreateRoomModal"
     @updateSideBarExpended="updateSideBarExpended"
   >
     <template #sidebar>
@@ -78,9 +76,6 @@ function updateSearchQuery(searchQueryChanged: string) {
   searchQuery.value = searchQueryChanged;
 }
 
-const addFriendModalisOpen = ref(false);
-const createRoomModalisOpen = ref(false);
-const showInfoModal = ref(false);
 const mockMessages: Bubble[] = [
   {
     text: "Hello ! 😀",
@@ -311,20 +306,17 @@ const mockConversations: Conversation[] = [
   // Ajoute d'autres mocks si besoin
 ];
 
+const HomeLayoutChild = ref();
 function askLogout() {
-  openInfoModal();
-}
-
-function openInfoModal() {
-  showInfoModal.value = true;
+  HomeLayoutChild.value.askLogout();
 }
 
 function openAddFriendModal() {
-  addFriendModalisOpen.value = true;
+  HomeLayoutChild.value.openAddFriendModal();
 }
 
 function openCreateRoomModal() {
-  createRoomModalisOpen.value = true;
+  HomeLayoutChild.value.openCreateRoomModal();
 }
 
 function updateSideBarHover(value: boolean) {
