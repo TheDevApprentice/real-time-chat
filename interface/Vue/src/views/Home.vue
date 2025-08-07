@@ -311,10 +311,6 @@ const mockConversations: Conversation[] = [
   // Ajoute d'autres mocks si besoin
 ];
 
-async function onClose(value: Conversation) {
-  console.log("close conversation", value);
-}
-
 function askLogout() {
   openInfoModal();
 }
