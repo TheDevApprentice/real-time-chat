@@ -95,7 +95,7 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from "vue";
 
-const Modal = defineAsyncComponent(() => import("../../reusable/Modal.vue"));
+const Modal = defineAsyncComponent(() => import("@reusable/Modal.vue"));
 export type InfoModalType = 'info' | 'warning' | 'delete' | 'default' | 'error'
 const props = defineProps<{
   headerTitle: string

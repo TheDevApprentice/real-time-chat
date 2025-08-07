@@ -25,13 +25,13 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from "vue";
 const ThemeSwitcher = defineAsyncComponent(
-  () => import("../ui/ThemeSwitcher.vue")
+  () => import("@ui/ThemeSwitcher.vue")
 );
 const LanguageSwitcher = defineAsyncComponent(
-  () => import("../ui/LanguageSwitcher.vue")
+  () => import("@ui/LanguageSwitcher.vue")
 );
 const LoadingOverlay = defineAsyncComponent(
-  () => import("../layouts/LoadingOverlay.vue")
+  () => import("@layouts/LoadingOverlay.vue")
 );
 </script>
 

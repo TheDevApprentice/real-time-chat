@@ -27,6 +27,6 @@
 </template>
 
 <script setup lang="ts">
-import LoadingOverlay from "../LoadingOverlay.vue";
-import MainLayout from "../MainLayout.vue";
+import LoadingOverlay from "@layouts/LoadingOverlay.vue";
+import MainLayout from "@layouts/MainLayout.vue";
 </script>

@@ -31,9 +31,9 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick, reactive } from "vue";
 import { defineAsyncComponent } from "vue";
-import type { Bubble } from "../home/chat/view/ChatBubble.vue";
-import type { Conversation } from "../home/chatZone/SideBarConversations.vue";
-import LoadingOverlay from "../layouts/LoadingOverlay.vue";
+import type { Bubble } from "@home/chat/view/ChatBubble.vue";
+import type { Conversation } from "@home/chatZone/SideBarConversations.vue";
+import LoadingOverlay from "@layouts/LoadingOverlay.vue";
 
 const chatFull = "Chat";
 const typedChat = ref("");
@@ -45,13 +45,13 @@ watch(typedChat, (val) => {
 });
 
 const ChatBubble = defineAsyncComponent(
-  () => import("../home/chat/view/ChatBubble.vue")
+  () => import("@home/chat/view/ChatBubble.vue")
 );
 const BarChat = defineAsyncComponent(
-  () => import("../home/chat/view/chatBar/BarChat.vue")
+  () => import("@home/chat/view/chatBar/BarChat.vue")
 );
 const ChatHeader = defineAsyncComponent(
-  () => import("../home/chat/view/ChatHeader.vue")
+  () => import("@home/chat/view/ChatHeader.vue")
 );
 
 const chatBubbles = reactive<Bubble[]>([]);

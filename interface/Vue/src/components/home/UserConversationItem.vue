@@ -44,9 +44,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import LargeAvatar from '../ui/avatars/LargeAvatar.vue';
-import type { ConversationType } from './chatZone/SideBarConversations.vue';
-import type { Bubble } from './chat/view/ChatBubble.vue';
+import LargeAvatar from '@ui/avatars/LargeAvatar.vue';
+import type { ConversationType } from '@home/chatZone/SideBarConversations.vue';
+import type { Bubble } from '@home/chat/view/ChatBubble.vue';
 
 const props = defineProps<{
   displayFullContent?: boolean;

@@ -46,22 +46,22 @@
 
 <script setup lang="ts">
 import { ref, defineAsyncComponent } from "vue";
-import LoadingOverlay from "../LoadingOverlay.vue";
-import { useAuthStore } from "../../../stores/AuthStore";
+import LoadingOverlay from "@layouts/LoadingOverlay.vue";
+import { useAuthStore } from "@stores/AuthStore";
 import MobileMenuBar from "./mobile/MobileMenuBar.vue";
 import MobileHeader from "./mobile/MobileHeader.vue";
 
 const MainLayout = defineAsyncComponent(
-  () => import("../../layouts/MainLayout.vue")
+  () => import("@layouts/MainLayout.vue")
 );
 const InfoModal = defineAsyncComponent(
-  () => import("../../ui/modals/InfoModal.vue")
+  () => import("@ui/modals/InfoModal.vue")
 );
 const AddFriendModal = defineAsyncComponent(
-  () => import("../../ui/modals/AddFriendModal.vue")
+  () => import("@ui/modals/AddFriendModal.vue")
 );
 const CreateRoomModal = defineAsyncComponent(
-  () => import("../../ui/modals/CreateRoomModal.vue")
+  () => import("@ui/modals/CreateRoomModal.vue")
 );
 
 defineProps({

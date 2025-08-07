@@ -36,11 +36,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch, reactive } from "vue";
-import { useAuthStore } from "../stores/AuthStore";
+import { useAuthStore } from "@stores/AuthStore";
 import { useRouter } from "vue-router";
-import ChatPreview from "../components/login/ChatPreview.vue";
-import LoginCard from "../components/login/LoginCard.vue";
-import LoginLayout from "../components/layouts/login/LoginLayout.vue";
+import ChatPreview from "@components/login/ChatPreview.vue";
+import LoginCard from "@components/login/LoginCard.vue";
+import LoginLayout from "@components/layouts/login/LoginLayout.vue";
 
 const realTimeFull = "Real‑Time";
 const chatFull = "Chat";

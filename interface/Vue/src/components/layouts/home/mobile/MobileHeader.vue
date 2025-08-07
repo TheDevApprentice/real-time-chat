@@ -20,9 +20,9 @@
 </template>
 
 <script setup lang="ts">
-import { useAuthStore } from "../../../../stores/AuthStore";
-import Avatar from "../../../ui/avatars/Avatar.vue";
-import ThemeSwitcher from "../../../ui/ThemeSwitcher.vue";
+import { useAuthStore } from "@stores/AuthStore";
+import Avatar from "@ui/avatars/Avatar.vue";
+import ThemeSwitcher from "@ui/ThemeSwitcher.vue";
 
 const authStore = useAuthStore();
 </script>

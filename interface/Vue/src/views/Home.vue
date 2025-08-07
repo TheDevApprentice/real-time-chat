@@ -40,10 +40,10 @@
 
 <script setup lang="ts">
 import { ref, defineAsyncComponent, computed } from "vue";
-import type { Conversation } from "../components/home/chatZone/SideBarConversations.vue";
-import type { Room } from "../components/home/layout/HomeSideBar.vue";
-import type { Bubble } from "../components/home/chat/view/ChatBubble.vue";
-import HomeLayout from "../components/layouts/home/HomeLayout.vue";
+import type { Conversation } from "@components/home/chatZone/SideBarConversations.vue";
+import type { Room } from "@components/home/layout/HomeSideBar.vue";
+import type { Bubble } from "@components/home/chat/view/ChatBubble.vue";
+import HomeLayout from "@components/layouts/home/HomeLayout.vue";
 
 const HomeSideBar = defineAsyncComponent(
   () => import("../components/home/layout/HomeSideBar.vue")

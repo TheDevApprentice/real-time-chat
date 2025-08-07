@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { socketService } from '../services/websocket/websocket';
+import { socketService } from '@/services/websocket/websocket';
 
 function setCookie(name: string, value: string, days = 7) {
   let expires = '';
