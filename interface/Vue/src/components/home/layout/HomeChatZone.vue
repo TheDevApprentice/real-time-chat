@@ -89,6 +89,7 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from "vue";
 import { type Conversation } from "../chatZone/SideBarConversations.vue";
+import LoadingOverlay from "../../layouts/LoadingOverlay.vue";
 
 const SideBarConversations = defineAsyncComponent(
   () => import("../chatZone/SideBarConversations.vue")
