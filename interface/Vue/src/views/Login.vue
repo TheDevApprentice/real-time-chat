@@ -1,46 +1,43 @@
 <template>
   <LoginLayout>
-      <template #header>
-        <!-- Header: visible md+ -->
-        <div class="hidden md:flex flex-col items-center col-span-2">
-          <h1 class="auth-title gradient-title-v3">
-            <span class="title-rt">{{ typedRealTime }}</span>
-            <span class="title-chat-glow">
-              {{ typedChat
-              }}<span v-if="showCursor" class="typewriter-cursor">|</span>
-              <span class="glow-anim"></span>
-            </span>
-          </h1>
-          <p class="auth-subtitle subtitle-fadein">
-            Rejoignez la conversation en direct
-          </p>
-        </div>
-      </template>
-      <template #card>
-        <LoginCard
-          :mode="mode.value"
-          :tabs="[
-            { id: 'login', text: 'Connexion' },
-            { id: 'register', text: 'Créer mon compte' },
-          ]"
-          :authInformation="authInformation"
-          @update:mode="updateMode($event)"
-          @submit="onSubmit"
-        />
-      </template>
-      <template #preview-chat>
-        <ChatPreview />
-      </template>
+    <template #header>
+      <h1 class="auth-title gradient-title-v3">
+        <span class="title-rt">{{ typedRealTime }}</span>
+        <span class="title-chat-glow">
+          {{ typedChat
+          }}<span v-if="showCursor" class="typewriter-cursor">|</span>
+          <span class="glow-anim"></span>
+        </span>
+      </h1>
+      <p class="auth-subtitle subtitle-fadein">
+        Rejoignez la conversation en direct
+      </p>
+    </template>
+    <template #card>
+      <LoginCard
+        :mode="mode.value"
+        :tabs="[
+          { id: 'login', text: 'Connexion' },
+          { id: 'register', text: 'Créer mon compte' },
+        ]"
+        :authInformation="authInformation"
+        @update:mode="updateMode($event)"
+        @submit="onSubmit"
+      />
+    </template>
+    <template #preview-chat>
+      <ChatPreview />
+    </template>
   </LoginLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, watch, reactive } from "vue";
-import { useAuthStore } from "../stores/AuthStore";
+import { useAuthStore } from "@stores/AuthStore";
 import { useRouter } from "vue-router";
-import ChatPreview from "../components/login/ChatPreview.vue";
-import LoginCard from "../components/login/LoginCard.vue";
-import LoginLayout from "../components/layouts/login/LoginLayout.vue";
+import ChatPreview from "@components/login/ChatPreview.vue";
+import LoginCard from "@components/login/LoginCard.vue";
+import LoginLayout from "@components/layouts/login/LoginLayout.vue";
 
 const realTimeFull = "Real‑Time";
 const chatFull = "Chat";
@@ -51,7 +48,6 @@ const showCursor = ref(false);
 watch(typedChat, (val) => {
   showCursor.value = val.length < chatFull.length;
 });
-
 
 const mode = reactive({ value: "login" });
 const authInformation = reactive({
@@ -153,14 +149,12 @@ function onSubmit() {
   position: relative;
   z-index: 2;
   text-align: center;
-  margin-bottom: 1rem;
 }
 
 .auth-title {
   font-size: 1.8rem;
   font-weight: 700;
   color: var(--page-accent-color);
-  margin: 0;
 }
 
 .auth-subtitle {

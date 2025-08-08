@@ -95,19 +95,17 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from "vue";
 
-const Modal = defineAsyncComponent(() => import("../../reusable/Modal.vue"));
+const Modal = defineAsyncComponent(() => import("@reusable/Modal.vue"));
 export type InfoModalType = 'info' | 'warning' | 'delete' | 'default' | 'error'
 const props = defineProps<{
   headerTitle: string
   message: string
   type?: InfoModalType
-  onOk?: () => void
 }>()
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'onOk'])
 const type = props.type || 'default'
 function handleOk() {
-  if (props.onOk) props.onOk()
-  emit('close')
+  emit('onOk')
 }
 </script>
 

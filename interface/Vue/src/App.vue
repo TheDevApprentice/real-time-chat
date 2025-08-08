@@ -7,7 +7,7 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue';
-import { useDeviceStore } from './stores/DeviceStore';
+import { useDeviceStore } from '@stores/DeviceStore';
 // import PwaStatus from './components/PwaStatus.vue'
 
 const device = useDeviceStore();

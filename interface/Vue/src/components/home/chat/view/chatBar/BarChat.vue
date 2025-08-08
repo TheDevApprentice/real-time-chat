@@ -14,9 +14,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import ImageButton from './ImageButton.vue';
-import ChatInput from './ChatInput.vue';
-import SendButton from './SendButton.vue';
+import ImageButton from '@home/chat/view/chatBar/ImageButton.vue';
+import ChatInput from '@home/chat/view/chatBar/ChatInput.vue';
+import SendButton from '@home/chat/view/chatBar/SendButton.vue';
 
 const props = defineProps<{
   modelValue?: string,
