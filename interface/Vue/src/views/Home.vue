@@ -1,9 +1,7 @@
 <template>
   <HomeLayout
+    ref="HomeLayoutChild"
     :sidebarExpended="sidebarExpended"
-    :askLogout="askLogout"
-    :openAddFriendModal="openAddFriendModal"
-    :openCreateRoomModal="openCreateRoomModal"
     @updateSideBarExpended="updateSideBarExpended"
   >
     <template #sidebar>
@@ -42,10 +40,10 @@
 
 <script setup lang="ts">
 import { ref, defineAsyncComponent, computed } from "vue";
-import type { Conversation } from "../components/home/chatZone/SideBarConversations.vue";
-import type { Room } from "../components/home/layout/HomeSideBar.vue";
-import type { Bubble } from "../components/home/chat/view/ChatBubble.vue";
-import HomeLayout from "../components/layouts/home/HomeLayout.vue";
+import type { Conversation } from "@components/home/chatZone/SideBarConversations.vue";
+import type { Room } from "@components/home/layout/HomeSideBar.vue";
+import type { Bubble } from "@components/home/chat/view/ChatBubble.vue";
+import HomeLayout from "@components/layouts/home/HomeLayout.vue";
 
 const HomeSideBar = defineAsyncComponent(
   () => import("../components/home/layout/HomeSideBar.vue")
@@ -58,7 +56,7 @@ const UpperChatZone = defineAsyncComponent(
 );
 
 const sidebarHovered = ref(false);
-const sidebarExpended = ref(false);
+const sidebarExpended = ref(true);
 const searchQuery = ref("");
 const users = [
   { name: "Bot Hugo", avatar: "🤖" },
@@ -78,9 +76,6 @@ function updateSearchQuery(searchQueryChanged: string) {
   searchQuery.value = searchQueryChanged;
 }
 
-const addFriendModalisOpen = ref(false);
-const createRoomModalisOpen = ref(false);
-const showInfoModal = ref(false);
 const mockMessages: Bubble[] = [
   {
     text: "Hello ! 😀",
@@ -215,7 +210,7 @@ const mockConversations: Conversation[] = [
     name: "Famille",
     type: "room",
     messages: mockMessages,
-    active: true,
+    active: false,
     mostRecent: true,
   },
   {
@@ -311,24 +306,17 @@ const mockConversations: Conversation[] = [
   // Ajoute d'autres mocks si besoin
 ];
 
-async function onClose(value: Conversation) {
-  console.log("close conversation", value);
-}
-
+const HomeLayoutChild = ref();
 function askLogout() {
-  openInfoModal();
-}
-
-function openInfoModal() {
-  showInfoModal.value = true;
+  HomeLayoutChild.value.askLogout();
 }
 
 function openAddFriendModal() {
-  addFriendModalisOpen.value = true;
+  HomeLayoutChild.value.openAddFriendModal();
 }
 
 function openCreateRoomModal() {
-  createRoomModalisOpen.value = true;
+  HomeLayoutChild.value.openCreateRoomModal();
 }
 
 function updateSideBarHover(value: boolean) {

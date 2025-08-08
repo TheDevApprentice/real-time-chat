@@ -96,15 +96,15 @@
 </template>
 
 <script setup lang="ts">
-import LoadingOverlay from "../../layouts/LoadingOverlay.vue";
+import LoadingOverlay from "@layouts/LoadingOverlay.vue";
 import { defineAsyncComponent } from "vue";
-import { useAuthStore } from "../../../stores/AuthStore";
+import { useAuthStore } from "@stores/AuthStore";
 
 const SearchBar = defineAsyncComponent(
-  () => import("../../ui/SearchBars/SearchBar.vue")
+  () => import("@ui/SearchBars/SearchBar.vue")
 );
 const SearchBarUserCard = defineAsyncComponent(
-  () => import("../../ui/SearchBars/SearchBarUserCard.vue")
+  () => import("@ui/SearchBars/SearchBarUserCard.vue")
 );
 
 const authStore = useAuthStore();

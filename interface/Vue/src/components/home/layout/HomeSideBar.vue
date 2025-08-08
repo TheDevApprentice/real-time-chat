@@ -193,14 +193,14 @@
 
 <script setup lang="ts">
 import { defineAsyncComponent } from "vue";
-import type { Conversation } from "../chatZone/SideBarConversations.vue";
-import LoadingOverlay from "../../layouts/LoadingOverlay.vue";
+import type { Conversation } from "@home/chatZone/SideBarConversations.vue";
+import LoadingOverlay from "@layouts/LoadingOverlay.vue";
 
 const LargeAvatar = defineAsyncComponent(
-  () => import("../../ui/avatars/LargeAvatar.vue")
+  () => import("@ui/avatars/LargeAvatar.vue")
 );
 const UserConversationItem = defineAsyncComponent(
-  () => import("../UserConversationItem.vue")
+  () => import("@home/UserConversationItem.vue")
 );
 
 defineProps<{

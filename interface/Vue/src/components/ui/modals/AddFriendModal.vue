@@ -48,10 +48,10 @@
 
 <script setup lang="ts">
 import { computed, defineAsyncComponent, ref } from "vue";
-const Modal = defineAsyncComponent(() => import("../../reusable/Modal.vue"));
-const SearchBar = defineAsyncComponent(() => import("../SearchBars/SearchBar.vue"));
+const Modal = defineAsyncComponent(() => import("@reusable/Modal.vue"));
+const SearchBar = defineAsyncComponent(() => import("@ui/SearchBars/SearchBar.vue"));
 const SearchBarUserCard = defineAsyncComponent(
-  () => import("../SearchBars/SearchBarUserCard.vue")
+  () => import("@ui/SearchBars/SearchBarUserCard.vue")
 );
 
 const props = defineProps<{

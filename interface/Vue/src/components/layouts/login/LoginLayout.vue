@@ -1,21 +1,32 @@
 <template>
   <Suspense>
     <template #default>
-      <div
-        class="md:mt-[3rem] px-4 grid grid-cols-1 md:grid-cols-2 gap-8 items-start transition-all"
-      >
+      <div class="transition-all h-screen w-screen">
         <MainLayout>
           <template #content>
-            <!-- Header: visible md+ -->
-            <div class="hidden md:flex flex-col items-center col-span-2">
-              <slot name="header"></slot>
-            </div>
             <div
-              class="relative w-full max-w-7xl flex-col md:flex md:translate-x-[55%]"
+              class="grid grid-cols-1 md:grid-cols-[75%_25%] transition-all h-screen w-full"
             >
-              <slot name="card"></slot>
+              <!-- Header: visible md+ -->
+              <div
+                class="flex flex-col col-span-1 relative items-center justify-center h-screen md:translate-x-[12%]"
+              >
+                <div
+                  class="relative hidden md:flex flex-col items-center justify-center "
+                >
+                  <slot name="header"></slot>
+                </div>
+                <div class="relative flex flex-col">
+                  <slot name="card"></slot>
+                </div>
+              </div>
+
+              <div
+                class="col-span-1 relative hidden md:flex md:flex-col top-[13%] h-screen md:translate-x-[-25%] md:translate-y-[-2%]"
+              >
+                <slot name="preview-chat"></slot>
+              </div>
             </div>
-            <slot name="preview-chat"></slot>
           </template>
         </MainLayout>
       </div>
@@ -27,6 +38,6 @@
 </template>
 
 <script setup lang="ts">
-import LoadingOverlay from "../LoadingOverlay.vue";
-import MainLayout from "../MainLayout.vue";
+import LoadingOverlay from "@layouts/LoadingOverlay.vue";
+import MainLayout from "@layouts/MainLayout.vue";
 </script>

@@ -4,7 +4,7 @@
       <!-- Chat Preview: visible md+ -->
       <div
         v-if="showChat"
-        class="hidden md:flex flex-col gap-4 rounded-xl bg-white/10 shadow-lg p-4 overflow-hidden animate-fade-in md:translate-x-[80%] md:translate-y-[-10%]"
+        class="flex flex-col rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in"
       >
         <ChatHeader :chat="mockConversation" />
         <ChatBubble
@@ -31,9 +31,9 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick, reactive } from "vue";
 import { defineAsyncComponent } from "vue";
-import type { Bubble } from "../home/chat/view/ChatBubble.vue";
-import type { Conversation } from "../home/chatZone/SideBarConversations.vue";
-import LoadingOverlay from "../layouts/LoadingOverlay.vue";
+import type { Bubble } from "@home/chat/view/ChatBubble.vue";
+import type { Conversation } from "@home/chatZone/SideBarConversations.vue";
+import LoadingOverlay from "@layouts/LoadingOverlay.vue";
 
 const chatFull = "Chat";
 const typedChat = ref("");
@@ -45,13 +45,13 @@ watch(typedChat, (val) => {
 });
 
 const ChatBubble = defineAsyncComponent(
-  () => import("../home/chat/view/ChatBubble.vue")
+  () => import("@home/chat/view/ChatBubble.vue")
 );
 const BarChat = defineAsyncComponent(
-  () => import("../home/chat/view/chatBar/BarChat.vue")
+  () => import("@home/chat/view/chatBar/BarChat.vue")
 );
 const ChatHeader = defineAsyncComponent(
-  () => import("../home/chat/view/ChatHeader.vue")
+  () => import("@home/chat/view/ChatHeader.vue")
 );
 
 const chatBubbles = reactive<Bubble[]>([]);
@@ -119,61 +119,7 @@ const mockMessages: Bubble[] = [
     isWriting: false,
     isSent: true,
     isRead: true,
-  },
-  {
-    text: "Awesome ! 😃",
-    speaker: 1,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: true,
-  },
-  {
-    text: "Awesome ! 😃",
-    speaker: 0,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: true,
-  },
-  {
-    text: "Awesome ! 😃",
-    speaker: 1,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: true,
-  },
-  {
-    text: "Awesome ! 😃",
-    speaker: 0,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: true,
-  },
-  {
-    text: "Ciao !",
-    speaker: 1,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: true,
-  },
-  {
-    text: "Ciao !",
-    speaker: 0,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: false,
-  },
+  }
 ];
 
 const mockConversation: Conversation = {

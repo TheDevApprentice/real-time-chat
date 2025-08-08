@@ -19,7 +19,7 @@
 </template>
 
 <script setup lang="ts">
-import LoadingOverlay from '../layouts/LoadingOverlay.vue';
+import LoadingOverlay from '@components/layouts/LoadingOverlay.vue';
 
 
 export interface Tabs {

@@ -1,7 +1,7 @@
 <template>
   <Suspense>
     <template #default>
-      <div class="bg-[var(--color-background)] min-w-0">
+      <div class="bg-[var(--color-background)]">
         <!-- background circles -->
         <div class="absolute -top-32 -left-32 w-[140%] h-[140%] z-0">
           <span class="bg-circle circle-1"></span>
@@ -25,13 +25,13 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from "vue";
 const ThemeSwitcher = defineAsyncComponent(
-  () => import("../ui/ThemeSwitcher.vue")
+  () => import("@ui/ThemeSwitcher.vue")
 );
 const LanguageSwitcher = defineAsyncComponent(
-  () => import("../ui/LanguageSwitcher.vue")
+  () => import("@ui/LanguageSwitcher.vue")
 );
 const LoadingOverlay = defineAsyncComponent(
-  () => import("../layouts/LoadingOverlay.vue")
+  () => import("@layouts/LoadingOverlay.vue")
 );
 </script>
 

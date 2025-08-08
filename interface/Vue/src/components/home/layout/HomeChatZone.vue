@@ -3,7 +3,7 @@
     <template #default>
       <!-- Zone de chat qui doit laisser un espace en haut pour le bouton d'actions et de recherche -->
       <section
-        class="flex relative min-w-0 w-full h-[calc(100vh-6.5rem)] md:mt-[4.4rem] md:h-[calc(100vh-5.05rem)]"
+        class="flex relative min-w-0 w-full h-[calc(100vh-6.5rem)] md:mt-[4.4rem] md:h-[calc(100vh-4.5rem)]"
       >
         <div
           class="min-w-0 w-full relative grid grid-rows-1 bg-white/10 rounded-xl shadow-lg animate-fade-in"
@@ -88,13 +88,14 @@
 
 <script setup lang="ts">
 import { defineAsyncComponent } from "vue";
-import { type Conversation } from "../chatZone/SideBarConversations.vue";
+import { type Conversation } from "@home/chatZone/SideBarConversations.vue";
+import LoadingOverlay from "@layouts/LoadingOverlay.vue";
 
 const SideBarConversations = defineAsyncComponent(
-  () => import("../chatZone/SideBarConversations.vue")
+  () => import("@home/chatZone/SideBarConversations.vue")
 );
 const ChatGrid = defineAsyncComponent(
-  () => import("../chatZone/ChatGrid.vue")
+  () => import("@home/chatZone/ChatGrid.vue")
 );
 
 const props = defineProps<{

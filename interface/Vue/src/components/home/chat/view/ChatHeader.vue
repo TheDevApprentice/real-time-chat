@@ -21,8 +21,8 @@
 </template>
 
 <script setup lang="ts">
-import Avatar from '../../../ui/avatars/Avatar.vue';
-import { type Conversation } from '../../chatZone/SideBarConversations.vue';
+import Avatar from '@ui/avatars/Avatar.vue';
+import { type Conversation } from '@home/chatZone/SideBarConversations.vue';
 
 const props = defineProps<{
   chat: Conversation;

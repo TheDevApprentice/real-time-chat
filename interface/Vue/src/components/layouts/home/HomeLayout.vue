@@ -3,7 +3,7 @@
     <template #default>
       <MainLayout>
         <template #content>
-          <div class="max-h-screen">
+          <div class="max-h-screen h-screen w-screen">
             <MobileHeader />
             <div class="relative flex transition-all w-screen h-full">
               <slot name="sidebar"></slot>
@@ -23,8 +23,7 @@
             headerTitle="Déconnexion"
             message="Êtes-vous sûr de vouloir vous déconnecter ?"
             type="warning"
-            @onok="logout"
-            @close="closeInfoModal"
+            @onOk="logout"
           />
           <AddFriendModal
             v-if="addFriendModalisOpen"
@@ -47,33 +46,35 @@
 
 <script setup lang="ts">
 import { ref, defineAsyncComponent } from "vue";
-import LoadingOverlay from "../LoadingOverlay.vue";
-import { useAuthStore } from "../../../stores/AuthStore";
+import LoadingOverlay from "@layouts/LoadingOverlay.vue";
+import { useAuthStore } from "@stores/AuthStore";
 import MobileMenuBar from "./mobile/MobileMenuBar.vue";
 import MobileHeader from "./mobile/MobileHeader.vue";
 
 const MainLayout = defineAsyncComponent(
-  () => import("../../layouts/MainLayout.vue")
+  () => import("@layouts/MainLayout.vue")
 );
 const InfoModal = defineAsyncComponent(
-  () => import("../../ui/modals/InfoModal.vue")
+  () => import("@ui/modals/InfoModal.vue")
 );
 const AddFriendModal = defineAsyncComponent(
-  () => import("../../ui/modals/AddFriendModal.vue")
+  () => import("@ui/modals/AddFriendModal.vue")
 );
 const CreateRoomModal = defineAsyncComponent(
-  () => import("../../ui/modals/CreateRoomModal.vue")
+  () => import("@ui/modals/CreateRoomModal.vue")
 );
 
 defineProps({
    sidebarExpended: Boolean,
-   askLogout: Function,
-   openAddFriendModal: Function,
-   openCreateRoomModal: Function,
-   updateSideBarExpended: Function,
 });
 
 const emit = defineEmits(["updateSideBarExpended"]);
+
+defineExpose({
+  askLogout,
+  openAddFriendModal,
+  openCreateRoomModal,
+});
 
 const authStore = useAuthStore();
 const addFriendModalisOpen = ref(false);
@@ -92,9 +93,11 @@ function openInfoModal() {
   showInfoModal.value = true;
 }
 
-function logout() {
-  authStore.logout();
-  closeInfoModal();
+async function logout() {
+  alert("logout");
+  await authStore.logout().then(() => {
+    closeInfoModal();
+  });
 }
 
 function closeInfoModal() {

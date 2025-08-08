@@ -17,17 +17,17 @@
   
   <script setup lang="ts">
   import { nextTick, onMounted, ref, defineAsyncComponent } from "vue";
-import type { Conversation } from "../chatZone/SideBarConversations.vue";
-import type { Bubble } from "./view/ChatBubble.vue";
+import type { Conversation } from "@home/chatZone/SideBarConversations.vue";
+import type { Bubble } from "@home/chat/view/ChatBubble.vue";
   
   const ChatBubble = defineAsyncComponent(
-    () => import("./view/ChatBubble.vue")
+    () => import("@home/chat/view/ChatBubble.vue")
   );
   const BarChat = defineAsyncComponent(
-    () => import("./view/chatBar/BarChat.vue")
+    () => import("@home/chat/view/chatBar/BarChat.vue")
   );
   const ChatHeader = defineAsyncComponent(
-    () => import("./view/ChatHeader.vue")
+    () => import("@home/chat/view/ChatHeader.vue")
   );
   
   const props = defineProps<{
