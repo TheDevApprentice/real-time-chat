@@ -1,261 +1,62 @@
 <template>
-  <Suspense>
-    <template #default>
-      <PageTemplate>
-        <template #content>
-          <div class="max-h-screen">
-            <!-- Header mobile amélioré -->
-            <div
-              v-if="authStore.isAuthenticated"
-              class="relative flex items-center justify-between w-full px-2 py-1 rounded-t-2xl shadow-lg bg-gradient-to-r from-[var(--background)]/80 via-[var(--background-secondary)]/60 to-[var(--background)]/80 border-b border-[var(--color-text)]/10 md:hidden backdrop-blur-lg"
-              style="backdrop-filter: blur(16px)"
-            >
-              <div class="flex items-center gap-3">
-                <div class="relative">
-                  <Avatar
-                    avatar="🤖"
-                    name="Hugo"
-                    :isOnline="true"
-                  />
-                </div>
-              </div>
-              <button
-                class="flex items-center justify-center w-10 h-10 rounded-full bg-[var(--background-secondary)]/60 hover:bg-[var(--background-secondary)]/90 shadow transition-all duration-200 ring-1 ring-[var(--color-primary)]"
-                aria-label="Changer le thème"
-              >
-                <ThemeSwitcher class="text-xl" />
-              </button>
-            </div>
-            <!-- Fin header mobile -->
-
-            <div class="relative flex transition-all w-screen h-full">
-              <!-- Primary Sidebar -->
-              <HomeSideBar
-                :rooms="rooms"
-                :mockConversations="mockConversations"
-                :showInfoModal="showInfoModal"
-                :sidebarHovered="sidebarHovered"
-                :addFriendModalisOpen="addFriendModalisOpen"
-                :createRoomModalisOpen="createRoomModalisOpen"
-                :askLogout="askLogout"
-                :openAddFriendModal="openAddFriendModal"
-                :openInfoModal="openInfoModal"
-                :logout="logout"
-                :closeInfoModal="closeInfoModal"
-                :closeAddFriendModal="closeAddFriendModal"
-                :openCreateRoomModal="openCreateRoomModal"
-                :closeCreateRoomModal="closeCreateRoomModal"
-                :updateSideBarHover="updateSideBarHover"
-              />
-              <!-- Zone bouton d'actions et de recherche cette zone se superpose avec le parent : PageTemplate qui laisse en haut à droite des bouton qui permettent de faire la gestion rapide du theme et de la lanque
-                 il faut donc que cette zone soit libre -->
-              <UpperChatZone
-                :sidebarHovered="sidebarHovered"
-                :searchQuery="searchQuery"
-                :users="users"
-                :filteredUsers="filteredUsers"
-                :updateSearchQuery="updateSearchQuery"
-                @add-friend="openAddFriendModal"
-                @create-room="openCreateRoomModal"
-              />
-              <ChatZone
-                :conversations="mockConversations"
-              />
-            </div>
-
-            <!-- Barre mobile pour actions principales (visible uniquement sur mobile) -->
-            <div
-              class="absolute bottom-0 left-0 right-0 w-full flex justify-around items-center z-40 py-2 px-3 bg-[var(--background)]/80 backdrop-blur-md border-t border-[var(--color-text)]/10 transition-all md:hidden"
-              style="box-shadow: 0 -2px 12px 0 rgba(0, 0, 0, 0.09)"
-            >
-              <!-- Conversations (sidebar) -->
-              <button
-                class="flex flex-col items-center text-[var(--color-text)] focus:outline-none"
-                @click="sidebarHovered = !sidebarHovered"
-                title="Conversations"
-              >
-                <svg width="26" height="26" fill="none" viewBox="0 0 24 24">
-                  <rect
-                    x="3"
-                    y="6"
-                    width="18"
-                    height="2.5"
-                    rx="1"
-                    fill="currentColor"
-                  />
-                  <rect
-                    x="3"
-                    y="11"
-                    width="18"
-                    height="2.5"
-                    rx="1"
-                    fill="currentColor"
-                  />
-                  <rect
-                    x="3"
-                    y="16"
-                    width="18"
-                    height="2.5"
-                    rx="1"
-                    fill="currentColor"
-                  />
-                </svg>
-                <span class="text-xs mt-0.5">Convs</span>
-              </button>
-              <!-- Ajouter un ami -->
-              <button
-                class="flex flex-col items-center text-[var(--color-text)] focus:outline-none"
-                @click="openAddFriendModal()"
-                title="Ajouter un ami"
-              >
-                <svg width="26" height="26" fill="none" viewBox="0 0 24 24">
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="9"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  />
-                  <path
-                    d="M12 8v8M8 12h8"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                  />
-                </svg>
-                <span class="text-xs mt-0.5">Ami</span>
-              </button>
-              <!-- Créer une room -->
-              <button
-                class="flex flex-col items-center text-[var(--color-text)] focus:outline-none"
-                @click="openCreateRoomModal()"
-                title="Créer une room"
-              >
-                <svg width="26" height="26" fill="none" viewBox="0 0 24 24">
-                  <rect
-                    x="5"
-                    y="8"
-                    width="14"
-                    height="8"
-                    rx="2"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  />
-                  <path
-                    d="M12 12v3"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                  />
-                </svg>
-                <span class="text-xs mt-0.5">Room</span>
-              </button>
-              <!-- Paramètres -->
-              <button
-                class="flex flex-col items-center text-[var(--color-text)] focus:outline-none"
-                @click="openInfoModal()"
-                title="Paramètres"
-              >
-                <svg width="26" height="26" fill="none" viewBox="0 0 24 24">
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  />
-                  <path
-                    d="M15.5 12a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  />
-                </svg>
-                <span class="text-xs mt-0.5">Param</span>
-              </button>
-              <!-- Déconnexion -->
-              <button
-                class="flex flex-col items-center text-red-500 focus:outline-none"
-                @click="askLogout()"
-                title="Déconnexion"
-              >
-                <svg width="26" height="26" fill="none" viewBox="0 0 24 24">
-                  <path
-                    d="M15 12H3"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                  />
-                  <path
-                    d="M19 7v10M19 12l-4-4m4 4l-4 4"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                  />
-                </svg>
-                <span class="text-xs mt-0.5">Quitter</span>
-              </button>
-            </div>
-          </div>
-          <!-- Fin barre mobile -->
-          <InfoModal
-            v-if="showInfoModal"
-            headerTitle="Déconnexion"
-            message="Êtes-vous sûr de vouloir vous déconnecter ?"
-            type="warning"
-            @onok="logout"
-            @close="closeInfoModal"
-          />
-          <AddFriendModal
-            v-if="addFriendModalisOpen"
-            headerTitle="Ajouter un ami"
-            @close="closeAddFriendModal"
-          />
-          <CreateRoomModal
-            v-if="createRoomModalisOpen"
-            headerTitle="Créer une room"
-            @close="closeCreateRoomModal"
-          />
-        </template>
-      </PageTemplate>
+  <HomeLayout
+    ref="HomeLayoutChild"
+    :sidebarExpended="sidebarExpended"
+    @updateSideBarExpended="updateSideBarExpended"
+  >
+    <template #sidebar>
+      <HomeSideBar
+        :rooms="rooms"
+        :mockConversations="mockConversations"
+        :sidebarHovered="sidebarHovered"
+        @askLogout="askLogout"
+        @openAddFriendModal="openAddFriendModal"
+        @openCreateRoomModal="openCreateRoomModal"
+        @updateSideBarHover="updateSideBarHover"
+      />
     </template>
-    <template #fallback>
-      <LoadingOverlay />
+
+    <template #upper-chat>
+      <UpperChatZone
+        :sidebarHovered="sidebarHovered"
+        :searchQuery="searchQuery"
+        :users="users"
+        :filteredUsers="filteredUsers"
+        @updateSearchQuery="updateSearchQuery"
+        @add-friend="openAddFriendModal"
+        @create-room="openCreateRoomModal"
+      />
     </template>
-  </Suspense>
+
+    <template #chat>
+      <ChatZone
+        :conversations="mockConversations"
+        :sidebarExpended="sidebarExpended"
+        @updateSideBarExpended="updateSideBarExpended"
+      />
+    </template>
+  </HomeLayout>
 </template>
 
 <script setup lang="ts">
-import LoadingOverlay from "../components/LoadingOverlay.vue";
 import { ref, defineAsyncComponent, computed } from "vue";
-import type { Bubble } from "../components/chat/bubbleChat/ChatBubble.vue";
-import { useAuthStore } from "../stores/AuthStore";
-import type { Conversation } from "../components/SideBarConversations.vue";
-import type { Room } from "../components/HomeSideBar.vue";
-import ThemeSwitcher from "../components/ThemeSwitcher.vue";
-import Avatar from "../components/chat/headerChat/Avatar.vue";
+import type { Conversation } from "@components/home/chatZone/SideBarConversations.vue";
+import type { Room } from "@components/home/layout/HomeSideBar.vue";
+import type { Bubble } from "@components/home/chat/view/ChatBubble.vue";
+import HomeLayout from "@components/layouts/home/HomeLayout.vue";
 
 const HomeSideBar = defineAsyncComponent(
-  () => import("../components/HomeSideBar.vue")
+  () => import("../components/home/layout/HomeSideBar.vue")
 );
 const ChatZone = defineAsyncComponent(
-  () => import("../components/ChatZone.vue")
-);
-const PageTemplate = defineAsyncComponent(
-  () => import("../components/PageTemplate.vue")
+  () => import("../components/home/layout/HomeChatZone.vue")
 );
 const UpperChatZone = defineAsyncComponent(
-  () => import("../components/UpperChatZone.vue")
+  () => import("../components/home/layout/HomeUpperChatZone.vue")
 );
-const InfoModal = defineAsyncComponent(
-  () => import("../components/InfoModal.vue")
-);
-const AddFriendModal = defineAsyncComponent(
-  () => import("../components/AddFriendModal.vue")
-);
-const CreateRoomModal = defineAsyncComponent(
-  () => import("../components/CreateRoomModal.vue")
-);
+
 const sidebarHovered = ref(false);
+const sidebarExpended = ref(true);
 const searchQuery = ref("");
 const users = [
   { name: "Bot Hugo", avatar: "🤖" },
@@ -275,10 +76,6 @@ function updateSearchQuery(searchQueryChanged: string) {
   searchQuery.value = searchQueryChanged;
 }
 
-const addFriendModalisOpen = ref(false);
-const createRoomModalisOpen = ref(false);
-const authStore = useAuthStore();
-const showInfoModal = ref(false);
 const mockMessages: Bubble[] = [
   {
     text: "Hello ! 😀",
@@ -413,7 +210,7 @@ const mockConversations: Conversation[] = [
     name: "Famille",
     type: "room",
     messages: mockMessages,
-    active: true,
+    active: false,
     mostRecent: true,
   },
   {
@@ -509,45 +306,28 @@ const mockConversations: Conversation[] = [
   // Ajoute d'autres mocks si besoin
 ];
 
-async function onClose(value: Conversation) {
-  console.log("close conversation", value);
-}
-
+const HomeLayoutChild = ref();
 function askLogout() {
-  openInfoModal();
-}
-
-function openInfoModal() {
-  showInfoModal.value = true;
-}
-
-function logout() {
-  authStore.logout();
-  closeInfoModal();
-}
-
-function closeInfoModal() {
-  showInfoModal.value = false;
+  HomeLayoutChild.value.askLogout();
 }
 
 function openAddFriendModal() {
-  addFriendModalisOpen.value = true;
-}
-
-function closeAddFriendModal() {
-  addFriendModalisOpen.value = false;
+  HomeLayoutChild.value.openAddFriendModal();
 }
 
 function openCreateRoomModal() {
-  createRoomModalisOpen.value = true;
+  HomeLayoutChild.value.openCreateRoomModal();
 }
 
-function closeCreateRoomModal() {
-  createRoomModalisOpen.value = false;
-}
 function updateSideBarHover(value: boolean) {
   setTimeout(() => {
     sidebarHovered.value = value;
+  }, 150);
+}
+
+function updateSideBarExpended(value: boolean) {
+  setTimeout(() => {
+    sidebarExpended.value = value;
   }, 150);
 }
 </script>
