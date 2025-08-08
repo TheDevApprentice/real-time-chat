@@ -1,7 +1,7 @@
 <template>
   <Suspense>
     <template #default>
-      <div class="bg-[var(--color-background)] min-w-0">
+      <div class="bg-[var(--color-background)]">
         <!-- background circles -->
         <div class="absolute -top-32 -left-32 w-[140%] h-[140%] z-0">
           <span class="bg-circle circle-1"></span>

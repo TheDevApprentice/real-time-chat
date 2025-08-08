@@ -4,7 +4,7 @@
       <!-- Chat Preview: visible md+ -->
       <div
         v-if="showChat"
-        class="hidden md:flex flex-col gap-4 rounded-xl bg-white/10 shadow-lg p-4 overflow-hidden animate-fade-in md:translate-x-[80%] md:translate-y-[-10%]"
+        class="flex flex-col rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in"
       >
         <ChatHeader :chat="mockConversation" />
         <ChatBubble
@@ -119,61 +119,7 @@ const mockMessages: Bubble[] = [
     isWriting: false,
     isSent: true,
     isRead: true,
-  },
-  {
-    text: "Awesome ! 😃",
-    speaker: 1,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: true,
-  },
-  {
-    text: "Awesome ! 😃",
-    speaker: 0,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: true,
-  },
-  {
-    text: "Awesome ! 😃",
-    speaker: 1,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: true,
-  },
-  {
-    text: "Awesome ! 😃",
-    speaker: 0,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: true,
-  },
-  {
-    text: "Ciao !",
-    speaker: 1,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: true,
-  },
-  {
-    text: "Ciao !",
-    speaker: 0,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: false,
-  },
+  }
 ];
 
 const mockConversation: Conversation = {
