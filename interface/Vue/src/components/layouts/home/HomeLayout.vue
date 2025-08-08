@@ -3,7 +3,7 @@
     <template #default>
       <MainLayout>
         <template #content>
-          <div class="max-h-screen">
+          <div class="max-h-screen h-screen w-screen">
             <MobileHeader />
             <div class="relative flex transition-all w-screen h-full">
               <slot name="sidebar"></slot>
