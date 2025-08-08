@@ -1,17 +1,15 @@
 <template>
   <Suspense>
     <template #default>
-      <div
-        class="transition-all border border-yellow-500 h-screen w-screen"
-      >
+      <div class="transition-all h-screen w-screen">
         <MainLayout>
           <template #content>
             <div
-              class="grid grid-cols-1 md:grid-cols-2 transition-all border border-yellow-500 h-screen w-full"
+              class="grid grid-cols-1 md:grid-cols-[75%_25%] transition-all h-screen w-full"
             >
               <!-- Header: visible md+ -->
               <div
-                class="flex flex-col col-span-1 relative items-center justify-center border border-red-500 h-screen"
+                class="flex flex-col col-span-1 relative items-center justify-center h-screen md:translate-x-[12%]"
               >
                 <div
                   class="relative hidden md:flex flex-col items-center justify-center "
@@ -24,7 +22,7 @@
               </div>
 
               <div
-                class="col-span-1 relative hidden md:flex md:flex-col border border-green-500 top-[13%] h-screen "
+                class="col-span-1 relative hidden md:flex md:flex-col top-[13%] h-screen md:translate-x-[-25%] md:translate-y-[-2%]"
               >
                 <slot name="preview-chat"></slot>
               </div>
