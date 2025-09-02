@@ -17,7 +17,7 @@ export class DatabaseService {
         Logger.error(`Failed to open database: ${err.message}`);
         throw err;
       }
-      Logger.info(`Connected to SQLite database at ${this.filePath}`);
+      // Logger.info(`Connected to SQLite database at ${this.filePath}`);
     });
   }
 
@@ -75,7 +75,7 @@ export class DatabaseService {
       this.db.run(`ALTER TABLE user_sessions ADD COLUMN refreshTokenExpiresAt INTEGER`, () => {});
       // Index pour accélérer la recherche par refreshToken
       this.db.run(`CREATE INDEX IF NOT EXISTS idx_user_sessions_refresh ON user_sessions(refreshToken)`);
-      Logger.info("Database tables initialized (users, rooms, user_rooms, messages, user_sessions)");
+      // Logger.info("Database tables initialized (users, rooms, user_rooms, messages, user_sessions)");
     });
   }
 
@@ -89,7 +89,7 @@ export class DatabaseService {
             Logger.error("Erreur ajout user: " + err.message);
             return reject(err);
           }
-          Logger.infoObj("Ajout user: ", user);
+          // Logger.infoObj("Ajout user: ", user);
           resolve(user);
         }
       );
@@ -288,7 +288,7 @@ export class DatabaseService {
             Logger.error('Erreur ajout session: ' + err.message);
             return reject(err);
           }
-          Logger.infoObj('Ajout session: ', session);
+          // Logger.infoObj('Ajout session: ', session);
           resolve();
         }
       );
@@ -354,7 +354,7 @@ async getUserSessionsByUserId(userId: string): Promise<UserSession[]> {
         if (!row) return resolve(null);
         // Vérifier expiration
         if (row.expiresAt && row.expiresAt < Date.now()) {
-          Logger.info(`Session expirée pour token: ${token}`);
+          // Logger.info(`Session expirée pour token: ${token}`);
           // Supprimer la session expirée
           this.deleteUserSession(token);
           return resolve(null);
@@ -388,7 +388,7 @@ async getUserSessionsByUserId(userId: string): Promise<UserSession[]> {
             Logger.error('Erreur suppression session: ' + err.message);
             return reject(err);
           }
-          Logger.info(`Suppression session pour token: ${token}`);
+          // Logger.info(`Suppression session pour token: ${token}`);
           resolve();
         }
       );

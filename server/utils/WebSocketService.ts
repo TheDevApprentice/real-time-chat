@@ -87,7 +87,7 @@ export class WebSocketService {
           );
         }
       }
-      Logger.info(`Client connected: ${socket.id}`);
+      // Logger.info(`Client connected: ${socket.id}`);
       socket.on("disconnect", () => {
         this.socketRates.delete(socket.id);
       });
@@ -410,7 +410,7 @@ export class WebSocketService {
               callback({ success: false, error: "No token provided." })
             );
           }
-          Logger.infoObj('Logout token: ', token);
+          // Logger.infoObj('Logout token: ', token);
           await dbService.deleteUserSession(token);
           socket.data.userId = undefined;
           socket.data.user = undefined;

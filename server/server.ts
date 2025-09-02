@@ -32,7 +32,7 @@ class AppServer {
       else trustProxySetting = val; // e.g., IP subnet string
     }
     this.app.set('trust proxy', trustProxySetting);
-    Logger.infoObj("Dotenvx config Port", process.env.PORT);
+    // Logger.infoObj("Dotenvx config Port", process.env.PORT);
     const portWanted = process.env.PORT;
     if (!portWanted) {
       throw new Error('PORT environment variable is not defined');
@@ -73,6 +73,7 @@ class AppServer {
     // Issue CSRF token cookie on safe requests (double-submit pattern)
     this.app.use(issueCsrfCookie);
     this.app.use(express.static(path.join(__dirname, 'public')));
+    this.app.disable('x-powered-by');
   }
 
   private setupRoutes(): void {
