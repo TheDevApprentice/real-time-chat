@@ -1,5 +1,7 @@
 <template>
-  <LoginLayout>
+  <LoginLayout
+    ref="LoginLayoutChild"
+  >
     <template #header>
       <h1 class="auth-title gradient-title-v3">
         <span class="title-rt">{{ typedRealTime }}</span>
@@ -32,20 +34,38 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, reactive } from "vue";
+import { ref, onMounted, watch, reactive, defineAsyncComponent, onBeforeUnmount } from "vue";
 import { useAuthStore } from "@stores/AuthStore";
-import { useRouter } from "vue-router";
-import ChatPreview from "@components/login/ChatPreview.vue";
-import LoginCard from "@components/login/LoginCard.vue";
-import LoginLayout from "@components/layouts/login/LoginLayout.vue";
 
+const ChatPreview = defineAsyncComponent({
+  loader: () => import("@components/login/ChatPreview.vue"),
+  delay: 200,
+  timeout: 20000,
+  suspensible: false,
+});
+const LoginCard = defineAsyncComponent({
+  loader: () => import("@components/login/LoginCard.vue"),
+  delay: 200,
+  timeout: 20000,
+  suspensible: false,
+});
+const LoginLayout = defineAsyncComponent({
+  loader: () => import("@components/layouts/login/LoginLayout.vue"),
+  delay: 200,
+  timeout: 20000,
+  suspensible: false,
+});
+
+const authStore = useAuthStore();
+const LoginLayoutChild = ref();
 const realTimeFull = "Real‑Time";
 const chatFull = "Chat";
 const typedRealTime = ref("");
 const typedChat = ref("");
 const showCursor = ref(false);
 
-watch(typedChat, (val) => {
+// Watcher to update cursor visibility; keep a stop handle to clean up on destroy
+const stopCursorWatch = watch(typedChat, (val) => {
   showCursor.value = val.length < chatFull.length;
 });
 
@@ -63,31 +83,42 @@ function updateMode(modeChanged: string) {
   mode.value = modeChanged;
 }
 
+// Track pending timeouts and expose a safe sleep that can be canceled on unmount
+const timeoutIds: number[] = [];
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => {
+    const id = window.setTimeout(() => resolve(), ms);
+    timeoutIds.push(id);
+  });
+}
+
 async function AnimTypeTitle() {
   // Typewriter pour "Real‑Time"
   for (let i = 0; i <= realTimeFull.length; i++) {
     typedRealTime.value = realTimeFull.slice(0, i);
-    await new Promise((res) => setTimeout(res, 60));
+    await sleep(60);
   }
-  await new Promise((res) => setTimeout(res, 200));
+  await sleep(200);
   // Typewriter pour "Chat"
   for (let i = 0; i <= chatFull.length; i++) {
     typedChat.value = chatFull.slice(0, i);
-    await new Promise((res) => setTimeout(res, 90));
+    await sleep(90);
   }
   showCursor.value = false;
 }
 
 onMounted(async () => {
   await AnimTypeTitle();
-  await new Promise((res) => setTimeout(res, 200));
+  await sleep(200);
 });
 
-const authStore = useAuthStore();
-const router = useRouter();
+// Cleanup on component destroy: clear timeouts and stop watchers
+onBeforeUnmount(() => {
+  for (const id of timeoutIds) clearTimeout(id);
+  stopCursorWatch();
+});
 
-function onSubmit() {
-  console.log("Auth information Login Page received : ", authInformation);
+async function onSubmit() {
   if (mode.value === "register") {
     if (
       !authInformation.username ||
@@ -101,13 +132,8 @@ function onSubmit() {
       authInformation.error = "Les mots de passe ne correspondent pas.";
       return;
     }
-    console.log(
-      "Registering user : ",
-      authInformation.username,
-      authInformation.password,
-      authInformation.confirm
-    );
-    authStore
+
+    await authStore
       .register(
         authInformation.username,
         authInformation.password,
@@ -118,8 +144,6 @@ function onSubmit() {
           authInformation.error =
             authStore.error || "Erreur lors de la création du compte";
         } else {
-          authInformation.error =
-            authStore.error || "Compte créé avec succès ! Connectez-vous.";
           mode.value = "login";
         }
       });
@@ -129,15 +153,12 @@ function onSubmit() {
         "Veuillez entrer votre nom d'utilisateur et mot de passe.";
       return;
     }
-    authStore
+    await authStore
       .login(authInformation.username, authInformation.password)
       .then((success) => {
         if (!success) {
           authInformation.error =
             authStore.error || "Erreur lors de la connexion";
-        } else {
-          authInformation.error = "";
-          router.push("/home");
         }
       });
   }

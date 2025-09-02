@@ -39,7 +39,14 @@ class AppServer {
 
   private setupMiddleware(): void {
     // Enable CORS for front-end
-    this.app.use(cors({ origin: '*', credentials: true }));
+    const allowedOrigin = process.env.FRONTEND_URL;
+    this.app.use(cors({
+      origin: allowedOrigin,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Accept', 'Accept-Language', 'X-XSRF-TOKEN'],
+      optionsSuccessStatus: 204,
+    }));
     this.app.use(express.json());
     this.app.use(cookieParser());
     this.app.use(express.static(path.join(__dirname, 'public')));

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { socketService } from '@/services/websocket/websocket';
+import { axiosService } from '@/services/axios/axios';
 
 function setCookie(name: string, value: string, days = 7) {
   let expires = '';
@@ -30,27 +31,37 @@ export const useAuthStore = defineStore('auth', () => {
 
   // --- Auth via socket.io-client ---
 
-  function tryAutoAuth() {
+  async function tryAutoAuth(): Promise<boolean> {
     const token = getCookie('sessionToken');
     if (!token) return false;
+  
     loading.value = true;
     socketService.connect();
-    socketService.emit('authenticate', { token }, (res: any) => {
-      if (res && res.success) {
-        isAuthenticated.value = true;
-        user.value = res.name;
-        error.value = null;
-      } else {
-        isAuthenticated.value = false;
-        user.value = null;
-        error.value = res?.error || 'Session invalide';
-        eraseCookie('sessionToken');
-      }
-      loading.value = false;
+  
+    return new Promise<boolean>((resolve) => {
+      socketService.emit('authenticate', { token }, (res: any) => {
+        console.log('AuthStore.tryAutoAuth res:', res);
+        if (res && res.success) {
+          console.log('AuthStore.tryAutoAuth success');
+          isAuthenticated.value = true;
+          user.value = res.name;
+          error.value = null;
+          loading.value = false;
+          resolve(true);
+        } else {
+          console.log('AuthStore.tryAutoAuth fail');
+          isAuthenticated.value = false;
+          user.value = null;
+          error.value = res?.error || 'Session invalide';
+          eraseCookie('sessionToken');
+          loading.value = false;
+          resolve(false);
+        }
+      });
     });
   }
 
-  async function login(username: string, password: string) {
+  async function login(username: string, password: string): Promise<boolean> {
     loading.value = true;
     error.value = null;
     socketService.connect();
@@ -75,34 +86,51 @@ export const useAuthStore = defineStore('auth', () => {
     });
   }
 
-  async function register(username: string, password: string, confirm: string) {
+  async function register(username: string, password: string, confirm: string): Promise<boolean> {
     loading.value = true;
     error.value = null;
-    socketService.connect();
+    try {
+      // REST: POST /api/user/register (base URL comes from VITE_API_BASE_URL)
+      const res = await axiosService.post<{ id: string; name: string }>(
+        '/user/register',
+        { username, password, confirmPassword: confirm }
+      );
+      if (!res.success) {
+        error.value = (res.data as any)?.error || 'Inscription échouée.';
+        loading.value = false;
+        return false;
+      }
+      // Succès inscription, invite à se connecter
+      error.value = 'Compte créé avec succès ! Connectez-vous.';
+      loading.value = false;
+      return true;
+    } catch (e: any) {
+      // e is formatted by axiosService.formatError when available
+      error.value = e?.data?.error || e?.message || 'Inscription échouée.';
+      loading.value = false;
+      return false;
+    }
+  }
+
+  async function logout(): Promise<boolean> {
+    loading.value = true;
+    error.value = null;
     return new Promise<boolean>((resolve) => {
-      socketService.emit('register', { username, password, confirmPassword: confirm }, (res: any) => {
+      const token = getCookie('sessionToken');
+      socketService.emit('logout', { token }, (res: any) => {
+        console.log('AuthStore.logout res:', res);
         if (res && res.error) {
-          error.value = res.error;
-          loading.value = false;
+          error.value = res?.error || null;
           resolve(false);
           return;
         }
-        // Succès inscription, invite à se connecter
-        error.value = 'Compte créé avec succès ! Connectez-vous.';
+        console.log('AuthStore.logout success');
+        isAuthenticated.value = false;
+        user.value = null;
         loading.value = false;
+        eraseCookie('sessionToken');
         resolve(true);
       });
-    });
-  }
-
-  async function logout() {
-    loading.value = true;
-    error.value = null;
-    socketService.emit('logout', {}, (res: any) => {
-      isAuthenticated.value = false;
-      user.value = null;
-      eraseCookie('sessionToken');
-      loading.value = false;
     });
   }
 

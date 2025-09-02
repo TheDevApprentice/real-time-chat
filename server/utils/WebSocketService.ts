@@ -387,11 +387,14 @@ export class WebSocketService {
       // Dans handleConnections()
       socket.on("logout", async (data, callback) => {
         try {
+          // Logger.infoObj('Logout data: ', data.token);
           // Récupérer le token depuis les cookies du header handshake
-          const cookieHeader = socket.handshake.headers.cookie;
+          // const cookieHeader = socket.handshake.headers.cookie;
+          // Logger.infoObj('Logout cookieHeader: ', data.token);
           let token: string | undefined;
-          if (cookieHeader) {
-            const match = cookieHeader.match(/token=([^;]+)/);
+          if (data.token) {
+            const match = data.token.match(/([^;]+)/);
+            // Logger.infoObj('Logout match: ', match);
             if (match) token = match[1];
           }
           if (!token) {
@@ -400,6 +403,7 @@ export class WebSocketService {
               callback({ success: false, error: "No token provided." })
             );
           }
+          Logger.infoObj('Logout token: ', token);
           await dbService.deleteUserSession(token);
           socket.data.userId = undefined;
           socket.data.user = undefined;

@@ -75,7 +75,7 @@ import axios, {
       }
 
       // Ajout du header CSRF pour les requêtes mutatives
-      const csrfToken = getCookie('XSRF-TOKEN');
+      const csrfToken = getCookie('X-XSRF-TOKEN');
       if (
         csrfToken &&
         ['post', 'put', 'patch', 'delete'].includes(config.method?.toLowerCase() || '')
