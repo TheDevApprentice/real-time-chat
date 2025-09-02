@@ -79,6 +79,16 @@ router.delete(
           .json({ error: "Session not found or not owned." });
       }
       await db.deleteUserSession(req.params.token);
+      // If the deleted session corresponds to the current cookie, clear it to avoid stale cookies
+      const currentToken = (req as any).cookies?.["session_token"];
+      if (currentToken && currentToken === req.params.token) {
+        res.clearCookie("session_token", {
+          httpOnly: true,
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+          path: "/",
+        });
+      }
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: "Failed to delete session." });

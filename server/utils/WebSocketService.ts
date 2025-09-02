@@ -13,7 +13,7 @@ export class WebSocketService {
 
   constructor(httpServer: HttpServer) {
     this.io = new SocketServer(httpServer, {
-      cors: { origin: process.env.FRONTEND_URL },
+      cors: { origin: process.env.FRONTEND_URL, credentials: true },
     });
     this.handleConnections();
   }
@@ -27,8 +27,15 @@ export class WebSocketService {
     const dbService = DatabaseService.getInstance(sqliteFile);
 
     this.io.on("connection", async (socket: Socket) => {
-      // --- SESSION RESTORE VIA TOKEN ---
-      const token = socket.handshake.auth?.token;
+      // --- SESSION RESTORE VIA TOKEN OR COOKIE ---
+      let token = socket.handshake.auth?.token as string | undefined;
+      if (!token) {
+        const cookieHeader = (socket.handshake.headers as any)["cookie"] as string | undefined;
+        if (cookieHeader) {
+          const m = cookieHeader.match(/(?:^|; )session_token=([^;]+)/);
+          if (m) token = decodeURIComponent(m[1]);
+        }
+      }
       if (token) {
         try {
           const session = await dbService.getUserSessionByToken(token);

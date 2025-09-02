@@ -4,6 +4,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import { User } from "../models/User";
 import { DatabaseService } from "../utils/DatabaseService";
 import { bruteForceGuard } from "../utils/BruteForceGuard";
+import { authMiddleware, AuthenticatedRequest } from "../middleware/auth";
 
 const router = Router();
 
@@ -39,6 +40,49 @@ router.post("/register", rateLimit("auth:register", 20), async (req, res) => {
     res.status(500).json({ error: "Registration failed." });
   }
 });
+
+// --- SET SESSION COOKIE (HttpOnly) FROM TOKEN ---
+// Allows frontend to exchange a bare token (obtained via WebSocket auth) for a secure HttpOnly cookie.
+router.post(
+  "/session-cookie",
+  rateLimit("auth:sessionCookie", 60),
+  async (req: Request, res: Response) => {
+    const { token } = req.body || {};
+    if (!token) return res.status(400).json({ error: "token is required." });
+    try {
+      const dbFile = process.env.SQLITE_FILE;
+      if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
+      const db = DatabaseService.getInstance(dbFile);
+      const session = await db.getUserSessionByToken(token);
+      if (!session) return res.status(401).json({ error: "Invalid token." });
+      // Set secure HttpOnly cookie
+      res.cookie("session_token", token, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+        path: "/",
+      });
+      return res.json({ success: true });
+    } catch (err) {
+      return res.status(500).json({ error: "Failed to set session cookie." });
+    }
+  }
+);
+
+// --- CURRENT USER FROM COOKIE ---
+router.get(
+  "/me",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user) return res.status(401).json({ error: "Not authenticated." });
+      return res.json({ id: req.user.id, name: req.user.name });
+    } catch (err) {
+      return res.status(500).json({ error: "Failed to resolve current user." });
+    }
+  }
+);
 
 // --- REFRESH TOKEN ENDPOINT ---
 router.post("/refresh-token", rateLimit("auth:refresh", 60), async (req, res) => {

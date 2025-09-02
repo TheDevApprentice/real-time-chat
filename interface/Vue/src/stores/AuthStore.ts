@@ -2,7 +2,6 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { socketService } from '@/services/websocket/websocket';
 import { axiosService } from '@/services/axios/axios';
-import { getCookie, setCookie, eraseCookie } from '@/utils/cookieHelper';
 
 export const useAuthStore = defineStore('auth', () => {
   // --- State ---
@@ -16,33 +15,30 @@ export const useAuthStore = defineStore('auth', () => {
   // --- Auth via socket.io-client ---
 
   async function tryAutoAuth(): Promise<boolean> {
-    const token = getCookie('session_token');
-    if (!token) return false;
-  
     loading.value = true;
-    socketService.connect();
-  
-    return new Promise<boolean>((resolve) => {
-      socketService.emit('authenticate', { token }, (res: any) => {
-        console.log('AuthStore.tryAutoAuth res:', res);
-        if (res && res.success) {
-          console.log('AuthStore.tryAutoAuth success');
-          isAuthenticated.value = true;
-          user.value = res.name;
-          error.value = null;
-          loading.value = false;
-          resolve(true);
-        } else {
-          console.log('AuthStore.tryAutoAuth fail');
-          isAuthenticated.value = false;
-          user.value = null;
-          error.value = res?.error || 'Session invalide';
-          eraseCookie('session_token');
-          loading.value = false;
-          resolve(false);
-        }
-      });
-    });
+    error.value = null;
+    try {
+      // Cookie-first: backend will read HttpOnly cookie and return the user
+      const res = await axiosService.get<{ id: string; name: string }>("/auth/me");
+      if (!res.success) {
+        isAuthenticated.value = false;
+        user.value = null;
+        loading.value = false;
+        return false;
+      }
+      isAuthenticated.value = true;
+      user.value = res.data.name;
+      // Connect socket; server will restore session from cookie
+      socketService.connect();
+      loading.value = false;
+      return true;
+    } catch (e: any) {
+      isAuthenticated.value = false;
+      user.value = null;
+      error.value = e?.data?.error || e?.message || 'Session invalide';
+      loading.value = false;
+      return false;
+    }
   }
 
   async function login(username: string, password: string): Promise<boolean> {
@@ -50,7 +46,7 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null;
     socketService.connect();
     return new Promise<boolean>((resolve) => {
-      socketService.emit('login', { username, password }, (res: any) => {
+      socketService.emit('login', { username, password }, async (res: any) => {
         if (res && res.error) {
           error.value = res.error;
           isAuthenticated.value = false;
@@ -63,7 +59,14 @@ export const useAuthStore = defineStore('auth', () => {
         isAuthenticated.value = true;
         user.value = res.name;
         error.value = null;
-        if (res.token) setCookie('session_token', res.token);
+        // Demander au serveur de placer un cookie HttpOnly sécurisé
+        if (res.token) {
+          try {
+            await axiosService.post('/auth/session-cookie', { token: res.token });
+          } catch (e) {
+            console.warn('Failed to set HttpOnly cookie from server:', e);
+          }
+        }
         loading.value = false;
         resolve(true);
       });
@@ -99,23 +102,24 @@ export const useAuthStore = defineStore('auth', () => {
   async function logout(): Promise<boolean> {
     loading.value = true;
     error.value = null;
-    return new Promise<boolean>((resolve) => {
-      const token = getCookie('session_token');
-      socketService.emit('logout', { token }, (res: any) => {
-        console.log('AuthStore.logout res:', res);
-        if (res && res.error) {
-          error.value = res?.error || null;
-          resolve(false);
-          return;
-        }
-        console.log('AuthStore.logout success');
-        isAuthenticated.value = false;
-        user.value = null;
+    try {
+      // Ask server to revoke all sessions for current user and clear cookie
+      const res = await axiosService.delete<{ success: boolean }>("/user/sessions");
+      if (!res.success) {
+        error.value = (res.data as any)?.error || 'Déconnexion échouée.';
         loading.value = false;
-        eraseCookie('sessionToken');
-        resolve(true);
-      });
-    });
+        return false;
+      }
+      socketService.disconnect();
+      isAuthenticated.value = false;
+      user.value = null;
+      loading.value = false;
+      return true;
+    } catch (e: any) {
+      error.value = e?.data?.error || e?.message || 'Déconnexion échouée.';
+      loading.value = false;
+      return false;
+    }
   }
 
   return {
