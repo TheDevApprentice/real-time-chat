@@ -16,9 +16,10 @@
   </template>
   
   <script setup lang="ts">
-  import { nextTick, onMounted, ref, defineAsyncComponent } from "vue";
-import type { Conversation } from "@home/chatZone/SideBarConversations.vue";
-import type { Bubble } from "@home/chat/view/ChatBubble.vue";
+  import { nextTick, onMounted, ref, defineAsyncComponent, onBeforeUnmount } from "vue";
+  
+  import type { Conversation } from "@home/chatZone/SideBarConversations.vue";
+  import type { Bubble } from "@home/chat/view/ChatBubble.vue";
   
   const ChatBubble = defineAsyncComponent(
     () => import("@home/chat/view/ChatBubble.vue")
@@ -40,19 +41,28 @@ import type { Bubble } from "@home/chat/view/ChatBubble.vue";
   const showCursor = ref(false);
   const showChat = ref(false);
   const chatBubbles = ref<Bubble[]>([]);
+  // Cancellable sleep helper to track timeouts for proper cleanup
+  const timeoutIds: number[] = [];
+  function sleep(ms: number) {
+    return new Promise<void>((resolve) => {
+      const id = window.setTimeout(() => resolve(), ms);
+      timeoutIds.push(id);
+    });
+  }
+
   const typeMessage = async (text: string, bubble: Bubble) => {
     bubble.text = "";
     for (const char of text) {
       bubble.text += char;
       await nextTick();
-      await new Promise((r) => setTimeout(r, 70));
+      await sleep(70);
     }
   };
   const updateBubbleStatus = async (bubble: Bubble) => {
     bubble.isSent = true;
     bubble.isRead = true;
     await nextTick();
-    await new Promise((r) => setTimeout(r, 120));
+    await sleep(120);
     await nextTick();
   };
   
@@ -60,21 +70,21 @@ import type { Bubble } from "@home/chat/view/ChatBubble.vue";
     // Typewriter pour "Real‑Time"
     for (let i = 0; i <= realTimeFull.length; i++) {
       typedRealTime.value = realTimeFull.slice(0, i);
-      await new Promise((res) => setTimeout(res, 60));
+      await sleep(60);
     }
-    await new Promise((res) => setTimeout(res, 200));
+    await sleep(200);
     // Typewriter pour "Chat"
     for (let i = 0; i <= chatFull.length; i++) {
       typedChat.value = chatFull.slice(0, i);
-      await new Promise((res) => setTimeout(res, 90));
+      await sleep(90);
     }
     showCursor.value = false;
   }
-  
+
   async function AnimChat() {
     showChat.value = true;
-    await new Promise((res) => setTimeout(res, 200));
-  
+    await sleep(200);
+
     for (let i = 0; i < props.chat.messages.length; i++) {
       const msg = props.chat.messages[i];
       if (msg.speaker === 0) {
@@ -89,7 +99,7 @@ import type { Bubble } from "@home/chat/view/ChatBubble.vue";
         };
         chatBubbles.value.push(bubble);
         await nextTick();
-        await new Promise((res) => setTimeout(res, 1000));
+        await sleep(1000);
         bubble.isTyping = false;
         bubble.isWriting = true;
         await nextTick();
@@ -98,7 +108,7 @@ import type { Bubble } from "@home/chat/view/ChatBubble.vue";
           updateBubbleStatus(bubble);
         });
         await nextTick();
-        await new Promise((res) => setTimeout(res, 120));
+        await sleep(120);
         await nextTick();
       } else {
         const bubble: Bubble = {
@@ -118,17 +128,22 @@ import type { Bubble } from "@home/chat/view/ChatBubble.vue";
           updateBubbleStatus(bubble);
         });
         await nextTick();
-        await new Promise((res) => setTimeout(res, 120));
+        await sleep(120);
         await nextTick();
       }
     }
   }
-  
+
   onMounted(async () => {
     await AnimTypeTitle();
-    await new Promise((res) => setTimeout(res, 200));
+    await sleep(200);
     await AnimChat();
-    await new Promise((res) => setTimeout(res, 200));
+    await sleep(200);
+  });
+
+  // Cleanup all pending timers on component destroy
+  onBeforeUnmount(() => {
+    for (const id of timeoutIds) clearTimeout(id);
   });
   </script>
   

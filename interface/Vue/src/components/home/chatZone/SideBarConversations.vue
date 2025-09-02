@@ -135,7 +135,7 @@ const props = defineProps<{
   sidebarExpanded: boolean;
   conversations: Conversation[];
 }>();
-import { ref, computed } from "vue";
+import { ref, computed, onBeforeUnmount } from "vue";
 import type { Bubble } from "@home/chat/view/ChatBubble.vue";
 
 const showSearchBar = ref(false);
@@ -167,7 +167,9 @@ const filteredConversations = computed(() => {
 function toggleSearchBar() {
   showSearchBar.value = !showSearchBar.value;
   if (showSearchBar.value) {
-    setTimeout(() => {
+    // Debounced focus to avoid focusing after unmount
+    if (focusTimeoutId !== null) clearTimeout(focusTimeoutId);
+    focusTimeoutId = window.setTimeout(() => {
       const input = document.querySelector(
         ".sidebar-searchbar-input"
       ) as HTMLInputElement;
@@ -175,6 +177,12 @@ function toggleSearchBar() {
     }, 0);
   }
 }
+
+// Track and clear pending focus timeout on destroy
+let focusTimeoutId: number | null = null;
+onBeforeUnmount(() => {
+  if (focusTimeoutId !== null) clearTimeout(focusTimeoutId);
+});
 </script>
 
 <style scoped>

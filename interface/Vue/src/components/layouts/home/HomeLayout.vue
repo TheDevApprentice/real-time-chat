@@ -1,74 +1,56 @@
 <template>
-  <Suspense>
-    <template #default>
-      <MainLayout>
-        <template #content>
-          <div class="max-h-screen h-screen w-screen">
-            <MobileHeader />
-            <div class="relative flex transition-all w-screen h-full">
-              <slot name="sidebar"></slot>
-              <slot name="upper-chat"></slot>
-              <slot name="chat"></slot>
-            </div>
-            <MobileMenuBar
-              :sidebarExpended="sidebarExpended"
-              @update-mobile-side-bar-click="updateSideBarExpended"
-              @open-add-friend-modal="openAddFriendModal"
-              @open-create-room-modal="openCreateRoomModal"
-              @ask-logout="askLogout"
-            />
-          </div>
-          <InfoModal
-            v-if="showInfoModal"
-            headerTitle="Déconnexion"
-            message="Êtes-vous sûr de vouloir vous déconnecter ?"
-            type="warning"
-            @onOk="logout"
-          />
-          <AddFriendModal
-            v-if="addFriendModalisOpen"
-            headerTitle="Ajouter un ami"
-            @close="closeAddFriendModal"
-          />
-          <CreateRoomModal
-            v-if="createRoomModalisOpen"
-            headerTitle="Créer une room"
-            @close="closeCreateRoomModal"
-          />
-        </template>
-      </MainLayout>
+  <MainLayout>
+    <template #content>
+      <div class="max-h-screen h-screen w-screen">
+        <MobileHeader />
+        <div class="relative flex transition-all w-screen h-full">
+          <slot name="sidebar"></slot>
+          <slot name="upper-chat"></slot>
+          <slot name="chat"></slot>
+        </div>
+        <MobileMenuBar
+          :sidebarExpended="sidebarExpended"
+          @update-mobile-side-bar-click="updateSideBarExpended"
+          @open-add-friend-modal="openAddFriendModal"
+          @open-create-room-modal="openCreateRoomModal"
+          @ask-logout="askLogout"
+        />
+      </div>
+      <InfoModal
+        v-if="showLogoutModal"
+        headerTitle="Déconnexion"
+        message="Êtes-vous sûr de vouloir vous déconnecter ?"
+        type="warning"
+        @onOk="onConfirmLogout"
+      />
+      <AddFriendModal
+        v-if="addFriendModalisOpen"
+        headerTitle="Ajouter un ami"
+        @close="closeAddFriendModal"
+      />
+      <CreateRoomModal
+        v-if="createRoomModalisOpen"
+        headerTitle="Créer une room"
+        @close="closeCreateRoomModal"
+      />
     </template>
-    <template #fallback>
-      <LoadingOverlay />
-    </template>
-  </Suspense>
+  </MainLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, defineAsyncComponent } from "vue";
-import LoadingOverlay from "@layouts/LoadingOverlay.vue";
-import { useAuthStore } from "@stores/AuthStore";
+import { ref, nextTick } from "vue";
 import MobileMenuBar from "./mobile/MobileMenuBar.vue";
 import MobileHeader from "./mobile/MobileHeader.vue";
-
-const MainLayout = defineAsyncComponent(
-  () => import("@layouts/MainLayout.vue")
-);
-const InfoModal = defineAsyncComponent(
-  () => import("@ui/modals/InfoModal.vue")
-);
-const AddFriendModal = defineAsyncComponent(
-  () => import("@ui/modals/AddFriendModal.vue")
-);
-const CreateRoomModal = defineAsyncComponent(
-  () => import("@ui/modals/CreateRoomModal.vue")
-);
+import MainLayout from "@layouts/MainLayout.vue";
+import InfoModal from "@ui/modals/InfoModal.vue";
+import AddFriendModal from "@ui/modals/AddFriendModal.vue";
+import CreateRoomModal from "@ui/modals/CreateRoomModal.vue";
 
 defineProps({
    sidebarExpended: Boolean,
 });
 
-const emit = defineEmits(["updateSideBarExpended"]);
+const emit = defineEmits(["updateSideBarExpended", "logout"]);
 
 defineExpose({
   askLogout,
@@ -76,32 +58,23 @@ defineExpose({
   openCreateRoomModal,
 });
 
-const authStore = useAuthStore();
 const addFriendModalisOpen = ref(false);
 const createRoomModalisOpen = ref(false);
-const showInfoModal = ref(false);
+const showLogoutModal = ref(false);
 
 function updateSideBarExpended(value: boolean) {
   emit("updateSideBarExpended", value);
 }
 
 function askLogout() {
-  openInfoModal();
+  showLogoutModal.value = true;
 }
 
-function openInfoModal() {
-  showInfoModal.value = true;
-}
-
-async function logout() {
-  alert("logout");
-  await authStore.logout().then(() => {
-    closeInfoModal();
-  });
-}
-
-function closeInfoModal() {
-  showInfoModal.value = false;
+async function onConfirmLogout() {
+  // Close the modal, wait DOM update, then emit logout without timers
+  showLogoutModal.value = false;
+  await nextTick();
+  emit('logout');
 }
 
 function openAddFriendModal() {

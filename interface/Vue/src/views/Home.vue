@@ -3,6 +3,7 @@
     ref="HomeLayoutChild"
     :sidebarExpended="sidebarExpended"
     @updateSideBarExpended="updateSideBarExpended"
+    @logout="logout"
   >
     <template #sidebar>
       <HomeSideBar
@@ -39,22 +40,39 @@
 </template>
 
 <script setup lang="ts">
-import { ref, defineAsyncComponent, computed } from "vue";
+import { ref, computed, defineAsyncComponent, onBeforeUnmount } from "vue";
 import type { Conversation } from "@components/home/chatZone/SideBarConversations.vue";
 import type { Room } from "@components/home/layout/HomeSideBar.vue";
 import type { Bubble } from "@components/home/chat/view/ChatBubble.vue";
-import HomeLayout from "@components/layouts/home/HomeLayout.vue";
+import { useAuthStore } from "@/stores/AuthStore";
 
-const HomeSideBar = defineAsyncComponent(
-  () => import("../components/home/layout/HomeSideBar.vue")
-);
-const ChatZone = defineAsyncComponent(
-  () => import("../components/home/layout/HomeChatZone.vue")
-);
-const UpperChatZone = defineAsyncComponent(
-  () => import("../components/home/layout/HomeUpperChatZone.vue")
-);
+const HomeLayout = defineAsyncComponent({
+  loader: () => import("@components/layouts/home/HomeLayout.vue"),
+  delay: 200,
+  timeout: 20000,
+  suspensible: true,
+});
+const HomeSideBar = defineAsyncComponent({
+  loader: () => import("@components/home/layout/HomeSideBar.vue"),
+  delay: 200,
+  timeout: 20000,
+  suspensible: true,
+});
+const ChatZone = defineAsyncComponent({
+  loader: () => import("@components/home/layout/HomeChatZone.vue"),
+  delay: 200,
+  timeout: 20000,
+  suspensible: true,
+});
+const UpperChatZone = defineAsyncComponent({
+  loader: () => import("@components/home/layout/HomeUpperChatZone.vue"),
+  delay: 200,
+  timeout: 20000,
+  suspensible: true,
+});
 
+const authStore = useAuthStore();
+const HomeLayoutChild = ref();
 const sidebarHovered = ref(false);
 const sidebarExpended = ref(true);
 const searchQuery = ref("");
@@ -306,11 +324,9 @@ const mockConversations: Conversation[] = [
   // Ajoute d'autres mocks si besoin
 ];
 
-const HomeLayoutChild = ref();
 function askLogout() {
   HomeLayoutChild.value.askLogout();
 }
-
 function openAddFriendModal() {
   HomeLayoutChild.value.openAddFriendModal();
 }
@@ -319,17 +335,33 @@ function openCreateRoomModal() {
   HomeLayoutChild.value.openCreateRoomModal();
 }
 
+async function logout() {
+  await authStore.logout();
+}
+
 function updateSideBarHover(value: boolean) {
-  setTimeout(() => {
+  if (hoverTimeoutId) clearTimeout(hoverTimeoutId);
+  hoverTimeoutId = window.setTimeout(() => {
     sidebarHovered.value = value;
   }, 150);
 }
 
 function updateSideBarExpended(value: boolean) {
-  setTimeout(() => {
+  if (expendedTimeoutId) clearTimeout(expendedTimeoutId);
+  expendedTimeoutId = window.setTimeout(() => {
     sidebarExpended.value = value;
   }, 150);
 }
+
+// Track pending timeouts to avoid updates after unmount
+let hoverTimeoutId: number | undefined;
+let expendedTimeoutId: number | undefined;
+
+// Cleanup on component destroy
+onBeforeUnmount(() => {
+  if (hoverTimeoutId) clearTimeout(hoverTimeoutId);
+  if (expendedTimeoutId) clearTimeout(expendedTimeoutId);
+});
 </script>
 
 <style scoped>

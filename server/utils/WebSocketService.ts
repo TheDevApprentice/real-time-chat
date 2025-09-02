@@ -2,45 +2,35 @@ import { Server as HttpServer } from "http";
 import { Server as SocketServer, Socket } from "socket.io";
 import { Message } from "../models/Message";
 import { UserSession } from "../models/UserSession";
-import { User } from "../models/User";
 import { DatabaseService } from "./DatabaseService";
 import { Logger } from "./Logger";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
-
-// Protection brute-force login (en mémoire)
-const loginAttemptsByIP = new Map<
-  string,
-  { count: number; lastAttempt: number; blockedUntil?: number }
->();
-const loginAttemptsByUsername = new Map<
-  string,
-  { count: number; lastAttempt: number; blockedUntil?: number }
->();
-
-const MAX_ATTEMPTS = 5;
-const BLOCK_DURATION = 15 * 60 * 1000; // 15 minutes
-
-function isBlocked(attempt: {
-  count: number;
-  lastAttempt: number;
-  blockedUntil?: number;
-}) {
-  return attempt.blockedUntil && attempt.blockedUntil > Date.now();
-}
+import { bruteForceGuard } from "./BruteForceGuard";
+import { 
+  WsAuthenticateSchema,
+  WsLoginSchema,
+  WsRefreshTokenSchema,
+  WsCreateRoomSchema,
+  WsJoinRoomSchema,
+  WsSendMessageSchema,
+  parseOrThrow,
+} from "./validation";
 
 export class WebSocketService {
   private io: SocketServer;
+  // Simple per-socket rate limiter storage
+  private socketRates: Map<string, Record<string, { count: number; windowStart: number }>> = new Map();
 
   constructor(httpServer: HttpServer) {
     this.io = new SocketServer(httpServer, {
-      cors: { origin: "*" },
+      cors: { origin: process.env.FRONTEND_URL, credentials: true },
     });
     this.handleConnections();
   }
 
   private handleConnections(): void {
-    require("@dotenvx/dotenvx").config();
+
     const sqliteFile = process.env.SQLITE_FILE;
     if (!sqliteFile) {
       throw new Error("SQLITE_FILE environment variable is not defined");
@@ -48,8 +38,46 @@ export class WebSocketService {
     const dbService = DatabaseService.getInstance(sqliteFile);
 
     this.io.on("connection", async (socket: Socket) => {
-      // --- SESSION RESTORE VIA TOKEN ---
-      const token = socket.handshake.auth?.token;
+      // helper: rate limit check
+      const allow = (key: string, limit: number, windowMs: number): boolean => {
+        const id = socket.id;
+        const rec = this.socketRates.get(id) || {};
+        const now = Date.now();
+        const item = rec[key] || { count: 0, windowStart: now };
+        if (now - item.windowStart > windowMs) {
+          item.count = 0;
+          item.windowStart = now;
+        }
+        item.count += 1;
+        rec[key] = item;
+        this.socketRates.set(id, rec);
+        return item.count <= limit;
+      };
+
+      const sanitizeText = (input: string): string => {
+        const trimmed = (input ?? "").toString().trim();
+        const limited = trimmed.slice(0, 2000);
+        // escape minimal HTML entities to prevent injection in clients that might render dangerously
+        return limited
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      };
+      // --- SESSION RESTORE VIA TOKEN OR COOKIE ---
+      let token = socket.handshake.auth?.token as string | undefined;
+      if (!token) {
+        const cookieHeader = (socket.handshake.headers as any)["cookie"] as string | undefined;
+        if (cookieHeader) {
+          // Prefer hardened __Host-session cookie name
+          let m = cookieHeader.match(/(?:^|; )__Host-session=([^;]+)/);
+          if (!m) {
+            // Dev fallback for legacy cookie name
+            m = cookieHeader.match(/(?:^|; )session_token=([^;]+)/);
+          }
+
+          if (m) token = decodeURIComponent(m[1]);
+        }
+      }
       if (token) {
         try {
           const session = await dbService.getUserSessionByToken(token);
@@ -65,12 +93,18 @@ export class WebSocketService {
           );
         }
       }
-      Logger.info(`Client connected: ${socket.id}`);
+      // Logger.info(`Client connected: ${socket.id}`);
+      socket.on("disconnect", () => {
+        this.socketRates.delete(socket.id);
+      });
 
       // AUTH: Authenticate via token (auto-login)
       socket.on("authenticate", async (data, callback) => {
         try {
-          const { token } = data;
+          const { token } = parseOrThrow(WsAuthenticateSchema, data);
+          if (!allow("auth:authenticate", 20, 60_000)) {
+            return callback && callback({ success: false, error: "Rate limit exceeded." });
+          }
           if (!token)
             return (
               callback &&
@@ -88,7 +122,7 @@ export class WebSocketService {
           callback &&
             callback({
               success: true,
-              id: session.user.id,
+              // id: session.user.id,
               name: session.user.name,
             });
         } catch (err) {
@@ -96,57 +130,34 @@ export class WebSocketService {
         }
       });
 
-      // AUTH: Register
-      socket.on("register", async (data, callback) => {
-        const { username, password, confirmPassword } = data;
-        Logger.info(`Register attempt: ${username}`);
-        Logger.info(`Register attempt: ${password}`);
-        Logger.info(`Register attempt: ${confirmPassword}`);
-        if (!username || !password || !confirmPassword) {
-          return callback && callback({ error: "All fields are required." });
-        }
-        if (password !== confirmPassword) {
-          return callback && callback({ error: "Passwords do not match." });
-        }
-        try {
-          const users = await dbService.getUsers();
-          if (users.find((u) => u.name === username)) {
-            return callback && callback({ error: "Username already exists." });
-          }
-          const hashed = await bcrypt.hash(password, 10);
-          Logger.info(`Hashed password: ${hashed}`);
-          const newUser = new User(randomUUID(), username, hashed);
-          Logger.infoObj("newUser: ", newUser.toJSON().name);
-          await dbService.addUser(newUser);
-
-          // --- SESSION CREATION ---
-          // const sessionToken = randomUUID();
-          // const session = new UserSession(randomUUID(), newUser.id, sessionToken, Date.now(), undefined, newUser);
-          // await dbService.addUserSession(session);
-
-          callback &&
-            callback({ id: newUser.id, name: newUser.name, token: "" });
-        } catch (err) {
-          callback && callback({ error: "Registration failed." });
-        }
-      });
-
       // AUTH: Login
       socket.on("login", async (data, callback) => {
-        const { username, password } = data;
-        if (!username || !password) {
-          return (
-            callback && callback({ error: "Username and password required." })
-          );
+        if (!allow("auth:login", 10, 60_000)) {
+          return callback && callback({ error: "Rate limit exceeded." });
         }
+        const { username, password } = parseOrThrow(WsLoginSchema, data);
         try {
+          // --- BRUTE FORCE PROTECTION (IP + username) via BruteForceGuard ---
+          const trustProxyEnv = process.env.TRUST_PROXY;
+          const trustProxy = trustProxyEnv === "true" || (!!trustProxyEnv && trustProxyEnv !== "false");
+          const xff = (socket.handshake.headers as any)["x-forwarded-for"] as string | undefined;
+          const ip = trustProxy && xff ? xff.split(",")[0].trim() : (socket.handshake.address || "unknown");
+          if (bruteForceGuard.isBlockedIP(ip)) {
+            return callback && callback({ error: "Too many login attempts from this IP. Try again later." });
+          }
+          if (bruteForceGuard.isBlockedKey(username)) {
+            return callback && callback({ error: "Too many login attempts for this user. Try again later." });
+          }
+
           const users = await dbService.getUsers();
           const user = users.find((u) => u.name === username);
           if (!user) {
+            bruteForceGuard.onFailure(ip, username);
             return callback && callback({ error: "Invalid credentials." });
           }
           const valid = await bcrypt.compare(password, user.password);
           if (!valid) {
+            bruteForceGuard.onFailure(ip, username);
             return callback && callback({ error: "Invalid credentials." });
           }
           // Stocker l'ID utilisateur sur le socket
@@ -169,6 +180,9 @@ export class WebSocketService {
           );
           await dbService.addUserSession(session);
 
+          // Succès : reset compteurs via guard
+          bruteForceGuard.onSuccess(ip, username);
+
           callback &&
             callback({
               id: user.id,
@@ -183,38 +197,25 @@ export class WebSocketService {
       });
 
       // Envoyer la liste des rooms à la connexion
-      dbService
-        .getRooms()
-        .then((rooms) => {
-          socket.emit(
-            "rooms",
-            rooms.map((r) => r.toJSON())
-          );
-        })
-        .catch((err: Error) => Logger.error(err.toString()));
+      // dbService
+      //   .getRooms()
+      //   .then((rooms) => {
+      //     socket.emit(
+      //       "rooms",
+      //       rooms.map((r) => r.toJSON())
+      //     );
+      //   })
+      //   .catch((err: Error) => Logger.error(err.toString()));
 
       // --- REFRESH TOKEN EVENT ---
       socket.on("refreshToken", async (data, callback) => {
-        const { refreshToken } = data;
-        if (!refreshToken) {
-          return callback && callback({ error: "refreshToken is required." });
+        if (!allow("auth:refresh", 20, 60_000)) {
+          return callback && callback({ error: "Rate limit exceeded." });
         }
+        const { refreshToken } = parseOrThrow(WsRefreshTokenSchema, data);
         try {
-          // Recherche la session avec ce refreshToken
-          let session = null;
-          const users = await dbService.getUsers();
-          for (const user of users) {
-            const userSessions = await dbService.getUserSessionsByUserId(
-              user.id
-            );
-            for (const s of userSessions) {
-              if (s.refreshToken === refreshToken) {
-                session = s;
-                break;
-              }
-            }
-            if (session) break;
-          }
+          // Recherche la session avec ce refreshToken (requête directe optimisée)
+          const session = await dbService.getUserSessionByRefreshToken(refreshToken);
           if (!session) {
             return callback && callback({ error: "Invalid refresh token." });
           }
@@ -231,12 +232,13 @@ export class WebSocketService {
           const newToken = randomUUID();
           const newRefreshToken = randomUUID();
           const newRefreshTokenExpiresAt = Date.now() + 3 * 24 * 60 * 60 * 1000;
+          const newExpiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 jours, aligné sur REST/cookie
           const newSession = new UserSession(
             randomUUID(),
             session.userId,
             newToken,
             Date.now(),
-            undefined,
+            newExpiresAt,
             newRefreshToken,
             newRefreshTokenExpiresAt,
             session.user
@@ -258,6 +260,9 @@ export class WebSocketService {
       // Création d'une room
       socket.on("createRoom", async (data) => {
         try {
+          if (!allow("chat:createRoom", 10, 60_000)) {
+            return socket.emit("error", { error: "Rate limit exceeded." });
+          }
           // Vérifier que l'utilisateur est connecté
           if (!socket.data.userId) {
             socket.emit("error", {
@@ -265,8 +270,8 @@ export class WebSocketService {
             });
             return;
           }
-          const { name, creatorId } = data;
-          if (!name || !creatorId) return;
+          const { name } = parseOrThrow(WsCreateRoomSchema, data);
+          const creatorId = socket.data.userId;
           // Vérifier que creatorId correspond à l'utilisateur connecté
           if (creatorId !== socket.data.userId) {
             socket.emit("error", {
@@ -309,8 +314,11 @@ export class WebSocketService {
       });
 
       // Rejoindre une room (Socket.IO join)
-      socket.on("joinRoom", async ({ roomId }) => {
+      socket.on("joinRoom", async (payload) => {
         try {
+          if (!allow("chat:joinRoom", 20, 60_000)) {
+            return socket.emit("error", { error: "Rate limit exceeded." });
+          }
           // Vérifier que l'utilisateur est connecté
           if (!socket.data.userId) {
             socket.emit("error", {
@@ -318,6 +326,7 @@ export class WebSocketService {
             });
             return;
           }
+          const { roomId } = parseOrThrow(WsJoinRoomSchema, payload);
           const userId = socket.data.userId;
           if (!roomId || !userId) {
             socket.emit("error", {
@@ -352,6 +361,9 @@ export class WebSocketService {
       // Envoyer un message dans une room
       socket.on("sendMessageToRoom", async (data) => {
         try {
+          if (!allow("chat:sendMessage", 60, 10_000)) {
+            return socket.emit("error", { error: "Rate limit exceeded." });
+          }
           // Vérifier que l'utilisateur est connecté
           if (!socket.data.userId) {
             socket.emit("error", {
@@ -359,7 +371,7 @@ export class WebSocketService {
             });
             return;
           }
-          const { roomId, content, timestamp } = data;
+          const { roomId, content, timestamp } = parseOrThrow(WsSendMessageSchema, data);
           const userId = socket.data.userId;
           if (!roomId || !userId || !content) {
             socket.emit("error", {
@@ -373,7 +385,8 @@ export class WebSocketService {
             socket.emit("error", { error: "User not found." });
             return;
           }
-          const msgObj = new Message(user, content, timestamp);
+          const safeContent = sanitizeText(content);
+          const msgObj = new Message(user, safeContent, timestamp);
           await dbService.addMessageToRoom(msgObj, roomId);
           // Broadcast à la room uniquement
           this.io
@@ -387,11 +400,14 @@ export class WebSocketService {
       // Dans handleConnections()
       socket.on("logout", async (data, callback) => {
         try {
+          // Logger.infoObj('Logout data: ', data.token);
           // Récupérer le token depuis les cookies du header handshake
-          const cookieHeader = socket.handshake.headers.cookie;
+          // const cookieHeader = socket.handshake.headers.cookie;
+          // Logger.infoObj('Logout cookieHeader: ', data.token);
           let token: string | undefined;
-          if (cookieHeader) {
-            const match = cookieHeader.match(/token=([^;]+)/);
+          if (data.token) {
+            const match = data.token.match(/([^;]+)/);
+            // Logger.infoObj('Logout match: ', match);
             if (match) token = match[1];
           }
           if (!token) {
@@ -400,6 +416,7 @@ export class WebSocketService {
               callback({ success: false, error: "No token provided." })
             );
           }
+          // Logger.infoObj('Logout token: ', token);
           await dbService.deleteUserSession(token);
           socket.data.userId = undefined;
           socket.data.user = undefined;

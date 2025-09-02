@@ -3,9 +3,8 @@
 // ===== SOCKET.IO-CLIENT SERVICE POUR TOUTE L'APP =====
 import { io, Socket } from 'socket.io-client';
 
-
 const WS_URL = import.meta.env.VITE_WEBSOCKET_URL as string;
-const RECONNECT_INTERVAL = Number(import.meta.env.VITE_WEBSOCKET_RECONNECT_INTERVAL) || 5000;
+const RECONNECT_INTERVAL = Number(import.meta.env.VITE_WEBSOCKET_RECONNECT_INTERVAL);
 const DEBUG = import.meta.env.VITE_ENABLE_DEBUG_MODE === 'true';
 
 class SocketService {
