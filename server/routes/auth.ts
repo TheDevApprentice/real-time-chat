@@ -54,14 +54,26 @@ router.post(
       const db = DatabaseService.getInstance(dbFile);
       const session = await db.getUserSessionByToken(token);
       if (!session) return res.status(401).json({ error: "Invalid token." });
-      // Set secure HttpOnly cookie
-      res.cookie("session_token", token, {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
-        path: "/",
-      });
+      // Set HttpOnly cookie: use hardened __Host-session only in production (requires Secure),
+      // and legacy session_token in development (HTTP) for browser compatibility.
+      const isProd = process.env.NODE_ENV === "production";
+      if (isProd) {
+        res.cookie("__Host-session", token, {
+          httpOnly: true,
+          sameSite: "lax",
+          secure: true,
+          maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+          path: "/",
+        });
+      } else {
+        res.cookie("session_token", token, {
+          httpOnly: true,
+          sameSite: "lax",
+          secure: false,
+          maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+          path: "/",
+        });
+      }
       return res.json({ success: true });
     } catch (err) {
       return res.status(500).json({ error: "Failed to set session cookie." });
@@ -122,14 +134,25 @@ router.post("/refresh-token", rateLimit("auth:refresh", 60), async (req, res) =>
       session.user
     );
     await db.addUserSession(newSession);
-    // Placer le nouveau token dans un cookie sécurisé HTTP-only
-    res.cookie("session_token", newToken, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 jours
-      path: "/",
-    });
+    // Placer le nouveau token dans un cookie HTTP-only
+    const isProd = process.env.NODE_ENV === "production";
+    if (isProd) {
+      res.cookie("__Host-session", newToken, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: true,
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 jours
+        path: "/",
+      });
+    } else {
+      res.cookie("session_token", newToken, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: false,
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 jours
+        path: "/",
+      });
+    }
     res.json({
       id: session.userId,
       name: session.user?.name,

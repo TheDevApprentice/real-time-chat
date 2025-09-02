@@ -80,12 +80,23 @@ router.delete(
       }
       await db.deleteUserSession(req.params.token);
       // If the deleted session corresponds to the current cookie, clear it to avoid stale cookies
-      const currentToken = (req as any).cookies?.["session_token"];
-      if (currentToken && currentToken === req.params.token) {
+      const cookies = (req as any).cookies || {};
+      const legacyToken = cookies["session_token"];
+      const hostToken = cookies["__Host-session"];
+      const isProd = process.env.NODE_ENV === "production";
+      if (legacyToken && legacyToken === req.params.token) {
         res.clearCookie("session_token", {
           httpOnly: true,
           sameSite: "lax",
-          secure: process.env.NODE_ENV === "production",
+          secure: isProd,
+          path: "/",
+        });
+      }
+      if (hostToken && hostToken === req.params.token) {
+        res.clearCookie("__Host-session", {
+          httpOnly: true,
+          sameSite: "lax",
+          secure: isProd,
           path: "/",
         });
       }
@@ -109,10 +120,17 @@ router.delete(
       if (!req.user)
         return res.status(401).json({ error: "Not authenticated." });
       await db.deleteAllUserSessionsByUserId(req.user.id);
+      const isProd = process.env.NODE_ENV === "production";
       res.clearCookie("session_token", {
         httpOnly: true,
         sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
+        secure: isProd,
+        path: "/",
+      });
+      res.clearCookie("__Host-session", {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: isProd,
         path: "/",
       });
       res.json({ success: true });

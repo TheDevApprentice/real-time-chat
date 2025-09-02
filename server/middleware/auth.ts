@@ -8,11 +8,11 @@ export interface AuthenticatedRequest extends Request {
 
 export async function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
-    // Support both cookie names to match frontend store
-    const token = req.cookies?.session_token || req.cookies?.sessionToken;
-    if (!token) {
-      return res.status(401).json({ error: 'Missing session token.' });
-    }
+    // Prefer hardened cookie, fallback to legacy names for backward compatibility (useful in dev over HTTP)
+    let token = req.cookies?.['__Host-session'] as string | undefined;
+    if (!token) token = req.cookies?.['session_token'] as string | undefined;
+    if (!token) token = req.cookies?.['sessionToken'] as string | undefined;
+    if (!token) return res.status(401).json({ error: 'Missing session token.' });
     const db = DatabaseService.getInstance(process.env.SQLITE_FILE || '');
     const session = await db.getUserSessionByToken(token);
     if (!session || !session.user) {

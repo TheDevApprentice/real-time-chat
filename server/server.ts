@@ -66,7 +66,22 @@ class AppServer {
     this.app.use(cookieParser());
     // Security headers
     this.app.use(helmet({
-      contentSecurityPolicy: false,           // add tailored CSP later (Vite + Socket.IO)
+      // Enable a CSP compatible with our static HTML and Socket.IO
+      contentSecurityPolicy: {
+        useDefaults: true,
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          // Inline style attributes exist in our HTML; allow them conservatively
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:'],
+          // Allow API/WebSocket connections to self and configured frontend (dev)
+          connectSrc: ["'self'", (process.env.FRONTEND_URL || "'self'"), 'ws:', 'wss:'],
+          objectSrc: ["'none'"],
+          baseUri: ["'self'"],
+          frameAncestors: ["'none'"],
+        },
+      },
       crossOriginEmbedderPolicy: false,       // can conflict with sockets/wasm
       hsts: process.env.NODE_ENV === 'production' ? undefined : false, // keep HSTS only in prod over HTTPS
     }));

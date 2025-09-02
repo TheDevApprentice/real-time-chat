@@ -68,7 +68,13 @@ export class WebSocketService {
       if (!token) {
         const cookieHeader = (socket.handshake.headers as any)["cookie"] as string | undefined;
         if (cookieHeader) {
-          const m = cookieHeader.match(/(?:^|; )session_token=([^;]+)/);
+          // Prefer hardened __Host-session cookie name
+          let m = cookieHeader.match(/(?:^|; )__Host-session=([^;]+)/);
+          if (!m) {
+            // Dev fallback for legacy cookie name
+            m = cookieHeader.match(/(?:^|; )session_token=([^;]+)/);
+          }
+
           if (m) token = decodeURIComponent(m[1]);
         }
       }
