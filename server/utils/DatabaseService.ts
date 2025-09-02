@@ -73,6 +73,8 @@ export class DatabaseService {
       // Migration : ajoute les colonnes si elles n'existent pas
       this.db.run(`ALTER TABLE user_sessions ADD COLUMN refreshToken TEXT`, () => {});
       this.db.run(`ALTER TABLE user_sessions ADD COLUMN refreshTokenExpiresAt INTEGER`, () => {});
+      // Index pour accélérer la recherche par refreshToken
+      this.db.run(`CREATE INDEX IF NOT EXISTS idx_user_sessions_refresh ON user_sessions(refreshToken)`);
       Logger.info("Database tables initialized (users, rooms, user_rooms, messages, user_sessions)");
     });
   }
@@ -388,6 +390,37 @@ async getUserSessionsByUserId(userId: string): Promise<UserSession[]> {
           }
           Logger.info(`Suppression session pour token: ${token}`);
           resolve();
+        }
+      );
+    });
+  }
+
+  // Lookup direct par refreshToken
+  async getUserSessionByRefreshToken(refreshToken: string): Promise<UserSession | null> {
+    return new Promise((resolve, reject) => {
+      this.db.get(
+        `SELECT * FROM user_sessions WHERE refreshToken = ?`,
+        [refreshToken],
+        async (
+          err,
+          row: { id: string; userId: string; token: string; createdAt: number; expiresAt?: number; refreshToken?: string; refreshTokenExpiresAt?: number } | undefined
+        ) => {
+          if (err) return reject(err);
+          if (!row) return resolve(null);
+          // Vérifier expiration de la session (optionnel) et de refreshToken sera gérée par appelant
+          const user = await this.getUserById(row.userId);
+          if (!user) return resolve(null);
+          const session = new UserSession(
+            row.id,
+            row.userId,
+            row.token,
+            row.createdAt,
+            row.expiresAt,
+            row.refreshToken,
+            row.refreshTokenExpiresAt,
+            user
+          );
+          resolve(session);
         }
       );
     });

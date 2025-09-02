@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { DatabaseService } from "../utils/DatabaseService";
 import { bruteForceGuard } from "../utils/BruteForceGuard";
 import { authMiddleware, AuthenticatedRequest } from "../middleware/auth";
+import { CreateRoomSchema, JoinRoomParamsSchema, parseOrThrow, ValidationHttpError } from "../utils/validation";
 
 
 const router = Router();
@@ -32,10 +33,7 @@ router.get("/rooms", rateLimit("chat:getRooms", 200), async (req: AuthenticatedR
 // Create a room
 router.post("/rooms", rateLimit("chat:createRoom", 30), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { name } = req.body;
-    if (!name) {
-      return res.status(400).json({ error: "name is required" });
-    }
+    const { name } = parseOrThrow(CreateRoomSchema, req.body);
     const dbFile = process.env.SQLITE_FILE;
     if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
     const db = DatabaseService.getInstance(dbFile);
@@ -45,6 +43,9 @@ router.post("/rooms", rateLimit("chat:createRoom", 30), async (req: Authenticate
     await db.addRoom(room);
     res.status(201).json(room.toJSON());
   } catch (err) {
+    if (err instanceof ValidationHttpError) {
+      return res.status(err.status).json({ error: err.message, details: err.details });
+    }
     res.status(500).json({ error: (err as Error).message });
   }
 });
@@ -52,10 +53,7 @@ router.post("/rooms", rateLimit("chat:createRoom", 30), async (req: Authenticate
 // Join a room
 router.post("/rooms/:roomId/join", rateLimit("chat:joinRoom", 120), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { roomId } = req.params;
-    if (!roomId) {
-      return res.status(400).json({ error: "roomId is required" });
-    }
+    const { roomId } = parseOrThrow(JoinRoomParamsSchema, req.params);
     const dbFile = process.env.SQLITE_FILE;
     if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
     const db = DatabaseService.getInstance(dbFile);
@@ -63,6 +61,9 @@ router.post("/rooms/:roomId/join", rateLimit("chat:joinRoom", 120), async (req: 
     await db.addUserToRoom(userId, roomId);
     res.status(200).json({ success: true });
   } catch (err) {
+    if (err instanceof ValidationHttpError) {
+      return res.status(err.status).json({ error: err.message, details: err.details });
+    }
     res.status(500).json({ error: (err as Error).message });
   }
 });

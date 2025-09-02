@@ -22,7 +22,8 @@
     "helmet": "^8.1.0",
     "mongoose": "^8.17.0",
     "socket.io": "^4.8.1",
-    "sqlite3": "^5.1.7"
+    "sqlite3": "^5.1.7",
+    "zod": "^4.1.5"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.9",
