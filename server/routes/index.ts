@@ -1,15 +1,13 @@
-import { Router } from 'express';
+import { Router } from "express";
+import chatRouter from "./chat";
+import userRouter from "./user";
+import authRouter from "./auth";
 
 const router = Router();
 
-import chatRouter from './chat';
-import userRouter from './user';
-
 // Controllers/routes
-router.use('/', chatRouter);
-router.use('/user', userRouter);
-// Note: chat routes now available at /api
-
-// TODO: Import and mount more controllers here
+router.use("/", chatRouter);
+router.use("/user", userRouter);
+router.use("/auth", authRouter);
 
 export default router;

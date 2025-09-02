@@ -8,7 +8,8 @@ export interface AuthenticatedRequest extends Request {
 
 export async function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
-    const token = req.cookies?.session_token;
+    // Support both cookie names to match frontend store
+    const token = req.cookies?.session_token || req.cookies?.sessionToken;
     if (!token) {
       return res.status(401).json({ error: 'Missing session token.' });
     }
