@@ -1,10 +1,34 @@
 import "./style.css";
-
-import { createApp } from 'vue'
+import { createApp, nextTick } from 'vue'
 import App from './App.vue'
 import { createPinia } from 'pinia'
+import { useAuthStore } from './stores/AuthStore'
 import router from './router/index'
+
 const app = createApp(App)
-app.use(createPinia())
+const pinia = createPinia()
+app.use(pinia)
 app.use(router)
+
+// Global watcher reacting to auth changes immediately
+const authStore = useAuthStore()
+authStore.$subscribe(
+  async (_mutation, state: any) => {
+    const isAuth = state.isAuthenticated as boolean
+    const current = router.currentRoute.value?.name as string | undefined
+    if (isAuth && current !== 'Home') {
+      await nextTick();
+      setTimeout(() => {
+        router.replace({ name: 'Home' })
+      }, 150);
+    } else if (!isAuth && current !== 'Login') {
+      await nextTick();
+      setTimeout(() => {
+        router.replace({ name: 'Login' })
+      }, 150);
+    }
+  },
+  { detached: true }
+)
+
 app.mount('#app')

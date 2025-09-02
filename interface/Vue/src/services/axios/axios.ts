@@ -6,6 +6,7 @@ import axios, {
     type InternalAxiosRequestConfig,
   } from "axios";
   import type { ApiError, ApiResponse, RequestConfig } from "./types";
+  import { getCookie } from '@/utils/cookieHelper';
   
   // ===== CONFIGURATION =====
   const API_CONFIG = {
@@ -15,14 +16,6 @@ import axios, {
     retryDelay: 1000,
   } as const;
 
-  // Utilitaire pour lire un cookie
-  function getCookie(name: string) {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts?.pop()?.split(';').shift();
-    return null;
-  }
-  
   // ===== CLASSE API SERVICE =====
   class AxiosService {
     private instance: AxiosInstance;
@@ -75,7 +68,7 @@ import axios, {
       }
 
       // Ajout du header CSRF pour les requêtes mutatives
-      const csrfToken = getCookie('XSRF-TOKEN');
+      const csrfToken = getCookie('X-XSRF-TOKEN');
       if (
         csrfToken &&
         ['post', 'put', 'patch', 'delete'].includes(config.method?.toLowerCase() || '')

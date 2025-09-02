@@ -161,8 +161,6 @@ export default defineConfig(({ mode }) => ({
         chunkFileNames: "assets/js/[name]-[hash].js",
         entryFileNames: "assets/js/[name]-[hash].js",
         assetFileNames: "assets/[ext]/[name]-[hash].[ext]",
-        // preloading critical assets
-        // plugins: [require('rollup-plugin-preload')()],
       },
     },
     brotliSize: true,
@@ -182,11 +180,6 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: true,
     },
-    // headers: {
-    //   'X-Frame-Options': 'DENY',
-    //   'X-Content-Type-Options': 'nosniff',
-    //   'Referrer-Policy': 'no-referrer',
-    // },
   },
   preview: {
     port: 4173,
@@ -198,9 +191,5 @@ export default defineConfig(({ mode }) => ({
       less: {},
     },
     devSourcemap: true,
-  },
-  // optimizeDeps: {
-  //   include: [],
-  //   exclude: [],
-  // },
+  }
 }));

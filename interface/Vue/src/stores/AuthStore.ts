@@ -1,23 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { socketService } from '@/services/websocket/websocket';
-
-function setCookie(name: string, value: string, days = 7) {
-  let expires = '';
-  if (days) {
-    const date = new Date();
-    date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
-    expires = '; expires=' + date.toUTCString();
-  }
-  document.cookie = name + '=' + (value || '') + expires + '; path=/; SameSite=Lax';
-}
-function eraseCookie(name: string) {
-  document.cookie = name + '=; Max-Age=-99999999; path=/;';
-}
-function getCookie(name: string): string | null {
-  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-  return match ? match[2] : null;
-}
+import { axiosService } from '@/services/axios/axios';
 
 export const useAuthStore = defineStore('auth', () => {
   // --- State ---
@@ -30,32 +14,39 @@ export const useAuthStore = defineStore('auth', () => {
 
   // --- Auth via socket.io-client ---
 
-  function tryAutoAuth() {
-    const token = getCookie('sessionToken');
-    if (!token) return false;
+  async function tryAutoAuth(): Promise<boolean> {
     loading.value = true;
-    socketService.connect();
-    socketService.emit('authenticate', { token }, (res: any) => {
-      if (res && res.success) {
-        isAuthenticated.value = true;
-        user.value = res.name;
-        error.value = null;
-      } else {
+    error.value = null;
+    try {
+      // Cookie-first: backend will read HttpOnly cookie and return the user
+      const res = await axiosService.get<{ id: string; name: string }>("/auth/me");
+      if (!res.success) {
         isAuthenticated.value = false;
         user.value = null;
-        error.value = res?.error || 'Session invalide';
-        eraseCookie('sessionToken');
+        loading.value = false;
+        return false;
       }
+      isAuthenticated.value = true;
+      user.value = res.data.name;
+      // Connect socket; server will restore session from cookie
+      socketService.connect();
       loading.value = false;
-    });
+      return true;
+    } catch (e: any) {
+      isAuthenticated.value = false;
+      user.value = null;
+      error.value = e?.data?.error || e?.message || 'Session invalide';
+      loading.value = false;
+      return false;
+    }
   }
 
-  async function login(username: string, password: string) {
+  async function login(username: string, password: string): Promise<boolean> {
     loading.value = true;
     error.value = null;
     socketService.connect();
     return new Promise<boolean>((resolve) => {
-      socketService.emit('login', { username, password }, (res: any) => {
+      socketService.emit('login', { username, password }, async (res: any) => {
         if (res && res.error) {
           error.value = res.error;
           isAuthenticated.value = false;
@@ -68,42 +59,67 @@ export const useAuthStore = defineStore('auth', () => {
         isAuthenticated.value = true;
         user.value = res.name;
         error.value = null;
-        if (res.token) setCookie('sessionToken', res.token);
-        loading.value = false;
-        resolve(true);
-      });
-    });
-  }
-
-  async function register(username: string, password: string, confirm: string) {
-    loading.value = true;
-    error.value = null;
-    socketService.connect();
-    return new Promise<boolean>((resolve) => {
-      socketService.emit('register', { username, password, confirmPassword: confirm }, (res: any) => {
-        if (res && res.error) {
-          error.value = res.error;
-          loading.value = false;
-          resolve(false);
-          return;
+        // Demander au serveur de placer un cookie HttpOnly sécurisé
+        if (res.token) {
+          try {
+            await axiosService.post('/auth/session-cookie', { token: res.token });
+          } catch (e) {
+            console.warn('Failed to set HttpOnly cookie from server:', e);
+          }
         }
-        // Succès inscription, invite à se connecter
-        error.value = 'Compte créé avec succès ! Connectez-vous.';
         loading.value = false;
         resolve(true);
       });
     });
   }
 
-  async function logout() {
+  async function register(username: string, password: string, confirm: string): Promise<boolean> {
     loading.value = true;
     error.value = null;
-    socketService.emit('logout', {}, (res: any) => {
+    try {
+      // REST: POST /api/auth/register (base URL comes from VITE_API_BASE_URL)
+      const res = await axiosService.post<{ id: string; name: string }>(
+        '/auth/register',
+        { username, password, confirmPassword: confirm }
+      );
+      if (!res.success) {
+        error.value = (res.data as any)?.error || 'Inscription échouée.';
+        loading.value = false;
+        return false;
+      }
+      // Succès inscription, invite à se connecter
+      error.value = 'Compte créé avec succès ! Connectez-vous.';
+      loading.value = false;
+      return true;
+    } catch (e: any) {
+      // e is formatted by axiosService.formatError when available
+      error.value = e?.data?.error || e?.message || 'Inscription échouée.';
+      loading.value = false;
+      return false;
+    }
+  }
+
+  async function logout(): Promise<boolean> {
+    loading.value = true;
+    error.value = null;
+    try {
+      // Ask server to revoke all sessions for current user and clear cookie
+      const res = await axiosService.delete<{ success: boolean }>("/user/sessions");
+      if (!res.success) {
+        error.value = (res.data as any)?.error || 'Déconnexion échouée.';
+        loading.value = false;
+        return false;
+      }
+      socketService.disconnect();
       isAuthenticated.value = false;
       user.value = null;
-      eraseCookie('sessionToken');
       loading.value = false;
-    });
+      return true;
+    } catch (e: any) {
+      error.value = e?.data?.error || e?.message || 'Déconnexion échouée.';
+      loading.value = false;
+      return false;
+    }
   }
 
   return {

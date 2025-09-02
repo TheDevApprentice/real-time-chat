@@ -44,15 +44,7 @@ router.beforeEach(async (to, from, next) => {
   // Si le store n'est pas initialisé (ex: SSR), attendre un tick
   await nextTick();
   const { isAuthenticated } = storeToRefs(authStore);
-  // Si sur la racine, rediriger selon l'état d'auth
-  if (to.path === '/') {
-    if (isAuthenticated.value) {
-      next({ name: 'Home' });
-    } else {
-      next({ name: 'Login' });
-    }
-    return;
-  }
+
   // Si la route nécessite l'auth et que l'user n'est pas connecté
   if (to.meta.requiresAuth && !isAuthenticated.value) {
     next({ name: 'Login' });
