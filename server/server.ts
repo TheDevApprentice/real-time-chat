@@ -20,9 +20,18 @@ class AppServer {
   constructor() {
     this.app = express();
     this.server = http.createServer(this.app);
-    // Trust reverse proxy (needed for correct req.ip and X-Forwarded-For)
+    // Trust reverse proxy conditionally (needed for correct req.ip and X-Forwarded-For)
     // Set this BEFORE registering middleware/routes so rate limiting uses real client IPs
-    this.app.set('trust proxy', true);
+    const trustProxyEnv = process.env.TRUST_PROXY;
+    let trustProxySetting: any = false;
+    if (typeof trustProxyEnv === 'string') {
+      const val = trustProxyEnv.trim().toLowerCase();
+      if (val === 'true') trustProxySetting = 1; // trust first proxy hop
+      else if (val === 'false' || val === '' ) trustProxySetting = false;
+      else if (!isNaN(Number(val))) trustProxySetting = Number(val);
+      else trustProxySetting = val; // e.g., IP subnet string
+    }
+    this.app.set('trust proxy', trustProxySetting);
     Logger.infoObj("Dotenvx config Port", process.env.PORT);
     const portWanted = process.env.PORT;
     if (!portWanted) {

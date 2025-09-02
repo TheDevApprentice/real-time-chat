@@ -6,7 +6,7 @@ import authRouter from "./auth";
 const router = Router();
 
 // Controllers/routes
-router.use("/", chatRouter);
+router.use("/chat", chatRouter);
 router.use("/user", userRouter);
 router.use("/auth", authRouter);
 

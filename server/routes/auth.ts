@@ -125,12 +125,13 @@ router.post("/refresh-token", rateLimit("auth:refresh", 60), async (req, res) =>
     const newToken = randomUUID();
     const newRefreshToken = randomUUID();
     const newRefreshTokenExpiresAt = Date.now() + 3 * 24 * 60 * 60 * 1000;
+    const newExpiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 jours, aligné sur la durée du cookie
     const newSession = new UserSession(
       randomUUID(),
       session.userId,
       newToken,
       Date.now(),
-      undefined,
+      newExpiresAt,
       newRefreshToken,
       newRefreshTokenExpiresAt,
       session.user
@@ -142,6 +143,7 @@ router.post("/refresh-token", rateLimit("auth:refresh", 60), async (req, res) =>
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 jours
+      path: "/",
     });
     res.json({
       id: session.userId,

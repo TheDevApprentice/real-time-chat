@@ -92,8 +92,10 @@ export class WebSocketService {
         }
         try {
           // --- BRUTE FORCE PROTECTION (IP + username) via BruteForceGuard ---
+          const trustProxyEnv = process.env.TRUST_PROXY;
+          const trustProxy = trustProxyEnv === "true" || (!!trustProxyEnv && trustProxyEnv !== "false");
           const xff = (socket.handshake.headers as any)["x-forwarded-for"] as string | undefined;
-          const ip = (xff && xff.split(",")[0].trim()) || socket.handshake.address || "unknown";
+          const ip = trustProxy && xff ? xff.split(",")[0].trim() : (socket.handshake.address || "unknown");
           if (bruteForceGuard.isBlockedIP(ip)) {
             return callback && callback({ error: "Too many login attempts from this IP. Try again later." });
           }
@@ -197,12 +199,13 @@ export class WebSocketService {
           const newToken = randomUUID();
           const newRefreshToken = randomUUID();
           const newRefreshTokenExpiresAt = Date.now() + 3 * 24 * 60 * 60 * 1000;
+          const newExpiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 jours, aligné sur REST/cookie
           const newSession = new UserSession(
             randomUUID(),
             session.userId,
             newToken,
             Date.now(),
-            undefined,
+            newExpiresAt,
             newRefreshToken,
             newRefreshTokenExpiresAt,
             session.user
