@@ -12,11 +12,6 @@ const rateLimit = (
   windowMs = 15 * 60 * 1000
 ) => bruteForceGuard.rateLimit(routeKey, maxReq, windowMs);
 
-// Get welcome
-router.get("/", (req: Request, res: Response) => {
-  res.json({ message: "Welcome to the chat API" });
-});
-
 // Get all rooms
 router.get("/rooms", rateLimit("chat:getRooms", 200), async (req: Request, res: Response) => {
   try {
