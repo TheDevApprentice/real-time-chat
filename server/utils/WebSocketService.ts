@@ -2,39 +2,18 @@ import { Server as HttpServer } from "http";
 import { Server as SocketServer, Socket } from "socket.io";
 import { Message } from "../models/Message";
 import { UserSession } from "../models/UserSession";
-import { User } from "../models/User";
 import { DatabaseService } from "./DatabaseService";
 import { Logger } from "./Logger";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
-
-// Protection brute-force login (en mémoire)
-const loginAttemptsByIP = new Map<
-  string,
-  { count: number; lastAttempt: number; blockedUntil?: number }
->();
-const loginAttemptsByUsername = new Map<
-  string,
-  { count: number; lastAttempt: number; blockedUntil?: number }
->();
-
-const MAX_ATTEMPTS = 5;
-const BLOCK_DURATION = 15 * 60 * 1000; // 15 minutes
-
-function isBlocked(attempt: {
-  count: number;
-  lastAttempt: number;
-  blockedUntil?: number;
-}) {
-  return attempt.blockedUntil && attempt.blockedUntil > Date.now();
-}
+import { bruteForceGuard } from "./BruteForceGuard";
 
 export class WebSocketService {
   private io: SocketServer;
 
   constructor(httpServer: HttpServer) {
     this.io = new SocketServer(httpServer, {
-      cors: { origin: "*" },
+      cors: { origin: process.env.FRONTEND_URL },
     });
     this.handleConnections();
   }
@@ -96,41 +75,6 @@ export class WebSocketService {
         }
       });
 
-      // AUTH: Register
-      socket.on("register", async (data, callback) => {
-        const { username, password, confirmPassword } = data;
-        Logger.info(`Register attempt: ${username}`);
-        Logger.info(`Register attempt: ${password}`);
-        Logger.info(`Register attempt: ${confirmPassword}`);
-        if (!username || !password || !confirmPassword) {
-          return callback && callback({ error: "All fields are required." });
-        }
-        if (password !== confirmPassword) {
-          return callback && callback({ error: "Passwords do not match." });
-        }
-        try {
-          const users = await dbService.getUsers();
-          if (users.find((u) => u.name === username)) {
-            return callback && callback({ error: "Username already exists." });
-          }
-          const hashed = await bcrypt.hash(password, 10);
-          Logger.info(`Hashed password: ${hashed}`);
-          const newUser = new User(randomUUID(), username, hashed);
-          Logger.infoObj("newUser: ", newUser.toJSON().name);
-          await dbService.addUser(newUser);
-
-          // --- SESSION CREATION ---
-          // const sessionToken = randomUUID();
-          // const session = new UserSession(randomUUID(), newUser.id, sessionToken, Date.now(), undefined, newUser);
-          // await dbService.addUserSession(session);
-
-          callback &&
-            callback({ id: newUser.id, name: newUser.name, token: "" });
-        } catch (err) {
-          callback && callback({ error: "Registration failed." });
-        }
-      });
-
       // AUTH: Login
       socket.on("login", async (data, callback) => {
         const { username, password } = data;
@@ -140,13 +84,25 @@ export class WebSocketService {
           );
         }
         try {
+          // --- BRUTE FORCE PROTECTION (IP + username) via BruteForceGuard ---
+          const xff = (socket.handshake.headers as any)["x-forwarded-for"] as string | undefined;
+          const ip = (xff && xff.split(",")[0].trim()) || socket.handshake.address || "unknown";
+          if (bruteForceGuard.isBlockedIP(ip)) {
+            return callback && callback({ error: "Too many login attempts from this IP. Try again later." });
+          }
+          if (bruteForceGuard.isBlockedKey(username)) {
+            return callback && callback({ error: "Too many login attempts for this user. Try again later." });
+          }
+
           const users = await dbService.getUsers();
           const user = users.find((u) => u.name === username);
           if (!user) {
+            bruteForceGuard.onFailure(ip, username);
             return callback && callback({ error: "Invalid credentials." });
           }
           const valid = await bcrypt.compare(password, user.password);
           if (!valid) {
+            bruteForceGuard.onFailure(ip, username);
             return callback && callback({ error: "Invalid credentials." });
           }
           // Stocker l'ID utilisateur sur le socket
@@ -168,6 +124,9 @@ export class WebSocketService {
             user
           );
           await dbService.addUserSession(session);
+
+          // Succès : reset compteurs via guard
+          bruteForceGuard.onSuccess(ip, username);
 
           callback &&
             callback({
