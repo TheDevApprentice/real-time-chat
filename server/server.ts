@@ -8,6 +8,8 @@ import { WebSocketService } from './utils/WebSocketService';
 import { DatabaseService } from './utils/DatabaseService';
 import { Logger } from './utils/Logger';
 
+require("@dotenvx/dotenvx").config();
+
 class AppServer {
   private app: express.Application;
   private server: http.Server;
@@ -16,7 +18,9 @@ class AppServer {
   constructor() {
     this.app = express();
     this.server = http.createServer(this.app);
-    require('@dotenvx/dotenvx').config()
+    // Trust reverse proxy (needed for correct req.ip and X-Forwarded-For)
+    // Set this BEFORE registering middleware/routes so rate limiting uses real client IPs
+    this.app.set('trust proxy', true);
     Logger.infoObj("Dotenvx config Port", process.env.PORT);
     const portWanted = process.env.PORT;
     if (!portWanted) {

@@ -1,14 +1,21 @@
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { User } from "../models/User";
 import { DatabaseService } from "../utils/DatabaseService";
+import { bruteForceGuard } from "../utils/BruteForceGuard";
 
-require("@dotenvx/dotenvx").config();
 const router = Router();
 
+// Use centralized guard-based rate limiter
+const rateLimit = (
+  routeKey: string,
+  maxReq = 50,
+  windowMs = 15 * 60 * 1000
+) => bruteForceGuard.rateLimit(routeKey, maxReq, windowMs);
+
 // Registration endpoint
-router.post("/register", async (req, res) => {
+router.post("/register", rateLimit("auth:register", 20), async (req, res) => {
   const { username, password, confirmPassword } = req.body;
   if (!username || !password || !confirmPassword) {
     return res.status(400).json({ error: "All fields are required." });
@@ -34,7 +41,7 @@ router.post("/register", async (req, res) => {
 });
 
 // --- REFRESH TOKEN ENDPOINT ---
-router.post("/refresh-token", async (req, res) => {
+router.post("/refresh-token", rateLimit("auth:refresh", 60), async (req, res) => {
   const { refreshToken } = req.body;
   if (!refreshToken) {
     return res.status(400).json({ error: "refreshToken is required." });

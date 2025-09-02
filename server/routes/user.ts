@@ -2,18 +2,23 @@ import { AuthenticatedRequest, authMiddleware } from "../middleware/auth";
 import { Router, Request, Response } from "express";
 import { User } from "../models/User";
 import { DatabaseService } from "../utils/DatabaseService";
+import { bruteForceGuard } from "../utils/BruteForceGuard";
 
-require("@dotenvx/dotenvx").config();
-const sqliteFile = process.env.SQLITE_FILE;
-if (!sqliteFile) {
-  throw new Error("SQLITE_FILE environment variable is not defined");
-}
-const db = DatabaseService.getInstance(sqliteFile);
 const router = Router();
 
+// Centralized rate limiter
+const rateLimit = (
+  routeKey: string,
+  maxReq = 50,
+  windowMs = 15 * 60 * 1000
+) => bruteForceGuard.rateLimit(routeKey, maxReq, windowMs);
+
 // Get all users
-router.get("/users", async (req: Request, res: Response) => {
+router.get("/users", rateLimit("user:getUsers", 200), async (req: Request, res: Response) => {
   try {
+    const dbFile = process.env.SQLITE_FILE;
+    if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
+    const db = DatabaseService.getInstance(dbFile);
     const users: User[] = await db.getUsers();
     res.json(users.map((u: User) => u.toJSON()));
   } catch (e) {
@@ -25,6 +30,7 @@ router.get("/users", async (req: Request, res: Response) => {
 router.get(
   "/sessions",
   authMiddleware,
+  rateLimit("user:getSessions", 60),
   async (req: AuthenticatedRequest, res) => {
     try {
       const dbFile = process.env.SQLITE_FILE;
@@ -41,7 +47,7 @@ router.get(
 );
 
 // Récupérer une session par token
-router.get("/sessions/:token", async (req, res) => {
+router.get("/sessions/:token", rateLimit("user:getSessionByToken", 120), async (req, res) => {
   try {
     const dbFile = process.env.SQLITE_FILE;
     if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
@@ -58,6 +64,7 @@ router.get("/sessions/:token", async (req, res) => {
 router.delete(
   "/sessions/:token",
   authMiddleware,
+  rateLimit("user:deleteSession", 30),
   async (req: AuthenticatedRequest, res) => {
     try {
       const dbFile = process.env.SQLITE_FILE;
@@ -83,6 +90,7 @@ router.delete(
 router.delete(
   "/sessions",
   authMiddleware,
+  rateLimit("user:deleteAllSessions", 10),
   async (req: AuthenticatedRequest, res) => {
     try {
       const dbFile = process.env.SQLITE_FILE;

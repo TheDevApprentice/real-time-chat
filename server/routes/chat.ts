@@ -1,13 +1,16 @@
 import { Router, Request, Response } from "express";
 import { DatabaseService } from "../utils/DatabaseService";
+import { bruteForceGuard } from "../utils/BruteForceGuard";
 
-require("@dotenvx/dotenvx").config();
-const sqliteFile = process.env.SQLITE_FILE;
-if (!sqliteFile) {
-  throw new Error("SQLITE_FILE environment variable is not defined");
-}
-const db = DatabaseService.getInstance(sqliteFile);
+
 const router = Router();
+
+// Centralized rate limiter
+const rateLimit = (
+  routeKey: string,
+  maxReq = 50,
+  windowMs = 15 * 60 * 1000
+) => bruteForceGuard.rateLimit(routeKey, maxReq, windowMs);
 
 // Get welcome
 router.get("/", (req: Request, res: Response) => {
@@ -15,8 +18,11 @@ router.get("/", (req: Request, res: Response) => {
 });
 
 // Get all rooms
-router.get("/rooms", async (req: Request, res: Response) => {
+router.get("/rooms", rateLimit("chat:getRooms", 200), async (req: Request, res: Response) => {
   try {
+    const dbFile = process.env.SQLITE_FILE;
+    if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
+    const db = DatabaseService.getInstance(dbFile);
     const rooms = await db.getRooms();
     res.json(rooms.map((r) => r.toJSON()));
   } catch (err) {
@@ -25,12 +31,15 @@ router.get("/rooms", async (req: Request, res: Response) => {
 });
 
 // Create a room
-router.post("/rooms", async (req: Request, res: Response) => {
+router.post("/rooms", rateLimit("chat:createRoom", 30), async (req: Request, res: Response) => {
   try {
     const { name, creatorId } = req.body;
     if (!name || !creatorId) {
       return res.status(400).json({ error: "name and creatorId are required" });
     }
+    const dbFile = process.env.SQLITE_FILE;
+    if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
+    const db = DatabaseService.getInstance(dbFile);
     const Room = (await import("../models/Room")).Room;
     const room = new Room(name, creatorId);
     await db.addRoom(room);
@@ -41,13 +50,16 @@ router.post("/rooms", async (req: Request, res: Response) => {
 });
 
 // Join a room
-router.post("/rooms/:roomId/join", async (req: Request, res: Response) => {
+router.post("/rooms/:roomId/join", rateLimit("chat:joinRoom", 120), async (req: Request, res: Response) => {
   try {
     const { userId } = req.body;
     const { roomId } = req.params;
     if (!userId || !roomId) {
       return res.status(400).json({ error: "userId and roomId are required" });
     }
+    const dbFile = process.env.SQLITE_FILE;
+    if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
+    const db = DatabaseService.getInstance(dbFile);
     await db.addUserToRoom(userId, roomId);
     res.status(200).json({ success: true });
   } catch (err) {
@@ -56,8 +68,11 @@ router.post("/rooms/:roomId/join", async (req: Request, res: Response) => {
 });
 
 // Get messages for a room
-router.get("/rooms/:roomId/messages", async (req: Request, res: Response) => {
+router.get("/rooms/:roomId/messages", rateLimit("chat:getMessages", 200), async (req: Request, res: Response) => {
   try {
+    const dbFile = process.env.SQLITE_FILE;
+    if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
+    const db = DatabaseService.getInstance(dbFile);
     const { roomId } = req.params;
     const messages = await db.getMessagesForRoom(roomId);
     res.json(messages.map((m) => m.toJSON()));
@@ -67,8 +82,11 @@ router.get("/rooms/:roomId/messages", async (req: Request, res: Response) => {
 });
 
 // Get users for a room
-router.get("/rooms/:roomId/users", async (req: Request, res: Response) => {
+router.get("/rooms/:roomId/users", rateLimit("chat:getRoomUsers", 200), async (req: Request, res: Response) => {
   try {
+    const dbFile = process.env.SQLITE_FILE;
+    if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
+    const db = DatabaseService.getInstance(dbFile);
     const { roomId } = req.params;
     const users = await db.getUsersForRoom(roomId);
     res.json(users.map((u) => u.toJSON()));
