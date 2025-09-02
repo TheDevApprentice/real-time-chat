@@ -18,8 +18,6 @@ function isBlocked(attempt: { count: number, lastAttempt: number, blockedUntil?:
   return attempt.blockedUntil && attempt.blockedUntil > Date.now();
 }
 
-
-
 // Registration endpoint
 router.post('/register', async (req, res) => {
   const { username, password, confirmPassword } = req.body;
