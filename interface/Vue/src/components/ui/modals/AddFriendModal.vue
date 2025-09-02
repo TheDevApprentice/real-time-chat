@@ -47,17 +47,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, ref } from "vue";
+import { computed, defineAsyncComponent, ref, onBeforeUnmount } from "vue";
 const Modal = defineAsyncComponent(() => import("@reusable/Modal.vue"));
 const SearchBar = defineAsyncComponent(() => import("@ui/SearchBars/SearchBar.vue"));
 const SearchBarUserCard = defineAsyncComponent(
   () => import("@ui/SearchBars/SearchBarUserCard.vue")
 );
 
-const props = defineProps<{
+defineProps<{
   headerTitle?: string;
 }>();
+
 const emit = defineEmits(["close"]);
+
 const searchQuery = ref("");
 const users = [
   { name: "Bot Hugo", avatar: "🤖" },
@@ -66,6 +68,7 @@ const users = [
   { name: "Bot Frédéric", avatar: "🐺" },
   { name: "Bot Mistery", avatar: "🕵" },
 ];
+
 const filteredUsers = computed(() => {
   if (!searchQuery.value) return [];
   return users.filter((u) =>
@@ -98,7 +101,8 @@ function handleAddFriend(e: { name: string; avatar: string }) {
 
   searchQuery.value = "";
   // Après 1 seconde, simule la validation (ami accepté)
-  setTimeout(() => {
+  if (validateTimeoutId !== null) clearTimeout(validateTimeoutId);
+  validateTimeoutId = window.setTimeout(() => {
     const addedFriend = addedFriends.value.find((f) => f.name === e.name);
     if (addedFriend) {
       addedFriend.pendingInvitation = false;
@@ -108,6 +112,11 @@ function handleAddFriend(e: { name: string; avatar: string }) {
     }
   }, 3000);
 }
+
+let validateTimeoutId: number | null = null;
+onBeforeUnmount(() => {
+  if (validateTimeoutId !== null) clearTimeout(validateTimeoutId);
+});
 
 </script>
 

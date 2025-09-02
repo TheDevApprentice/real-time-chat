@@ -29,7 +29,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick, reactive } from "vue";
+import { ref, onMounted, watch, nextTick, reactive, onBeforeUnmount } from "vue";
 import { defineAsyncComponent } from "vue";
 import type { Bubble } from "@home/chat/view/ChatBubble.vue";
 import type { Conversation } from "@home/chatZone/SideBarConversations.vue";
@@ -40,7 +40,7 @@ const typedChat = ref("");
 const showCursor = ref(false);
 const showChat = ref(false);
 
-watch(typedChat, (val) => {
+const stopCursorWatch = watch(typedChat, (val) => {
   showCursor.value = val.length < chatFull.length;
 });
 
@@ -133,18 +133,27 @@ const mockConversation: Conversation = {
   mostRecent: true,
 };
 
+// Cancellable sleep helper and timeout tracking
+const timeoutIds: number[] = [];
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => {
+    const id = window.setTimeout(() => resolve(), ms);
+    timeoutIds.push(id);
+  });
+}
+
 const typeMessage = async (text: string, bubble: Bubble) => {
   bubble.text = "";
   for (const char of text) {
     bubble.text += char;
     await nextTick();
-    await new Promise((r) => setTimeout(r, 70));
+    await sleep(70);
   }
 };
 
 async function AnimChat() {
   showChat.value = true;
-  await new Promise((res) => setTimeout(res, 200));
+  await sleep(200);
 
   for (let i = 0; i < mockConversation.messages.length; i++) {
     const msg = mockConversation.messages[i];
@@ -160,14 +169,14 @@ async function AnimChat() {
       };
       chatBubbles.push(bubble);
       await nextTick();
-      await new Promise((res) => setTimeout(res, 1000));
+      await sleep(1000);
       bubble.isTyping = false;
       bubble.isWriting = true;
       await nextTick();
       await typeMessage(msg.text, bubble);
       bubble.isWriting = false;
       await nextTick();
-      await new Promise((res) => setTimeout(res, 120));
+      await sleep(120);
       await nextTick();
     } else {
       const bubble: Bubble = {
@@ -186,7 +195,7 @@ async function AnimChat() {
       await typeMessage(msg.text, bubble);
       bubble.isWriting = false;
       await nextTick();
-      await new Promise((res) => setTimeout(res, 120));
+      await sleep(120);
       await nextTick();
     }
   }
@@ -194,7 +203,12 @@ async function AnimChat() {
 
 onMounted(async () => {
   await AnimChat();
-  await new Promise((res) => setTimeout(res, 200));
+  await sleep(200);
+});
+
+onBeforeUnmount(() => {
+  for (const id of timeoutIds) clearTimeout(id);
+  stopCursorWatch();
 });
 </script>
 
