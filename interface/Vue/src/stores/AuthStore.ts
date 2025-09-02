@@ -90,9 +90,9 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true;
     error.value = null;
     try {
-      // REST: POST /api/user/register (base URL comes from VITE_API_BASE_URL)
+      // REST: POST /api/auth/register (base URL comes from VITE_API_BASE_URL)
       const res = await axiosService.post<{ id: string; name: string }>(
-        '/user/register',
+        '/auth/register',
         { username, password, confirmPassword: confirm }
       );
       if (!res.success) {
