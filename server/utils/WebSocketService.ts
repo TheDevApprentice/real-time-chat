@@ -116,7 +116,7 @@ export class WebSocketService {
           callback &&
             callback({
               success: true,
-              id: session.user.id,
+              // id: session.user.id,
               name: session.user.name,
             });
         } catch (err) {
@@ -191,15 +191,15 @@ export class WebSocketService {
       });
 
       // Envoyer la liste des rooms à la connexion
-      dbService
-        .getRooms()
-        .then((rooms) => {
-          socket.emit(
-            "rooms",
-            rooms.map((r) => r.toJSON())
-          );
-        })
-        .catch((err: Error) => Logger.error(err.toString()));
+      // dbService
+      //   .getRooms()
+      //   .then((rooms) => {
+      //     socket.emit(
+      //       "rooms",
+      //       rooms.map((r) => r.toJSON())
+      //     );
+      //   })
+      //   .catch((err: Error) => Logger.error(err.toString()));
 
       // --- REFRESH TOKEN EVENT ---
       socket.on("refreshToken", async (data, callback) => {
