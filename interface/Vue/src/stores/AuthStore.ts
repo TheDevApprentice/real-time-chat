@@ -2,23 +2,7 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { socketService } from '@/services/websocket/websocket';
 import { axiosService } from '@/services/axios/axios';
-
-function setCookie(name: string, value: string, days = 7) {
-  let expires = '';
-  if (days) {
-    const date = new Date();
-    date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
-    expires = '; expires=' + date.toUTCString();
-  }
-  document.cookie = name + '=' + (value || '') + expires + '; path=/; SameSite=Lax';
-}
-function eraseCookie(name: string) {
-  document.cookie = name + '=; Max-Age=-99999999; path=/;';
-}
-function getCookie(name: string): string | null {
-  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-  return match ? match[2] : null;
-}
+import { getCookie, setCookie, eraseCookie } from '@/utils/cookieHelper';
 
 export const useAuthStore = defineStore('auth', () => {
   // --- State ---
@@ -32,7 +16,7 @@ export const useAuthStore = defineStore('auth', () => {
   // --- Auth via socket.io-client ---
 
   async function tryAutoAuth(): Promise<boolean> {
-    const token = getCookie('sessionToken');
+    const token = getCookie('session_token');
     if (!token) return false;
   
     loading.value = true;
@@ -53,7 +37,7 @@ export const useAuthStore = defineStore('auth', () => {
           isAuthenticated.value = false;
           user.value = null;
           error.value = res?.error || 'Session invalide';
-          eraseCookie('sessionToken');
+          eraseCookie('session_token');
           loading.value = false;
           resolve(false);
         }
@@ -79,7 +63,7 @@ export const useAuthStore = defineStore('auth', () => {
         isAuthenticated.value = true;
         user.value = res.name;
         error.value = null;
-        if (res.token) setCookie('sessionToken', res.token);
+        if (res.token) setCookie('session_token', res.token);
         loading.value = false;
         resolve(true);
       });
@@ -116,7 +100,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true;
     error.value = null;
     return new Promise<boolean>((resolve) => {
-      const token = getCookie('sessionToken');
+      const token = getCookie('session_token');
       socketService.emit('logout', { token }, (res: any) => {
         console.log('AuthStore.logout res:', res);
         if (res && res.error) {
