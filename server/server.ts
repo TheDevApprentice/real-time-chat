@@ -5,6 +5,7 @@ import path from 'path';
 import cookieParser from 'cookie-parser';
 import router from './routes';
 import { issueCsrfCookie, verifyCsrfToken } from './middleware/csrf';
+import helmet from 'helmet';
 import { WebSocketService } from './utils/WebSocketService';
 import { DatabaseService } from './utils/DatabaseService';
 import { Logger } from './utils/Logger';
@@ -54,6 +55,12 @@ class AppServer {
     }));
     this.app.use(express.json());
     this.app.use(cookieParser());
+    // Security headers
+    this.app.use(helmet({
+      contentSecurityPolicy: false,           // add tailored CSP later (Vite + Socket.IO)
+      crossOriginEmbedderPolicy: false,       // can conflict with sockets/wasm
+      hsts: process.env.NODE_ENV === 'production' ? undefined : false, // keep HSTS only in prod over HTTPS
+    }));
     // Issue CSRF token cookie on safe requests (double-submit pattern)
     this.app.use(issueCsrfCookie);
     this.app.use(express.static(path.join(__dirname, 'public')));
