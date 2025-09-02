@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onBeforeUnmount } from "vue";
+import { ref, nextTick } from "vue";
 import MobileMenuBar from "./mobile/MobileMenuBar.vue";
 import MobileHeader from "./mobile/MobileHeader.vue";
 import MainLayout from "@layouts/MainLayout.vue";
@@ -70,13 +70,11 @@ function askLogout() {
   showLogoutModal.value = true;
 }
 
-function onConfirmLogout() {
-  // Close the modal before emitting logout to avoid async mount during navigation
+async function onConfirmLogout() {
+  // Close the modal, wait DOM update, then emit logout without timers
   showLogoutModal.value = false;
-  if (logoutTimeoutId) clearTimeout(logoutTimeoutId);
-  logoutTimeoutId = window.setTimeout(() => {
-    emit('logout');
-  }, 200);
+  await nextTick();
+  emit('logout');
 }
 
 function openAddFriendModal() {
@@ -94,10 +92,4 @@ function openCreateRoomModal() {
 function closeCreateRoomModal() {
   createRoomModalisOpen.value = false;
 }
-
-// Track pending logout timeout to avoid updates after unmount
-let logoutTimeoutId: number | undefined;
-onBeforeUnmount(() => {
-  if (logoutTimeoutId) clearTimeout(logoutTimeoutId);
-});
 </script>
