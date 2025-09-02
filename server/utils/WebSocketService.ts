@@ -19,7 +19,7 @@ export class WebSocketService {
   }
 
   private handleConnections(): void {
-    require("@dotenvx/dotenvx").config();
+
     const sqliteFile = process.env.SQLITE_FILE;
     if (!sqliteFile) {
       throw new Error("SQLITE_FILE environment variable is not defined");
