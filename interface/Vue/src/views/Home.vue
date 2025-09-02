@@ -50,25 +50,25 @@ const HomeLayout = defineAsyncComponent({
   loader: () => import("@components/layouts/home/HomeLayout.vue"),
   delay: 200,
   timeout: 20000,
-  suspensible: false,
+  suspensible: true,
 });
 const HomeSideBar = defineAsyncComponent({
   loader: () => import("@components/home/layout/HomeSideBar.vue"),
   delay: 200,
   timeout: 20000,
-  suspensible: false,
+  suspensible: true,
 });
 const ChatZone = defineAsyncComponent({
   loader: () => import("@components/home/layout/HomeChatZone.vue"),
   delay: 200,
   timeout: 20000,
-  suspensible: false,
+  suspensible: true,
 });
 const UpperChatZone = defineAsyncComponent({
   loader: () => import("@components/home/layout/HomeUpperChatZone.vue"),
   delay: 200,
   timeout: 20000,
-  suspensible: false,
+  suspensible: true,
 });
 
 const authStore = useAuthStore();

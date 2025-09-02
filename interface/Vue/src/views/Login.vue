@@ -34,26 +34,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, reactive, defineAsyncComponent, onBeforeUnmount } from "vue";
+import { ref, onMounted, watch, reactive, defineAsyncComponent, onBeforeUnmount, nextTick } from "vue";
 import { useAuthStore } from "@stores/AuthStore";
 
 const ChatPreview = defineAsyncComponent({
   loader: () => import("@components/login/ChatPreview.vue"),
   delay: 200,
   timeout: 20000,
-  suspensible: false,
+  suspensible: true,
 });
 const LoginCard = defineAsyncComponent({
   loader: () => import("@components/login/LoginCard.vue"),
   delay: 200,
   timeout: 20000,
-  suspensible: false,
+  suspensible: true,
 });
 const LoginLayout = defineAsyncComponent({
   loader: () => import("@components/layouts/login/LoginLayout.vue"),
   delay: 200,
   timeout: 20000,
-  suspensible: false,
+  suspensible: true,
 });
 
 const authStore = useAuthStore();
@@ -132,7 +132,7 @@ async function onSubmit() {
       authInformation.error = "Les mots de passe ne correspondent pas.";
       return;
     }
-
+    await nextTick();
     await authStore
       .register(
         authInformation.username,
@@ -153,6 +153,7 @@ async function onSubmit() {
         "Veuillez entrer votre nom d'utilisateur et mot de passe.";
       return;
     }
+    await nextTick();
     await authStore
       .login(authInformation.username, authInformation.password)
       .then((success) => {
