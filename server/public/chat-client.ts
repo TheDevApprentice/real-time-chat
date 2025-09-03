@@ -688,42 +688,83 @@ function renderFriends(items: any[]) {
   lastFriendItems = items || [];
   if (!friendsList) return;
   friendsList.innerHTML = '';
-  lastFriendItems.forEach((it) => {
-    // it: { id, userId, name, status, isRequester }
+  // Layout container: two columns (left friends, right requests)
+  const row = document.createElement('div');
+  row.className = 'friend-sections';
+
+  const colFriends = document.createElement('div');
+  colFriends.className = 'friend-column';
+  const hFriends = document.createElement('div');
+  hFriends.textContent = 'Amis';
+  hFriends.className = 'friend-column-title';
+  const ulFriends = document.createElement('ul');
+  ulFriends.className = 'friend-list';
+
+  const colRequests = document.createElement('div');
+  colRequests.className = 'friend-column';
+  const hRequests = document.createElement('div');
+  hRequests.textContent = 'Demandes';
+  hRequests.className = 'friend-column-title';
+  const ulRequests = document.createElement('ul');
+  ulRequests.className = 'friend-list';
+
+  // Separate accepted friends and incoming pending requests
+  const accepted = lastFriendItems.filter((it) => it && it.status === 'accepted');
+  const incoming = lastFriendItems.filter((it) => it && it.status === 'pending' && !it.isRequester);
+
+  // Friends (accepted): name + Message button, no status label
+  accepted.forEach((it) => {
     const otherName = it.name || 'inconnu';
     const li = document.createElement('li');
-    li.className = 'room-list-item';
+    li.className = 'room-list-item friend-item';
     const label = document.createElement('span');
-    label.textContent = `${otherName} — ${it.status}`;
+    label.textContent = otherName;
+    label.className = 'friend-item-name';
     const actions = document.createElement('span');
-    actions.style.float = 'right';
-    // Show accept/reject only for incoming pending requests (i.e., not requester)
-    if (it.status === 'pending' && !it.isRequester) {
-      const acceptBtn = document.createElement('button');
-      acceptBtn.textContent = 'Accepter';
-      acceptBtn.className = 'chat-send-btn';
-      acceptBtn.onclick = () => socket.emit('friendRespond', { otherUserId: it.userId, action: 'accept' }, () => requestFriendList());
-      const declineBtn = document.createElement('button');
-      declineBtn.textContent = 'Refuser';
-      declineBtn.className = 'auth-btn';
-      declineBtn.style.marginLeft = '6px';
-      declineBtn.onclick = () => socket.emit('friendRespond', { otherUserId: it.userId, action: 'reject' }, () => requestFriendList());
-      actions.appendChild(acceptBtn);
-      actions.appendChild(declineBtn);
-    }
-    // For accepted friends, allow starting a DM
-    if (it.status === 'accepted') {
-      const msgBtn = document.createElement('button');
-      msgBtn.textContent = 'Message';
-      msgBtn.className = 'chat-send-btn';
-      msgBtn.style.marginLeft = '6px';
-      msgBtn.onclick = () => startDM(it.userId || it.id, otherName);
-      actions.appendChild(msgBtn);
-    }
+    actions.className = 'friend-actions';
+    const msgBtn = document.createElement('button');
+    msgBtn.textContent = 'Message';
+    msgBtn.className = 'chat-send-btn';
+    msgBtn.onclick = () => startDM(it.userId || it.id, otherName);
+    actions.appendChild(msgBtn);
     li.appendChild(label);
     li.appendChild(actions);
-    friendsList.appendChild(li);
+    ulFriends.appendChild(li);
   });
+
+  // Requests (incoming pending): name + Accept/Reject
+  incoming.forEach((it) => {
+    const otherName = it.name || 'inconnu';
+    const li = document.createElement('li');
+    li.className = 'room-list-item friend-item';
+    const label = document.createElement('span');
+    label.textContent = otherName;
+    label.className = 'friend-item-name';
+    const actions = document.createElement('span');
+    actions.className = 'friend-actions';
+    const acceptBtn = document.createElement('button');
+    acceptBtn.textContent = 'Accepter';
+    acceptBtn.className = 'chat-send-btn';
+    acceptBtn.onclick = () => socket.emit('friendRespond', { otherUserId: it.userId, action: 'accept' }, () => requestFriendList());
+    const declineBtn = document.createElement('button');
+    declineBtn.textContent = 'Refuser';
+    declineBtn.className = 'auth-btn';
+    declineBtn.onclick = () => socket.emit('friendRespond', { otherUserId: it.userId, action: 'reject' }, () => requestFriendList());
+    actions.appendChild(acceptBtn);
+    actions.appendChild(declineBtn);
+    li.appendChild(label);
+    li.appendChild(actions);
+    ulRequests.appendChild(li);
+  });
+
+  // Assemble columns
+  colFriends.appendChild(hFriends);
+  colFriends.appendChild(ulFriends);
+  colRequests.appendChild(hRequests);
+  colRequests.appendChild(ulRequests);
+  row.appendChild(colFriends);
+  row.appendChild(colRequests);
+  friendsList.appendChild(row);
 }
 
 function requestFriendList() {
