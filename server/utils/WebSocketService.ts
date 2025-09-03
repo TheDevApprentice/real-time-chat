@@ -14,6 +14,7 @@ import {
   WsCreateRoomSchema,
   WsJoinRoomSchema,
   WsSendMessageSchema,
+  RegisterSchema,
   parseOrThrow,
 } from "./validation";
 
@@ -227,7 +228,7 @@ export class WebSocketService {
           callback &&
             callback({
               success: true,
-              // id: session.user.id,
+              id: session.user.id,
               name: session.user.name,
             });
         } catch (err) {

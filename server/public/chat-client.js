@@ -1,4 +1,5 @@
 // chat-client.ts
+// @ts-expect-error
 // Script extrait de index.html pour la logique front du chat en TypeScript
 // Nécessite d'être compilé/transpilé en JS puis inclus dans index.html
 const socket = io();
@@ -52,14 +53,22 @@ const chatForm = document.getElementById("chat-form");
 const messageInput = document.getElementById("message");
 const backToRoomsBtn = document.getElementById("back-to-rooms");
 const selectedRoomTitle = document.getElementById("selected-room-title");
+// New UI elements
+const userSearchForm = document.getElementById("user-search-form");
+const userSearchInput = document.getElementById("user-search-input");
+const userSearchResults = document.getElementById("user-search-results");
+const friendsList = document.getElementById("friends-list");
+const refreshFriendsBtn = document.getElementById("refresh-friends");
+const roomParticipants = document.getElementById("room-participants");
 // State
 let currentUser = null;
 let selectedRoom = null;
 let rooms = [];
+let lastFriendItems = [];
 // --- AUTH LOGIC dsiconnet all session user on all device ---
 socket.on("forceLogout", function (data) {
     currentUser = null;
-    document.cookie = 'sessionToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
+    document.cookie = 'session_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
     showAuthPanel(true);
     alert("Vous avez été déconnecté de tous vos appareils.");
 });
@@ -103,6 +112,8 @@ function joinRoom(room) {
     roomPanel.style.display = "none";
     chatCard.style.display = "block";
     chatWindow.innerHTML = "";
+    if (roomParticipants)
+        roomParticipants.textContent = "";
     socket.emit("joinRoom", { roomId: room.id });
 }
 backToRoomsBtn.addEventListener("click", function () {
@@ -117,7 +128,7 @@ if (logoutBtn) {
         socket.emit('logout', {}, (res) => {
             // Peu importe la réponse, on réinitialise l'état
             currentUser = null;
-            document.cookie = 'sessionToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
+            document.cookie = 'session_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
             showAuthPanel(true);
         });
     };
@@ -126,7 +137,7 @@ if (logoutAllBtn) {
     logoutAllBtn.onclick = function () {
         socket.emit('logoutAll', {}, (res) => {
             currentUser = null;
-            document.cookie = 'sessionToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
+            document.cookie = 'session_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
             showAuthPanel(true);
         });
     };
@@ -169,6 +180,22 @@ socket.on("roomHistory", (data) => {
         return;
     chatWindow.innerHTML = "";
     data.messages.forEach(renderMsg);
+});
+// Participants de la room
+function renderParticipants(users) {
+    if (!roomParticipants)
+        return;
+    if (!users || users.length === 0) {
+        roomParticipants.textContent = "";
+        return;
+    }
+    const names = users.map((u) => u.name).join(", ");
+    roomParticipants.textContent = `Participants: ${names}`;
+}
+socket.on("roomUsers", (payload) => {
+    if (!selectedRoom || !payload || payload.roomId !== selectedRoom.id)
+        return;
+    renderParticipants(payload.users || []);
 });
 // Nouveau message dans la room
 socket.on("message", (data) => {
@@ -217,13 +244,14 @@ function getCookie(name) {
     const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
     return match ? match[2] : null;
 }
-const sessionToken = getCookie('sessionToken');
+const sessionToken = getCookie('session_token');
 if (sessionToken) {
     socket.emit('authenticate', { token: sessionToken }, (res) => {
         if (res && res.success) {
             currentUser = { id: res.id, name: res.name };
             showAuthPanel(false);
             socket.emit("getRooms");
+            requestFriendList();
         }
         else {
             // Token invalide, afficher login
@@ -250,33 +278,42 @@ loginForm.addEventListener("submit", function (e) {
         currentUser = { id: res.id, name: res.name };
         // Stocke le token de session dans un cookie pour les futures requêtes HTTP (REST, etc.)
         if (res.token) {
-            document.cookie = `sessionToken=${res.token}; path=/; SameSite=Lax`;
+            document.cookie = `session_token=${res.token}; path=/; SameSite=Lax`;
             // Pour la prod, ajouter 'Secure' si le site est servi en HTTPS :
-            // document.cookie = `sessionToken=${res.token}; path=/; SameSite=Lax; Secure`;
+            // document.cookie = `session_token=${res.token}; path=/; SameSite=Lax; Secure`;
         }
         authError.style.display = "none";
         showAuthPanel(false);
         socket.emit("getRooms");
+        requestFriendList();
     });
 });
-// Auth: register
-registerForm.addEventListener("submit", function (e) {
+// Auth: register via REST
+registerForm.addEventListener("submit", async function (e) {
     e.preventDefault();
     const username = registerUsername.value.trim();
     const password = registerPassword.value;
     const confirm = registerConfirm.value;
-    // Correction : vérifie explicitement que le champ password est bien transmis
     if (!username || !password || !confirm) {
         authError.textContent = "Veuillez remplir tous les champs.";
         authError.style.display = "block";
         return;
     }
-    // Log pour debug (à retirer en prod)
-    // console.log('Register payload:', { username, password, confirmPassword: confirm });
-    socket.emit("register", { username, password, confirmPassword: confirm }, (res) => {
-        if (res && res.error) {
-            authError.textContent = res.error;
-            authError.style.display = "block";
+    try {
+        const csrf = getCookie('X-XSRF-TOKEN') || '';
+        const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-XSRF-TOKEN': csrf,
+            },
+            credentials: 'include',
+            body: JSON.stringify({ username, password, confirmPassword: confirm }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            authError.textContent = (data === null || data === void 0 ? void 0 : data.error) || 'Registration failed.';
+            authError.style.display = 'block';
             return;
         }
         // Succès inscription : invite à se connecter
@@ -285,20 +322,149 @@ registerForm.addEventListener("submit", function (e) {
         authError.style.background = "#f5fff5";
         authError.style.border = "1px solid #b8ffb8";
         authError.style.display = "block";
-        // Bascule sur l'onglet login
         showAuthTab("login");
-        // Remet la couleur d'erreur après 3s
         setTimeout(() => {
             authError.style.color = "#e23c3c";
             authError.style.background = "#fff5f5";
             authError.style.border = "1px solid #ffd4d4";
             authError.style.display = "none";
         }, 3000);
-        // Vide les champs d'inscription
         registerUsername.value = "";
         registerPassword.value = "";
         registerConfirm.value = "";
-    });
+    }
+    catch (_err) {
+        authError.textContent = 'Registration failed.';
+        authError.style.display = 'block';
+    }
 });
 // Initial : demander la liste des rooms (si non pushée automatiquement)
 // (ne rien faire tant qu'on n'est pas authentifié)
+// --- User search (REST) ---
+async function searchUsers(query, limit = 20) {
+    const url = `/api/chat/users/search?q=${encodeURIComponent(query)}&limit=${encodeURIComponent(String(limit))}`;
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok)
+        throw new Error('Search failed');
+    const data = await res.json();
+    // Support both formats: array or { users: [...] }
+    if (Array.isArray(data))
+        return data;
+    return (data === null || data === void 0 ? void 0 : data.users) || [];
+}
+// Simple debounce utility for live search
+function debounce(fn, wait = 300) {
+    let t;
+    return (...args) => {
+        if (t)
+            window.clearTimeout(t);
+        t = window.setTimeout(() => fn(...args), wait);
+    };
+}
+function renderSearchResults(users) {
+    if (!userSearchResults)
+        return;
+    userSearchResults.innerHTML = "";
+    users
+        .filter((u) => !currentUser || u.id !== currentUser.id)
+        .forEach((u) => {
+        const li = document.createElement('li');
+        li.className = 'room-list-item';
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = u.name;
+        const actions = document.createElement('span');
+        actions.style.float = 'right';
+        const addBtn = document.createElement('button');
+        addBtn.textContent = '+';
+        addBtn.title = 'Ajouter ami';
+        addBtn.className = 'chat-send-btn';
+        addBtn.style.width = '32px';
+        addBtn.style.padding = '4px 0';
+        addBtn.onclick = () => {
+            if (!currentUser)
+                return;
+            socket.emit('friendRequest', { targetUserId: u.id }, (resp) => {
+                // Optionally give feedback
+                requestFriendList();
+            });
+        };
+        actions.appendChild(addBtn);
+        li.appendChild(nameSpan);
+        li.appendChild(actions);
+        userSearchResults.appendChild(li);
+    });
+}
+if (userSearchForm && userSearchInput) {
+    // Hide the submit button; we trigger search on input
+    const submitBtn = userSearchForm.querySelector('button[type="submit"]');
+    if (submitBtn)
+        submitBtn.style.display = 'none';
+    // Prevent form submit navigation
+    userSearchForm.addEventListener('submit', (e) => e.preventDefault());
+    const runSearch = debounce(async () => {
+        const q = userSearchInput.value.trim();
+        if (!q) {
+            if (userSearchResults)
+                userSearchResults.innerHTML = '';
+            return;
+        }
+        try {
+            const items = await searchUsers(q, 20);
+            renderSearchResults(items);
+        }
+        catch (_err) {
+            if (userSearchResults)
+                userSearchResults.innerHTML = '<li style="color:#888;">Recherche impossible</li>';
+        }
+    }, 300);
+    userSearchInput.addEventListener('input', runSearch);
+}
+// --- Friends via WebSocket ---
+function renderFriends(items) {
+    lastFriendItems = items || [];
+    if (!friendsList)
+        return;
+    friendsList.innerHTML = '';
+    lastFriendItems.forEach((it) => {
+        // it: { id, userId, name, status, isRequester }
+        const otherName = it.name || 'inconnu';
+        const li = document.createElement('li');
+        li.className = 'room-list-item';
+        const label = document.createElement('span');
+        label.textContent = `${otherName} — ${it.status}`;
+        const actions = document.createElement('span');
+        actions.style.float = 'right';
+        // Show accept/reject only for incoming pending requests (i.e., not requester)
+        if (it.status === 'pending' && !it.isRequester) {
+            const acceptBtn = document.createElement('button');
+            acceptBtn.textContent = 'Accepter';
+            acceptBtn.className = 'chat-send-btn';
+            acceptBtn.onclick = () => socket.emit('friendRespond', { otherUserId: it.userId, action: 'accept' }, () => requestFriendList());
+            const declineBtn = document.createElement('button');
+            declineBtn.textContent = 'Refuser';
+            declineBtn.className = 'auth-btn';
+            declineBtn.style.marginLeft = '6px';
+            declineBtn.onclick = () => socket.emit('friendRespond', { otherUserId: it.userId, action: 'reject' }, () => requestFriendList());
+            actions.appendChild(acceptBtn);
+            actions.appendChild(declineBtn);
+        }
+        li.appendChild(label);
+        li.appendChild(actions);
+        friendsList.appendChild(li);
+    });
+}
+function requestFriendList() {
+    if (!currentUser)
+        return;
+    socket.emit('friendList', {}, (resp) => {
+        if (resp && resp.success)
+            renderFriends(resp.items || []);
+    });
+}
+if (refreshFriendsBtn) {
+    refreshFriendsBtn.onclick = () => requestFriendList();
+}
+socket.on('friendUpdated', (_evt) => {
+    // Simply refresh the list to reflect latest state
+    requestFriendList();
+});

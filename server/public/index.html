@@ -65,6 +65,19 @@
           <ul id="room-list" class="room-list"></ul>
           <div id="no-room-msg" style="display:none;text-align:center;color:#888;">Aucune room existante.</div>
         </div>
+        <div id="user-search-section" style="margin-top:16px;">
+          <h3 style="margin:1em 0 0.3em 0;">Rechercher des utilisateurs</h3>
+          <form id="user-search-form" class="chat-input-bar" autocomplete="off">
+            <input type="text" id="user-search-input" class="chat-input-message" placeholder="Tapez un pseudo..." maxlength="50" />
+            <button type="submit" class="chat-send-btn">Rechercher</button>
+          </form>
+          <ul id="user-search-results" class="room-list"></ul>
+        </div>
+        <div id="friends-section" style="margin-top:16px;">
+          <h3 style="margin:1em 0 0.3em 0;">Mes amis & demandes</h3>
+          <button id="refresh-friends" class="auth-btn" type="button" style="margin-bottom:8px;">Actualiser</button>
+          <ul id="friends-list" class="room-list"></ul>
+        </div>
         <div id="create-room-section">
           <h3 style="margin:1em 0 0.3em 0;">Créer une room</h3>
           <form id="create-room-form" class="chat-input-bar" autocomplete="off">
@@ -77,6 +90,7 @@
       <div id="chat-card" class="chat-card" style="display:none;">
         <button id="back-to-rooms" style="margin-bottom:12px;float:right;">← Retour aux rooms</button>
         <div id="selected-room-title" class="chat-title" style="font-size:1.25rem;margin-bottom:0.4em;"></div>
+        <div id="room-participants" style="font-size:0.9rem;color:#666;margin-bottom:8px;"></div>
         <div id="chat-window" class="chat-window"></div>
         <form class="chat-input-bar" id="chat-form" autocomplete="off">
           
