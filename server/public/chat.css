@@ -42,14 +42,6 @@
   }
 }
 
-.chat-title {
-  text-align: center;
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--page-accent-color);
-  margin-bottom: 0.2em;
-}
-
 .chat-desc {
   text-align: center;
   color: var(--page-text-color);
@@ -115,7 +107,7 @@
   background: var(--page-bg-card);
   box-shadow: var(--page-card-shadow);
   color: var(--page-text-color);
-  transition: background 0.16s, box-shadow 0.16s, border-color 0.16s;
+  transition: background 0.16s, box-shadow 0.16s, border-color 0.16s, transform 0.08s ease;
 }
 
 .room-list-item.active {
@@ -469,10 +461,6 @@
   transform: translateY(1px);
 }
 
-/* Subtle item hover motion */
-.room-list-item {
-  transition: background 0.16s, box-shadow 0.16s, border-color 0.16s, transform 0.08s ease;
-}
 .room-list-item:hover {
   transform: translateY(-1px);
 }

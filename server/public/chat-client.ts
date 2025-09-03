@@ -4,6 +4,16 @@
 // Nécessite d'être compilé/transpilé en JS puis inclus dans index.html
 const socket = io();
 
+// Ensure a theme is set so CSS variables from base.css apply
+function ensureTheme() {
+  const root = document.documentElement;
+  if (!root.getAttribute('data-theme')) {
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    root.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+  }
+}
+try { ensureTheme(); } catch {}
+
 // Elements
 const userActions = document.getElementById("user-actions") as HTMLElement;
 const logoutBtn = document.getElementById("logout-btn") as HTMLButtonElement;
