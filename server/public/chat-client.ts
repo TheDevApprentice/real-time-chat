@@ -446,6 +446,14 @@ socket.on("message", (data: any) => {
   try {
     const authorName = data?.message?.author?.name;
     if (!currentUser || authorName === currentUser.name) return;
+    // Mark as delivered when message arrives for a room that's not active
+    try {
+      const mid = parseInt(String(data?.message?.id ?? ''), 10);
+      if (Number.isFinite(mid)) {
+        const now = Date.now();
+        socket.emit("messageDelivered", { messageId: mid, roomId: data.roomId, timestamp: now });
+      }
+    } catch {}
     unreadCounts[data.roomId] = (unreadCounts[data.roomId] || 0) + 1;
     renderRoomList();
   } catch {}

@@ -110,8 +110,20 @@ export class WebSocketService {
           const { messageId, roomId, timestamp } = (data || {}) as { messageId?: number; roomId?: string; timestamp?: number };
           if (!messageId || !roomId) return callback && callback({ success: false, error: "Missing messageId or roomId." });
           await dbService.markMessageDelivered(messageId, timestamp ?? Date.now());
-          // Notify room of status change
-          this.io.to(roomId).emit("messageStatusUpdated", { messageId, status: "delivered", deliveredAt: timestamp ?? Date.now() });
+          // Notify all sockets of room members (not only those joined to Socket.IO room)
+          try {
+            const members = await dbService.getUsersForRoom(roomId);
+            const memberIds = new Set((members || []).map((u) => u.id));
+            const sockets = await this.io.fetchSockets();
+            for (const s of sockets) {
+              const uid = s.data.userId as string | undefined;
+              if (uid && memberIds.has(uid)) {
+                s.emit("messageStatusUpdated", { messageId, status: "delivered", deliveredAt: timestamp ?? Date.now() });
+              }
+            }
+          } catch {
+            this.io.to(roomId).emit("messageStatusUpdated", { messageId, status: "delivered", deliveredAt: timestamp ?? Date.now() });
+          }
           callback && callback({ success: true });
         } catch (err) {
           callback && callback({ success: false, error: "Failed to mark delivered." });
@@ -129,8 +141,20 @@ export class WebSocketService {
           const { messageId, roomId, timestamp } = (data || {}) as { messageId?: number; roomId?: string; timestamp?: number };
           if (!messageId || !roomId) return callback && callback({ success: false, error: "Missing messageId or roomId." });
           await dbService.markMessageRead(messageId, timestamp ?? Date.now());
-          // Notify room of status change
-          this.io.to(roomId).emit("messageStatusUpdated", { messageId, status: "read", readAt: timestamp ?? Date.now() });
+          // Notify all sockets of room members (not only those joined to Socket.IO room)
+          try {
+            const members = await dbService.getUsersForRoom(roomId);
+            const memberIds = new Set((members || []).map((u) => u.id));
+            const sockets = await this.io.fetchSockets();
+            for (const s of sockets) {
+              const uid = s.data.userId as string | undefined;
+              if (uid && memberIds.has(uid)) {
+                s.emit("messageStatusUpdated", { messageId, status: "read", readAt: timestamp ?? Date.now() });
+              }
+            }
+          } catch {
+            this.io.to(roomId).emit("messageStatusUpdated", { messageId, status: "read", readAt: timestamp ?? Date.now() });
+          }
           callback && callback({ success: true });
         } catch (err) {
           callback && callback({ success: false, error: "Failed to mark read." });
@@ -314,6 +338,7 @@ export class WebSocketService {
       //   .catch((err: Error) => Logger.error(err.toString()));
 
       // --- REFRESH TOKEN EVENT ---
+      
       socket.on("refreshToken", async (data, callback) => {
         if (!allow("auth:refresh", 20, 60_000)) {
           return callback && callback({ error: "Rate limit exceeded." });
@@ -518,10 +543,23 @@ export class WebSocketService {
           const safeContent = sanitizeText(content);
           const msgObj = new Message(user, safeContent, timestamp);
           await dbService.addMessageToRoom(msgObj, roomId);
-          // Broadcast à la room uniquement
-          this.io
-            .to(roomId)
-            .emit("message", { roomId, message: msgObj.toJSON() });
+          // Diffuser le message à tous les sockets des utilisateurs membres de la room,
+          // même si leur socket n'a pas explicitement "join" la room côté Socket.IO.
+          // Cela garantit la réception (unread + delivered) même depuis la liste des rooms.
+          try {
+            const members = await dbService.getUsersForRoom(roomId);
+            const memberIds = new Set((members || []).map((u) => u.id));
+            const sockets = await this.io.fetchSockets();
+            for (const s of sockets) {
+              const uid = s.data.userId as string | undefined;
+              if (uid && memberIds.has(uid)) {
+                s.emit("message", { roomId, message: msgObj.toJSON() });
+              }
+            }
+          } catch (e) {
+            // Fallback: au cas où, on continue d'émettre dans la room Socket.IO
+            this.io.to(roomId).emit("message", { roomId, message: msgObj.toJSON() });
+          }
         } catch (err) {
           Logger.error(err instanceof Error ? err.message : String(err));
         }

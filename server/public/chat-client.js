@@ -452,7 +452,7 @@ socket.on("roomUsers", (payload) => {
 });
 // Nouveau message dans la room
 socket.on("message", (data) => {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e, _f;
     // If message is for the currently open room, render it
     if (selectedRoom && data.roomId === selectedRoom.id) {
         renderMsg(data.message);
@@ -476,6 +476,15 @@ socket.on("message", (data) => {
         const authorName = (_d = (_c = data === null || data === void 0 ? void 0 : data.message) === null || _c === void 0 ? void 0 : _c.author) === null || _d === void 0 ? void 0 : _d.name;
         if (!currentUser || authorName === currentUser.name)
             return;
+        // Mark as delivered when message arrives for a room that's not active
+        try {
+            const mid = parseInt(String((_f = (_e = data === null || data === void 0 ? void 0 : data.message) === null || _e === void 0 ? void 0 : _e.id) !== null && _f !== void 0 ? _f : ''), 10);
+            if (Number.isFinite(mid)) {
+                const now = Date.now();
+                socket.emit("messageDelivered", { messageId: mid, roomId: data.roomId, timestamp: now });
+            }
+        }
+        catch { }
         unreadCounts[data.roomId] = (unreadCounts[data.roomId] || 0) + 1;
         renderRoomList();
     }
