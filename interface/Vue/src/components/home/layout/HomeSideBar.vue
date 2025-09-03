@@ -63,7 +63,7 @@
                   :displayFullContent="sidebarHovered"
                   :displayDate="false"
                   v-for="conv in mockConversations.filter(
-                    (conv) => conv.type === 'room' && conv.mostRecent === true
+                    (conv: Conversation) => conv.type === 'room' && conv.mostRecent === true
                   )"
                   :key="conv.id"
                   :participants="conv.participants"
@@ -116,7 +116,7 @@
                   :displayFullContent="sidebarHovered"
                   :displayDate="false"
                   v-for="conv in mockConversations.filter(
-                    (conv) => conv.type === 'user' && conv.participants[0].isOnline === true
+                    (conv: Conversation) => conv.type === 'user' && conv.participants[0].isOnline === true
                   )"
                   :key="conv.id"
                   :participants="conv.participants"
@@ -204,7 +204,6 @@ const UserConversationItem = defineAsyncComponent(
 );
 
 defineProps<{
-  rooms: Room[];
   mockConversations: Conversation[];
   sidebarHovered: boolean;
 }>();
@@ -228,12 +227,7 @@ function askLogout() {
 function updateSideBarHover(value: boolean) {
   emit("updateSideBarHover", value);
 }
-export type Room = {
-  id: number;
-  name: string;
-  avatar: string;
-  active: boolean;
-};
+
 </script>
 
 <style scoped>
