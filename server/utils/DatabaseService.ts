@@ -654,4 +654,26 @@ async listFriendsAndRequests(userId: string): Promise<Array<{ id: string; userId
     });
   }
 
+  // --- UNREAD COUNTS (global status-based per room) ---
+  // Count messages for rooms where the user is a member, authored by others,
+  // and whose status is not 'read'.
+  async getUnreadCountsForUser(userId: string): Promise<Record<string, number>> {
+    return new Promise((resolve, reject) => {
+      const sql = `
+        SELECT m.roomId as roomId, COUNT(*) as cnt
+        FROM messages m
+        INNER JOIN user_rooms ur ON ur.roomId = m.roomId AND ur.userId = ?
+        WHERE (m.authorId IS NULL OR m.authorId <> ?)
+          AND (m.status IS NULL OR m.status <> 'read')
+        GROUP BY m.roomId
+      `;
+      this.db.all(sql, [userId, userId], (err, rows: Array<{ roomId: string; cnt: number }> | undefined) => {
+        if (err) return reject(err);
+        const out: Record<string, number> = {};
+        for (const r of rows || []) out[r.roomId] = Number(r.cnt) || 0;
+        resolve(out);
+      });
+    });
+  }
+
 }

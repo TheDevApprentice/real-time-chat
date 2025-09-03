@@ -255,6 +255,13 @@ export class WebSocketService {
               id: session.user.id,
               name: session.user.name,
             });
+          // Emit initial unread counts after successful authentication
+          try {
+            const counts = await dbService.getUnreadCountsForUser(session.user.id);
+            socket.emit("unreadCounts", { counts });
+          } catch (e) {
+            Logger.error(e instanceof Error ? e.message : String(e));
+          }
         } catch (err) {
           callback && callback({ success: false, error: "Auth failed." });
         }
@@ -449,6 +456,13 @@ export class WebSocketService {
             "rooms",
             rooms.map((r) => r.toJSON())
           );
+          // Also send unread counts so client can render badges after refresh
+          try {
+            const counts = await dbService.getUnreadCountsForUser(socket.data.userId);
+            socket.emit("unreadCounts", { counts });
+          } catch (e) {
+            Logger.error(e instanceof Error ? e.message : String(e));
+          }
         } catch (err) {
           Logger.error(err instanceof Error ? err.message : String(err));
         }
