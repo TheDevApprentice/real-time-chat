@@ -162,6 +162,8 @@ let lastFriendItems: any[] = [];
 let invitedUserIds: string[] = [];
 // Track a DM we just initiated so we can auto-open when rooms refresh
 let pendingDmTargetId: string | null = null;
+// Unread counters by roomId
+let unreadCounts: Record<string, number> = {};
 
 // --- AUTH LOGIC dsiconnet all session user on all device ---
 socket.on("forceLogout", function(data) {
@@ -206,6 +208,19 @@ function renderRoomList() {
     `;
     li.style.cursor = "pointer";
     li.onclick = () => joinRoom(room);
+    // Active state
+    if (selectedRoom && selectedRoom.id === room.id) li.classList.add('active');
+    // Unread badge
+    const badge = li.querySelector('.room-badge') as HTMLElement | null;
+    const count = unreadCounts[room.id] || 0;
+    if (badge) {
+      if (count > 0) {
+        badge.textContent = String(count);
+        badge.hidden = false;
+      } else {
+        badge.hidden = true;
+      }
+    }
     roomListRooms && roomListRooms.appendChild(li);
   });
 
@@ -229,6 +244,19 @@ function renderRoomList() {
     `;
     li.style.cursor = "pointer";
     li.onclick = () => joinRoom(room);
+    // Active state
+    if (selectedRoom && selectedRoom.id === room.id) li.classList.add('active');
+    // Unread badge
+    const badge = li.querySelector('.room-badge') as HTMLElement | null;
+    const count = unreadCounts[room.id] || 0;
+    if (badge) {
+      if (count > 0) {
+        badge.textContent = String(count);
+        badge.hidden = false;
+      } else {
+        badge.hidden = true;
+      }
+    }
     roomListDms && roomListDms.appendChild(li);
   });
 }
@@ -280,6 +308,9 @@ function joinRoom(room: any) {
   chatWindow.innerHTML = "";
   if (roomParticipants) roomParticipants.textContent = "";
   socket.emit("joinRoom", { roomId: room.id });
+  // Reset unread counter when entering the room
+  unreadCounts[room.id] = 0;
+  try { renderRoomList(); } catch {}
 }
 
 backToRoomsBtn.addEventListener("click", function () {
@@ -368,8 +399,18 @@ socket.on("roomUsers", (payload: any) => {
 
 // Nouveau message dans la room
 socket.on("message", (data: any) => {
-  if (!selectedRoom || data.roomId !== selectedRoom.id) return;
-  renderMsg(data.message);
+  // If message is for the currently open room, render it
+  if (selectedRoom && data.roomId === selectedRoom.id) {
+    renderMsg(data.message);
+    return;
+  }
+  // Otherwise, increment unread counter (ignore own messages)
+  try {
+    const authorName = data?.message?.author?.name;
+    if (!currentUser || authorName === currentUser.name) return;
+    unreadCounts[data.roomId] = (unreadCounts[data.roomId] || 0) + 1;
+    renderRoomList();
+  } catch {}
 });
 
 // Gestion des erreurs serveur

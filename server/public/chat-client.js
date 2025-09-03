@@ -175,6 +175,8 @@ let lastFriendItems = [];
 let invitedUserIds = [];
 // Track a DM we just initiated so we can auto-open when rooms refresh
 let pendingDmTargetId = null;
+// Unread counters by roomId
+let unreadCounts = {};
 // --- AUTH LOGIC dsiconnet all session user on all device ---
 socket.on("forceLogout", function (data) {
     currentUser = null;
@@ -221,6 +223,21 @@ function renderRoomList() {
     `;
         li.style.cursor = "pointer";
         li.onclick = () => joinRoom(room);
+        // Active state
+        if (selectedRoom && selectedRoom.id === room.id)
+            li.classList.add('active');
+        // Unread badge
+        const badge = li.querySelector('.room-badge');
+        const count = unreadCounts[room.id] || 0;
+        if (badge) {
+            if (count > 0) {
+                badge.textContent = String(count);
+                badge.hidden = false;
+            }
+            else {
+                badge.hidden = true;
+            }
+        }
         roomListRooms && roomListRooms.appendChild(li);
     });
     // Render DMs
@@ -245,6 +262,21 @@ function renderRoomList() {
     `;
         li.style.cursor = "pointer";
         li.onclick = () => joinRoom(room);
+        // Active state
+        if (selectedRoom && selectedRoom.id === room.id)
+            li.classList.add('active');
+        // Unread badge
+        const badge = li.querySelector('.room-badge');
+        const count = unreadCounts[room.id] || 0;
+        if (badge) {
+            if (count > 0) {
+                badge.textContent = String(count);
+                badge.hidden = false;
+            }
+            else {
+                badge.hidden = true;
+            }
+        }
         roomListDms && roomListDms.appendChild(li);
     });
 }
@@ -296,6 +328,12 @@ function joinRoom(room) {
     if (roomParticipants)
         roomParticipants.textContent = "";
     socket.emit("joinRoom", { roomId: room.id });
+    // Reset unread counter when entering the room
+    unreadCounts[room.id] = 0;
+    try {
+        renderRoomList();
+    }
+    catch { }
 }
 backToRoomsBtn.addEventListener("click", function () {
     selectedRoom = null;
@@ -380,9 +418,21 @@ socket.on("roomUsers", (payload) => {
 });
 // Nouveau message dans la room
 socket.on("message", (data) => {
-    if (!selectedRoom || data.roomId !== selectedRoom.id)
+    var _a, _b;
+    // If message is for the currently open room, render it
+    if (selectedRoom && data.roomId === selectedRoom.id) {
+        renderMsg(data.message);
         return;
-    renderMsg(data.message);
+    }
+    // Otherwise, increment unread counter (ignore own messages)
+    try {
+        const authorName = (_b = (_a = data === null || data === void 0 ? void 0 : data.message) === null || _a === void 0 ? void 0 : _a.author) === null || _b === void 0 ? void 0 : _b.name;
+        if (!currentUser || authorName === currentUser.name)
+            return;
+        unreadCounts[data.roomId] = (unreadCounts[data.roomId] || 0) + 1;
+        renderRoomList();
+    }
+    catch { }
 });
 // Gestion des erreurs serveur
 socket.on("error", (err) => {
