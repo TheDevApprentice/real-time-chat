@@ -77,6 +77,8 @@ let selectedRoom: any = null;
 let rooms: any[] = [];
 let lastFriendItems: any[] = [];
 let invitedUserIds: string[] = [];
+// Track a DM we just initiated so we can auto-open when rooms refresh
+let pendingDmTargetId: string | null = null;
 
 // --- AUTH LOGIC dsiconnet all session user on all device ---
 socket.on("forceLogout", function(data) {
@@ -118,6 +120,14 @@ function renderRoomList() {
 socket.on("rooms", (serverRooms: any[]) => {
   rooms = serverRooms;
   renderRoomList();
+  // If we requested a DM creation, auto-open once it appears
+  if (pendingDmTargetId && currentUser) {
+    const dm = findExistingDm(pendingDmTargetId);
+    if (dm) {
+      pendingDmTargetId = null;
+      joinRoom(dm);
+    }
+  }
 });
 
 // --- ROOM CREATION ---
@@ -482,6 +492,15 @@ function renderFriends(items: any[]) {
       actions.appendChild(acceptBtn);
       actions.appendChild(declineBtn);
     }
+    // For accepted friends, allow starting a DM
+    if (it.status === 'accepted') {
+      const msgBtn = document.createElement('button');
+      msgBtn.textContent = 'Message';
+      msgBtn.className = 'chat-send-btn';
+      msgBtn.style.marginLeft = '6px';
+      msgBtn.onclick = () => startDM(it.userId || it.id, otherName);
+      actions.appendChild(msgBtn);
+    }
     li.appendChild(label);
     li.appendChild(actions);
     friendsList.appendChild(li);
@@ -492,99 +511,48 @@ function requestFriendList() {
   if (!currentUser) return;
   socket.emit('friendList', {}, (resp: any) => {
     if (resp && resp.success) renderFriends(resp.items || []);
+    // Open pending DM room if any
+    if (pendingDmTargetId) {
+      const friend = resp.items.find((it) => it.userId === pendingDmTargetId);
+      if (friend && friend.status === 'accepted') {
+        startDM(pendingDmTargetId, friend.name);
+        pendingDmTargetId = null;
+      }
+    }
   });
 }
 
-if (refreshFriendsBtn) {
-  refreshFriendsBtn.onclick = () => requestFriendList();
+// ... (rest of the code remains the same)
+
+// ---- Direct Message helpers ----
+function findExistingDm(friendId: string): any | null {
+  const meId = currentUser?.id;
+  if (!meId) return null;
+  return (
+    rooms.find((r) => {
+      if (r.type !== 'user') return false;
+      const members: Array<{ id: string; name: string }> = Array.isArray(r.users) ? r.users : [];
+      const ids = members.map((u) => u && u.id).filter(Boolean);
+      // DM if both participants are present
+      return ids.includes(meId) && ids.includes(friendId);
+    }) || null
+  );
 }
 
-socket.on('friendUpdated', (_evt: any) => {
-  // Simply refresh the list to reflect latest state
-  requestFriendList();
-});
-
-// -------- Private room helpers --------
-function renderInvitedUsers() {
-  if (!invitedUsersList) return;
-  invitedUsersList.innerHTML = '';
-  invitedUserIds.forEach((uid) => {
-    const info = lastFriendItems.find((f) => f.userId === uid || f.id === uid) || {} as any;
-    const name = info.name || uid;
-    const li = document.createElement('li');
-    li.className = 'room-list-item';
-    const label = document.createElement('span');
-    label.textContent = name;
-    const actions = document.createElement('span');
-    actions.style.float = 'right';
-    const rm = document.createElement('button');
-    rm.textContent = 'Retirer';
-    rm.className = 'auth-btn';
-    rm.onclick = () => {
-      invitedUserIds = invitedUserIds.filter((id) => id !== uid);
-      renderInvitedUsers();
-    };
-    actions.appendChild(rm);
-    li.appendChild(label);
-    li.appendChild(actions);
-    invitedUsersList.appendChild(li);
+function startDM(friendId: string, friendName: string) {
+  if (!currentUser) return;
+  const existing = findExistingDm(friendId);
+  if (existing) {
+    joinRoom(existing);
+    return;
+  }
+  // Create a new private DM room
+  pendingDmTargetId = friendId;
+  const name = `${currentUser.name} ↔ ${friendName}`;
+  socket.emit('createRoom', {
+    name,
+    type: 'user',
+    isPublic: false,
+    invitedUserIds: [friendId],
   });
 }
-
-function renderInviteSearchResults(users: Array<{ id: string; name: string }>) {
-  if (!inviteFriendResults) return;
-  inviteFriendResults.innerHTML = '';
-  users.forEach((u) => {
-    const li = document.createElement('li');
-    li.className = 'room-list-item';
-    const nameSpan = document.createElement('span');
-    nameSpan.textContent = u.name;
-    const actions = document.createElement('span');
-    actions.style.float = 'right';
-    const addBtn = document.createElement('button');
-    addBtn.textContent = '+';
-    addBtn.className = 'chat-send-btn';
-    addBtn.style.width = '32px';
-    addBtn.style.padding = '4px 0';
-    addBtn.onclick = () => {
-      if (!invitedUserIds.includes(u.id)) invitedUserIds.push(u.id);
-      renderInvitedUsers();
-    };
-    actions.appendChild(addBtn);
-    li.appendChild(nameSpan);
-    li.appendChild(actions);
-    inviteFriendResults.appendChild(li);
-  });
-}
-
-function filterFriendsByQuery(q: string): Array<{ id: string; name: string }> {
-  const norm = (s: string) => s.toLowerCase();
-  // Only accepted friends
-  const accepted = lastFriendItems.filter((it) => it.status === 'accepted');
-  return accepted
-    .map((it) => ({ id: it.userId || it.id, name: it.name || 'inconnu' }))
-    .filter((u) => !q || norm(u.name).includes(norm(q)));
-}
-
-// Toggle private section visibility
-if (createRoomPrivate && privateRoomInvite) {
-  createRoomPrivate.addEventListener('change', () => {
-    privateRoomInvite.style.display = createRoomPrivate.checked ? 'block' : 'none';
-  });
-}
-
-// Invite friends search
-if (inviteFriendsForm && inviteFriendInput) {
-  inviteFriendsForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const q = inviteFriendInput.value.trim();
-    const list = filterFriendsByQuery(q);
-    renderInviteSearchResults(list);
-  });
-  inviteFriendInput.addEventListener('input', () => {
-    const q = inviteFriendInput.value.trim();
-    const list = filterFriendsByQuery(q);
-    renderInviteSearchResults(list);
-  });
-}
-
