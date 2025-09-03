@@ -376,7 +376,7 @@ export class WebSocketService {
             });
             return;
           }
-          const { name } = parseOrThrow(WsCreateRoomSchema, data);
+          const { name, type, isPublic } = parseOrThrow(WsCreateRoomSchema, data);
           const creatorId = socket.data.userId;
           // Vérifier que creatorId correspond à l'utilisateur connecté
           if (creatorId !== socket.data.userId) {
@@ -386,7 +386,7 @@ export class WebSocketService {
             return;
           }
           const Room = (await import("../models/Room")).Room;
-          const room = new Room(name, creatorId);
+          const room = new Room(name, creatorId, Date.now(), undefined, [], { type: type ?? 'room', isPublic });
           await dbService.addRoom(room);
           // Broadcast la nouvelle room à tous
           const rooms = await dbService.getRooms();

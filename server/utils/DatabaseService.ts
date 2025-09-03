@@ -42,7 +42,9 @@ export class DatabaseService {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         creatorId TEXT NOT NULL,
-        createdAt INTEGER NOT NULL
+        createdAt INTEGER NOT NULL,
+        type TEXT DEFAULT 'room',
+        isPublic INTEGER DEFAULT 1
       )`);
       this.db.run(`CREATE TABLE IF NOT EXISTS user_rooms (
         userId TEXT NOT NULL,
@@ -79,6 +81,10 @@ export class DatabaseService {
       this.db.run(`ALTER TABLE user_sessions ADD COLUMN refreshTokenExpiresAt INTEGER`, () => {});
       // Index pour accélérer la recherche par refreshToken
       this.db.run(`CREATE INDEX IF NOT EXISTS idx_user_sessions_refresh ON user_sessions(refreshToken)`);
+      // Rooms migrations (SQLite ne supporte pas IF NOT EXISTS pour ADD COLUMN avant 3.35) :
+      // on tente et on ignore l'erreur si la colonne existe déjà
+      this.db.run(`ALTER TABLE rooms ADD COLUMN type TEXT DEFAULT 'room'`, () => {});
+      this.db.run(`ALTER TABLE rooms ADD COLUMN isPublic INTEGER DEFAULT 1`, () => {});
       // Friends table: pair relationship with status and requester
       this.db.run(`CREATE TABLE IF NOT EXISTS friends (
         id TEXT PRIMARY KEY,
@@ -146,8 +152,8 @@ export class DatabaseService {
   addRoom(room: import('../models/Room').Room): Promise<import('../models/Room').Room> {
     return new Promise((resolve, reject) => {
       this.db.run(
-        `INSERT INTO rooms (id, name, creatorId, createdAt) VALUES (?, ?, ?, ?)`,
-        [room.id, room.name, room.creatorId, room.createdAt],
+        `INSERT INTO rooms (id, name, creatorId, createdAt, type, isPublic) VALUES (?, ?, ?, ?, ?, ?)`,
+        [room.id, room.name, room.creatorId, room.createdAt, room.type, room.isPublic ? 1 : 0],
         (err) => {
           if (err) {
             Logger.error('Erreur ajout room: ' + err.message);
@@ -163,11 +169,11 @@ export class DatabaseService {
   // Lister toutes les rooms
   async getRooms(): Promise<Room[]> {
     return new Promise((resolve, reject) => {
-      this.db.all(`SELECT id, name, creatorId, createdAt FROM rooms`, async (err, rows) => {
+      this.db.all(`SELECT id, name, creatorId, createdAt, type, isPublic FROM rooms`, async (err, rows) => {
         if (err) return reject(err);
         // For each room, fetch users and construct Room with users
         const roomObjs: Room[] = [];
-        for (const row of rows as Array<{ id: string; name: string; creatorId: string; createdAt: number }>) {
+        for (const row of rows as Array<{ id: string; name: string; creatorId: string; createdAt: number; type?: 'room'|'user'|null; isPublic?: number }>) {
           const users = await this.getUsersForRoom(row.id);
           roomObjs.push(Room.fromDbRow(row, users));
         }
@@ -198,13 +204,13 @@ export class DatabaseService {
   async getRoomsForUser(userId: string): Promise<Room[]> {
     return new Promise((resolve, reject) => {
       this.db.all(
-        `SELECT r.id, r.name, r.creatorId, r.createdAt FROM rooms r
+        `SELECT r.id, r.name, r.creatorId, r.createdAt, r.type, r.isPublic FROM rooms r
          INNER JOIN user_rooms ur ON ur.roomId = r.id WHERE ur.userId = ?`,
         [userId],
         async (err, rows) => {
           if (err) return reject(err);
           const roomObjs: Room[] = [];
-          for (const row of rows as Array<{ id: string; name: string; creatorId: string; createdAt: number }>) {
+          for (const row of rows as Array<{ id: string; name: string; creatorId: string; createdAt: number; type?: 'room'|'user'|null; isPublic?: number }>) {
             const users = await this.getUsersForRoom(row.id);
             roomObjs.push(Room.fromDbRow(row, users));
           }
