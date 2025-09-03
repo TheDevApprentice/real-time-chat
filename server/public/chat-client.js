@@ -177,6 +177,17 @@ let invitedUserIds = [];
 let pendingDmTargetId = null;
 // Unread counters by roomId
 let unreadCounts = {};
+// Persisted unread counts from server (after auth/getRooms)
+socket.on("unreadCounts", (payload) => {
+    try {
+        const counts = (payload && typeof payload === 'object') ? (payload.counts || {}) : {};
+        if (counts && typeof counts === 'object') {
+            unreadCounts = { ...counts };
+            renderRoomList();
+        }
+    }
+    catch { }
+});
 // --- AUTH LOGIC dsiconnet all session user on all device ---
 socket.on("forceLogout", function (data) {
     currentUser = null;
