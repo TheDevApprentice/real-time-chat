@@ -362,13 +362,25 @@ function renderMsg(msg: any) {
     classes += " " + getUserColorClass(authorName);
   }
   div.className = classes;
+  if (msg && msg.id != null) {
+    try { (div as any).dataset.messageId = String(msg.id); } catch {}
+  }
   const time = new Date(timestamp).toLocaleTimeString();
+  // status badge for own messages only
+  const status = String(msg.status || "sent");
+  const statusText = ((): string => {
+    if (!isMine) return "";
+    if (status === "read") return "✓✓";
+    if (status === "delivered") return "✓";
+    return ""; // sent
+  })();
   div.innerHTML = `
     <div class="msg-meta-row">
       <span class="msg-author">${authorName}</span>
       <span class="msg-time">${time}</span>
     </div>
     <div class="msg-content">${content}</div>
+    ${isMine ? `<span class="msg-status" aria-label="status">${statusText}</span>` : ""}
   `;
   chatWindow.appendChild(div);
   chatWindow.scrollTop = chatWindow.scrollHeight;
@@ -379,6 +391,20 @@ socket.on("roomHistory", (data: any) => {
   if (!selectedRoom || data.roomId !== selectedRoom.id) return;
   chatWindow.innerHTML = "";
   data.messages.forEach(renderMsg);
+  // Mark messages as delivered/read upon viewing history
+  try {
+    const now = Date.now();
+    (data.messages || []).forEach((m: any) => {
+      const authorName = m?.author?.name;
+      const mine = currentUser && authorName === currentUser.name;
+      const midStr = m?.id != null ? String(m.id) : "";
+      const mid = parseInt(midStr, 10);
+      if (!mine && Number.isFinite(mid)) {
+        socket.emit("messageDelivered", { messageId: mid, roomId: data.roomId, timestamp: now });
+        socket.emit("messageRead", { messageId: mid, roomId: data.roomId, timestamp: now });
+      }
+    });
+  } catch {}
 });
 
 // Participants de la room
@@ -402,6 +428,18 @@ socket.on("message", (data: any) => {
   // If message is for the currently open room, render it
   if (selectedRoom && data.roomId === selectedRoom.id) {
     renderMsg(data.message);
+    // Acknowledge delivery/read for messages from others in active room
+    try {
+      const m = data.message;
+      const authorName = m?.author?.name;
+      const mine = currentUser && authorName === currentUser.name;
+      const mid = parseInt(String(m?.id ?? ''), 10);
+      if (!mine && Number.isFinite(mid)) {
+        const now = Date.now();
+        socket.emit("messageDelivered", { messageId: mid, roomId: data.roomId, timestamp: now });
+        socket.emit("messageRead", { messageId: mid, roomId: data.roomId, timestamp: now });
+      }
+    } catch {}
     return;
   }
   // Otherwise, increment unread counter (ignore own messages)
@@ -435,6 +473,25 @@ chatForm.addEventListener("submit", function (e) {
     timestamp: Date.now(),
   });
   messageInput.value = "";
+});
+
+// Update status UI when server notifies
+socket.on("messageStatusUpdated", (evt: any) => {
+  try {
+    const mid = evt && evt.messageId != null ? String(evt.messageId) : "";
+    if (!mid) return;
+    const el = chatWindow.querySelector(`[data-message-id="${mid}"]`) as HTMLElement | null;
+    if (!el) return;
+    const statusEl = el.querySelector('.msg-status') as HTMLElement | null;
+    if (!statusEl) return; // Only own messages render status
+    const status = String(evt.status || '').toLowerCase();
+    if (status === 'read') {
+      statusEl.textContent = '✓✓';
+    } else if (status === 'delivered') {
+      // Only upgrade from blank to single tick if not already read
+      if (statusEl.textContent !== '✓✓') statusEl.textContent = '✓';
+    }
+  } catch {}
 });
 
 // Affiche ou masque les panneaux selon l'état d'authentification

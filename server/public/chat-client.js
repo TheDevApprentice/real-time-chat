@@ -382,13 +382,31 @@ function renderMsg(msg) {
         classes += " " + getUserColorClass(authorName);
     }
     div.className = classes;
+    if (msg && msg.id != null) {
+        try {
+            div.dataset.messageId = String(msg.id);
+        }
+        catch { }
+    }
     const time = new Date(timestamp).toLocaleTimeString();
+    // status badge for own messages only
+    const status = String(msg.status || "sent");
+    const statusText = (() => {
+        if (!isMine)
+            return "";
+        if (status === "read")
+            return "✓✓";
+        if (status === "delivered")
+            return "✓";
+        return ""; // sent
+    })();
     div.innerHTML = `
     <div class="msg-meta-row">
       <span class="msg-author">${authorName}</span>
       <span class="msg-time">${time}</span>
     </div>
     <div class="msg-content">${content}</div>
+    ${isMine ? `<span class="msg-status" aria-label="status">${statusText}</span>` : ""}
   `;
     chatWindow.appendChild(div);
     chatWindow.scrollTop = chatWindow.scrollHeight;
@@ -399,6 +417,22 @@ socket.on("roomHistory", (data) => {
         return;
     chatWindow.innerHTML = "";
     data.messages.forEach(renderMsg);
+    // Mark messages as delivered/read upon viewing history
+    try {
+        const now = Date.now();
+        (data.messages || []).forEach((m) => {
+            var _a;
+            const authorName = (_a = m === null || m === void 0 ? void 0 : m.author) === null || _a === void 0 ? void 0 : _a.name;
+            const mine = currentUser && authorName === currentUser.name;
+            const midStr = (m === null || m === void 0 ? void 0 : m.id) != null ? String(m.id) : "";
+            const mid = parseInt(midStr, 10);
+            if (!mine && Number.isFinite(mid)) {
+                socket.emit("messageDelivered", { messageId: mid, roomId: data.roomId, timestamp: now });
+                socket.emit("messageRead", { messageId: mid, roomId: data.roomId, timestamp: now });
+            }
+        });
+    }
+    catch { }
 });
 // Participants de la room
 function renderParticipants(users) {
@@ -418,15 +452,28 @@ socket.on("roomUsers", (payload) => {
 });
 // Nouveau message dans la room
 socket.on("message", (data) => {
-    var _a, _b;
+    var _a, _b, _c, _d;
     // If message is for the currently open room, render it
     if (selectedRoom && data.roomId === selectedRoom.id) {
         renderMsg(data.message);
+        // Acknowledge delivery/read for messages from others in active room
+        try {
+            const m = data.message;
+            const authorName = (_a = m === null || m === void 0 ? void 0 : m.author) === null || _a === void 0 ? void 0 : _a.name;
+            const mine = currentUser && authorName === currentUser.name;
+            const mid = parseInt(String((_b = m === null || m === void 0 ? void 0 : m.id) !== null && _b !== void 0 ? _b : ''), 10);
+            if (!mine && Number.isFinite(mid)) {
+                const now = Date.now();
+                socket.emit("messageDelivered", { messageId: mid, roomId: data.roomId, timestamp: now });
+                socket.emit("messageRead", { messageId: mid, roomId: data.roomId, timestamp: now });
+            }
+        }
+        catch { }
         return;
     }
     // Otherwise, increment unread counter (ignore own messages)
     try {
-        const authorName = (_b = (_a = data === null || data === void 0 ? void 0 : data.message) === null || _a === void 0 ? void 0 : _a.author) === null || _b === void 0 ? void 0 : _b.name;
+        const authorName = (_d = (_c = data === null || data === void 0 ? void 0 : data.message) === null || _c === void 0 ? void 0 : _c.author) === null || _d === void 0 ? void 0 : _d.name;
         if (!currentUser || authorName === currentUser.name)
             return;
         unreadCounts[data.roomId] = (unreadCounts[data.roomId] || 0) + 1;
@@ -458,6 +505,30 @@ chatForm.addEventListener("submit", function (e) {
         timestamp: Date.now(),
     });
     messageInput.value = "";
+});
+// Update status UI when server notifies
+socket.on("messageStatusUpdated", (evt) => {
+    try {
+        const mid = evt && evt.messageId != null ? String(evt.messageId) : "";
+        if (!mid)
+            return;
+        const el = chatWindow.querySelector(`[data-message-id="${mid}"]`);
+        if (!el)
+            return;
+        const statusEl = el.querySelector('.msg-status');
+        if (!statusEl)
+            return; // Only own messages render status
+        const status = String(evt.status || '').toLowerCase();
+        if (status === 'read') {
+            statusEl.textContent = '✓✓';
+        }
+        else if (status === 'delivered') {
+            // Only upgrade from blank to single tick if not already read
+            if (statusEl.textContent !== '✓✓')
+                statusEl.textContent = '✓';
+        }
+    }
+    catch { }
 });
 // Affiche ou masque les panneaux selon l'état d'authentification
 function showAuthPanel(show) {
