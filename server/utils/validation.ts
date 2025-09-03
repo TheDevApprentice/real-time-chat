@@ -30,6 +30,7 @@ export const CreateRoomSchema = z.object({
   name: z.string().min(1).max(100),
   type: z.enum(['room', 'user']).optional(),
   isPublic: z.boolean().optional(),
+  invitedUserIds: z.array(z.string().min(1)).max(100).optional(),
 });
 
 export const JoinRoomParamsSchema = z.object({
@@ -54,6 +55,7 @@ export const WsCreateRoomSchema = z.object({
   name: z.string().min(1).max(100),
   type: z.enum(['room', 'user']).optional(),
   isPublic: z.boolean().optional(),
+  invitedUserIds: z.array(z.string().min(1)).max(100).optional(),
 });
 
 export const WsJoinRoomSchema = z.object({

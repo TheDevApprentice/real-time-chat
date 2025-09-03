@@ -376,7 +376,7 @@ export class WebSocketService {
             });
             return;
           }
-          const { name, type, isPublic } = parseOrThrow(WsCreateRoomSchema, data);
+          const { name, type, isPublic, invitedUserIds } = parseOrThrow(WsCreateRoomSchema, data);
           const creatorId = socket.data.userId;
           // Vérifier que creatorId correspond à l'utilisateur connecté
           if (creatorId !== socket.data.userId) {
@@ -388,12 +388,22 @@ export class WebSocketService {
           const Room = (await import("../models/Room")).Room;
           const room = new Room(name, creatorId, Date.now(), undefined, [], { type: type ?? 'room', isPublic });
           await dbService.addRoom(room);
-          // Broadcast la nouvelle room à tous
-          const rooms = await dbService.getRooms();
-          this.io.emit(
-            "rooms",
-            rooms.map((r) => r.toJSON())
-          );
+          // Always add creator as member
+          await dbService.addUserToRoom(creatorId, room.id);
+          // If private, add invited users
+          const invitees = Array.isArray(invitedUserIds) ? invitedUserIds.filter((id: string) => !!id && id !== creatorId) : [];
+          if (!room.isPublic && invitees.length > 0) {
+            // @ts-ignore addUsersToRoomBulk exists in DatabaseService
+            await (dbService as any).addUsersToRoomBulk(invitees, room.id);
+          }
+          // Emit personalized visible rooms to connected users
+          const sockets = await this.io.fetchSockets();
+          for (const s of sockets) {
+            const uid = s.data.userId as string | undefined;
+            if (!uid) continue;
+            const vis = await dbService.getVisibleRoomsForUser(uid);
+            s.emit("rooms", vis.map((r) => r.toJSON()));
+          }
         } catch (err) {
           Logger.error(err instanceof Error ? err.message : String(err));
         }
@@ -409,7 +419,7 @@ export class WebSocketService {
             });
             return;
           }
-          const rooms = await dbService.getRooms();
+          const rooms = await dbService.getVisibleRoomsForUser(socket.data.userId);
           socket.emit(
             "rooms",
             rooms.map((r) => r.toJSON())
@@ -446,6 +456,20 @@ export class WebSocketService {
             socket.emit("error", { error: "User not found." });
             return;
           }
+          // Check room and permissions
+          const room = await dbService.getRoomById(roomId);
+          if (!room) {
+            socket.emit("error", { error: "Room not found." });
+            return;
+          }
+          if (!room.isPublic) {
+            const isMember = await dbService.isUserInRoom(userId, roomId);
+            if (!isMember && room.creatorId !== userId) {
+              socket.emit("error", { error: "Access denied to private room." });
+              return;
+            }
+          }
+          // Add membership on join (idempotent)
           await dbService.addUserToRoom(userId, roomId);
           socket.join(roomId);
           // Envoyer l'historique des messages de la room

@@ -17,7 +17,6 @@ export class DatabaseService {
         Logger.error(`Failed to open database: ${err.message}`);
         throw err;
       }
-      // Logger.info(`Connected to SQLite database at ${this.filePath}`);
     });
   }
 
@@ -182,6 +181,22 @@ export class DatabaseService {
     });
   }
 
+  // Récupérer une room par ID
+  async getRoomById(id: string): Promise<Room | undefined> {
+    return new Promise((resolve, reject) => {
+      this.db.get(
+        `SELECT id, name, creatorId, createdAt, type, isPublic FROM rooms WHERE id = ?`,
+        [id],
+        async (err, row: { id: string; name: string; creatorId: string; createdAt: number; type?: 'room'|'user'|null; isPublic?: number } | undefined) => {
+          if (err) return reject(err);
+          if (!row) return resolve(undefined);
+          const users = await this.getUsersForRoom(row.id);
+          resolve(Room.fromDbRow(row, users));
+        }
+      );
+    });
+  }
+
   // Ajouter un user à une room
   addUserToRoom(userId: string, roomId: string): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -200,12 +215,56 @@ export class DatabaseService {
     });
   }
 
+  // Vérifier si un user est membre d'une room
+  async isUserInRoom(userId: string, roomId: string): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      this.db.get(
+        `SELECT 1 FROM user_rooms WHERE userId = ? AND roomId = ?`,
+        [userId, roomId],
+        (err, row) => {
+          if (err) return reject(err);
+          resolve(!!row);
+        }
+      );
+    });
+  }
+
+  // Ajouter plusieurs users à une room
+  async addUsersToRoomBulk(userIds: string[], roomId: string): Promise<void> {
+    const uniq = Array.from(new Set(userIds));
+    for (const uid of uniq) {
+      await this.addUserToRoom(uid, roomId);
+    }
+  }
+
   // Lister les rooms d’un user
   async getRoomsForUser(userId: string): Promise<Room[]> {
     return new Promise((resolve, reject) => {
       this.db.all(
         `SELECT r.id, r.name, r.creatorId, r.createdAt, r.type, r.isPublic FROM rooms r
          INNER JOIN user_rooms ur ON ur.roomId = r.id WHERE ur.userId = ?`,
+        [userId],
+        async (err, rows) => {
+          if (err) return reject(err);
+          const roomObjs: Room[] = [];
+          for (const row of rows as Array<{ id: string; name: string; creatorId: string; createdAt: number; type?: 'room'|'user'|null; isPublic?: number }>) {
+            const users = await this.getUsersForRoom(row.id);
+            roomObjs.push(Room.fromDbRow(row, users));
+          }
+          resolve(roomObjs);
+        }
+      );
+    });
+  }
+
+  // Lister les rooms visibles pour un utilisateur: publiques OU membership
+  async getVisibleRoomsForUser(userId: string): Promise<Room[]> {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        `SELECT r.id, r.name, r.creatorId, r.createdAt, r.type, r.isPublic
+         FROM rooms r
+         WHERE r.isPublic = 1 OR r.id IN (SELECT roomId FROM user_rooms WHERE userId = ?)
+         ORDER BY r.createdAt DESC`,
         [userId],
         async (err, rows) => {
           if (err) return reject(err);
