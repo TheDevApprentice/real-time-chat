@@ -98,6 +98,111 @@ export class WebSocketService {
         this.socketRates.delete(socket.id);
       });
 
+      // --- MESSAGE STATUS: delivered ---
+      socket.on("messageDelivered", async (data, callback) => {
+        try {
+          if (!allow("chat:msgDelivered", 120, 60_000)) {
+            return callback && callback({ success: false, error: "Rate limit exceeded." });
+          }
+          const userId = socket.data.userId as string | undefined;
+          if (!userId) return callback && callback({ success: false, error: "Not authenticated." });
+          const { messageId, roomId, timestamp } = (data || {}) as { messageId?: number; roomId?: string; timestamp?: number };
+          if (!messageId || !roomId) return callback && callback({ success: false, error: "Missing messageId or roomId." });
+          await dbService.markMessageDelivered(messageId, timestamp ?? Date.now());
+          // Notify room of status change
+          this.io.to(roomId).emit("messageStatusUpdated", { messageId, status: "delivered", deliveredAt: timestamp ?? Date.now() });
+          callback && callback({ success: true });
+        } catch (err) {
+          callback && callback({ success: false, error: "Failed to mark delivered." });
+        }
+      });
+
+      // --- MESSAGE STATUS: read ---
+      socket.on("messageRead", async (data, callback) => {
+        try {
+          if (!allow("chat:msgRead", 120, 60_000)) {
+            return callback && callback({ success: false, error: "Rate limit exceeded." });
+          }
+          const userId = socket.data.userId as string | undefined;
+          if (!userId) return callback && callback({ success: false, error: "Not authenticated." });
+          const { messageId, roomId, timestamp } = (data || {}) as { messageId?: number; roomId?: string; timestamp?: number };
+          if (!messageId || !roomId) return callback && callback({ success: false, error: "Missing messageId or roomId." });
+          await dbService.markMessageRead(messageId, timestamp ?? Date.now());
+          // Notify room of status change
+          this.io.to(roomId).emit("messageStatusUpdated", { messageId, status: "read", readAt: timestamp ?? Date.now() });
+          callback && callback({ success: true });
+        } catch (err) {
+          callback && callback({ success: false, error: "Failed to mark read." });
+        }
+      });
+
+      // --- FRIENDS: create request ---
+      socket.on("friendRequest", async (data, callback) => {
+        try {
+          if (!allow("friend:request", 30, 60_000)) {
+            return callback && callback({ success: false, error: "Rate limit exceeded." });
+          }
+          const requesterId = socket.data.userId as string | undefined;
+          if (!requesterId) return callback && callback({ success: false, error: "Not authenticated." });
+          const { targetUserId } = (data || {}) as { targetUserId?: string };
+          if (!targetUserId || targetUserId === requesterId) {
+            return callback && callback({ success: false, error: "Invalid targetUserId." });
+          }
+          const fr = await dbService.createFriendRequest(requesterId, targetUserId);
+          // Notify target user's sockets
+          const sockets = await this.io.fetchSockets();
+          for (const s of sockets) {
+            if (s.data.userId === targetUserId) {
+              s.emit("friendUpdated", { type: "request", data: fr });
+            }
+          }
+          callback && callback({ success: true, request: fr });
+        } catch (err) {
+          callback && callback({ success: false, error: "Failed to create friend request." });
+        }
+      });
+
+      // --- FRIENDS: respond to request ---
+      socket.on("friendRespond", async (data, callback) => {
+        try {
+          if (!allow("friend:respond", 60, 60_000)) {
+            return callback && callback({ success: false, error: "Rate limit exceeded." });
+          }
+          const userId = socket.data.userId as string | undefined;
+          if (!userId) return callback && callback({ success: false, error: "Not authenticated." });
+          const { otherUserId, action } = (data || {}) as { otherUserId?: string; action?: "accept" | "reject" };
+          if (!otherUserId || (action !== "accept" && action !== "reject")) {
+            return callback && callback({ success: false, error: "Invalid payload." });
+          }
+          const res = await dbService.respondFriendRequest(userId, otherUserId, action);
+          // Notify both users
+          const sockets = await this.io.fetchSockets();
+          for (const s of sockets) {
+            if (s.data.userId === userId || s.data.userId === otherUserId) {
+              s.emit("friendUpdated", { type: "respond", data: res, action });
+            }
+          }
+          callback && callback({ success: true, result: res });
+        } catch (err) {
+          callback && callback({ success: false, error: "Failed to respond to friend request." });
+        }
+      });
+
+      // --- FRIENDS: list ---
+      socket.on("friendList", async (data, callback) => {
+        try {
+          if (!allow("friend:list", 60, 60_000)) {
+            return callback && callback({ success: false, error: "Rate limit exceeded." });
+          }
+          const userId = socket.data.userId as string | undefined;
+          if (!userId) return callback && callback({ success: false, error: "Not authenticated." });
+          const list = await dbService.listFriendsAndRequests(userId);
+          callback && callback({ success: true, items: list });
+        } catch (err) {
+          callback && callback({ success: false, error: "Failed to list friends." });
+        }
+      });
+
       // AUTH: Authenticate via token (auto-login)
       socket.on("authenticate", async (data, callback) => {
         try {
