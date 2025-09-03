@@ -61,20 +61,34 @@
     <div class="chat-root"> <!-- Room selection panel -->
       <div id="room-panel" class="chat-card">
         <div id="room-list-section">
-          <h2 class="chat-title" style="font-size:1.3rem;">🗂️ Sélectionnez une room</h2>
-          <ul id="room-list" class="room-list"></ul>
-          <div id="no-room-msg" style="display:none;text-align:center;color:#888;">Aucune room existante.</div>
+          <h2 class="chat-title" style="font-size:1.3rem;">🗂️ Rooms</h2>
+          <div class="mobile-tabs" role="tablist" aria-label="Choisir la liste">
+            <button id="tab-dms" class="tab-btn" role="tab" aria-controls="section-dms" aria-selected="true">Messages</button>
+            <button id="tab-rooms" class="tab-btn" role="tab" aria-controls="section-rooms" aria-selected="false">Rooms</button>
+          </div>
+          <div class="room-sections">
+            <section id="section-rooms" class="room-section-card" aria-expanded="false">
+              <button type="button" id="toggle-rooms" class="room-section-header" aria-controls="room-list-rooms">📁 Groupes</button>
+              <ul id="room-list-rooms" class="room-list"></ul>
+              <div id="no-room-msg-rooms" class="room-empty" style="display:none;">Aucune room de groupe.</div>
+            </section>
+            <section id="section-dms" class="room-section-card" aria-expanded="true">
+              <button type="button" id="toggle-dms" class="room-section-header" aria-controls="room-list-dms">👤 Messages privés</button>
+              <ul id="room-list-dms" class="room-list"></ul>
+              <div id="no-room-msg-dms" class="room-empty" style="display:none;">Aucun message privé.</div>
+            </section>
+          </div>
         </div>
-        <div id="user-search-section" style="margin-top:16px;">
-          <h3 style="margin:1em 0 0.3em 0;">Rechercher des utilisateurs</h3>
+        <div id="user-search-section" class="section-card">
+          <h3 class="section-title">🔎 Rechercher des utilisateurs</h3>
           <form id="user-search-form" class="chat-input-bar" autocomplete="off">
             <input type="text" id="user-search-input" class="chat-input-message" placeholder="Tapez un pseudo..." maxlength="50" />
             <button type="submit" class="chat-send-btn">Rechercher</button>
           </form>
           <ul id="user-search-results" class="room-list"></ul>
         </div>
-        <div id="friends-section" style="margin-top:16px;">
-          <h3 style="margin:1em 0 0.3em 0;">Mes amis & demandes</h3>
+        <div id="friends-section" class="section-card">
+          <h3 class="section-title">👥 Mes amis & demandes</h3>
           <button id="refresh-friends" class="auth-btn" type="button" style="margin-bottom:8px;">Actualiser</button>
           <ul id="friends-list" class="room-list"></ul>
         </div>
@@ -84,10 +98,11 @@
             <input type="text" id="create-room-name" class="chat-input-message" placeholder="Nom de la room" maxlength="32" required />
             <button type="submit" class="chat-send-btn">Créer</button>
           </form>
-          <div id="create-room-options" style="margin-top:8px;">
-            <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;">
+          <div id="create-room-options" class="create-room-options">
+            <label class="switch" for="create-room-private">
               <input type="checkbox" id="create-room-private" />
-              <span>Room privée (visible uniquement par les membres)</span>
+              <span class="switch-slider" aria-hidden="true"></span>
+              <span class="switch-text">Room privée (visible uniquement par les membres)</span>
             </label>
             <div id="private-room-invite" style="display:none;margin-top:10px;">
               <div style="font-weight:600;margin-bottom:6px;">Inviter des amis</div>

@@ -58,6 +58,38 @@
   margin-bottom: 0.6em;
 }
 
+/* Sections (rooms/dms, search, friends) */
+.room-sections {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+@media (min-width: 800px) {
+  .room-sections {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.room-section-card,
+.section-card {
+  background: var(--page-bg-card);
+  border: 1px solid var(--ev-c-gray-1);
+  border-radius: 12px;
+  box-shadow: var(--page-card-shadow);
+  padding: 10px 12px;
+}
+.room-section-header,
+.section-title {
+  font-weight: 700;
+  color: var(--page-secondary-color);
+  margin-bottom: 8px;
+}
+.room-empty {
+  color: #888;
+  text-align: center;
+  font-size: 0.95rem;
+  padding: 6px 0;
+}
+
 /* Fenêtre de messages */
 .chat-window {
   background: var(--page-bg-card);

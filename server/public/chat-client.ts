@@ -45,8 +45,10 @@ if (tabLogin && tabRegister && loginForm && registerForm) {
 }
 
 const roomPanel = document.getElementById("room-panel") as HTMLElement;
-const roomList = document.getElementById("room-list") as HTMLElement;
-const noRoomMsg = document.getElementById("no-room-msg") as HTMLElement;
+const roomListRooms = document.getElementById("room-list-rooms") as HTMLElement;
+const roomListDms = document.getElementById("room-list-dms") as HTMLElement;
+const noRoomMsgRooms = document.getElementById("no-room-msg-rooms") as HTMLElement;
+const noRoomMsgDms = document.getElementById("no-room-msg-dms") as HTMLElement;
 const createRoomForm = document.getElementById("create-room-form") as HTMLFormElement;
 const createRoomName = document.getElementById("create-room-name") as HTMLInputElement;
 // Private room UI
@@ -56,6 +58,54 @@ const inviteFriendsForm = document.getElementById("invite-friends-form") as HTML
 const inviteFriendInput = document.getElementById("invite-friend-input") as HTMLInputElement | null;
 const inviteFriendResults = document.getElementById("invite-friend-results") as HTMLElement | null;
 const invitedUsersList = document.getElementById("invited-users") as HTMLElement | null;
+
+// Tabs & collapsible sections (Messenger-like)
+const tabDms = document.getElementById('tab-dms') as HTMLButtonElement | null;
+const tabRooms = document.getElementById('tab-rooms') as HTMLButtonElement | null;
+const sectionDms = document.getElementById('section-dms') as HTMLElement | null;
+const sectionRooms = document.getElementById('section-rooms') as HTMLElement | null;
+const toggleDms = document.getElementById('toggle-dms') as HTMLButtonElement | null;
+const toggleRooms = document.getElementById('toggle-rooms') as HTMLButtonElement | null;
+
+function setTabs(active: 'dms' | 'rooms') {
+  if (tabDms) tabDms.setAttribute('aria-selected', active === 'dms' ? 'true' : 'false');
+  if (tabRooms) tabRooms.setAttribute('aria-selected', active === 'rooms' ? 'true' : 'false');
+  // Mobile behavior: show only the active section
+  if (sectionDms && sectionRooms) {
+    if (active === 'dms') {
+      sectionDms.style.display = '';
+      sectionRooms.style.display = 'none';
+    } else {
+      sectionDms.style.display = 'none';
+      sectionRooms.style.display = '';
+    }
+  }
+}
+
+function toggleSection(el: HTMLElement | null) {
+  if (!el) return;
+  const expanded = el.getAttribute('aria-expanded') === 'true';
+  el.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+  // Simple collapse by toggling list visibility
+  const list = el.querySelector('ul');
+  if (list) (list as HTMLElement).style.display = expanded ? 'none' : '';
+  const empty = el.querySelector('.room-empty') as HTMLElement | null;
+  if (empty) empty.style.display = expanded ? 'none' : (list && (list as HTMLElement).children.length ? 'none' : 'block');
+}
+
+function initRoomTabsAndCollapsers() {
+  // Default: DMs active
+  setTabs('dms');
+  if (sectionRooms) sectionRooms.setAttribute('aria-expanded', 'false');
+  if (sectionDms) sectionDms.setAttribute('aria-expanded', 'true');
+  if (tabDms) tabDms.onclick = () => setTabs('dms');
+  if (tabRooms) tabRooms.onclick = () => setTabs('rooms');
+  if (toggleDms) toggleDms.onclick = () => toggleSection(sectionDms);
+  if (toggleRooms) toggleRooms.onclick = () => toggleSection(sectionRooms);
+}
+
+// Initialize tabs/collapsers on load
+try { initRoomTabsAndCollapsers(); } catch {}
 
 const chatCard = document.getElementById("chat-card") as HTMLElement;
 const chatWindow = document.getElementById("chat-window") as HTMLElement;
@@ -90,8 +140,9 @@ socket.on("forceLogout", function(data) {
 
 // --- ROOM LIST LOGIC ---
 function renderRoomList() {
-  roomList.innerHTML = "";
-  // Filter: show public rooms, and private rooms if the current user is a member (or creator)
+  if (roomListRooms) roomListRooms.innerHTML = "";
+  if (roomListDms) roomListDms.innerHTML = "";
+  // Visibility: show public rooms, and private rooms if current user is a member or creator
   const visibleRooms = rooms.filter((room) => {
     if (room.isPublic === false) {
       const meId = currentUser?.id;
@@ -102,18 +153,39 @@ function renderRoomList() {
     }
     return true; // public
   });
-  if (visibleRooms.length === 0) {
-    noRoomMsg.style.display = "block";
-    return;
-  }
-  noRoomMsg.style.display = "none";
-  visibleRooms.forEach((room) => {
+  const groupRooms = visibleRooms.filter((r) => r.type !== 'user');
+  const dmRooms = visibleRooms.filter((r) => r.type === 'user');
+
+  // Empty states
+  if (noRoomMsgRooms) noRoomMsgRooms.style.display = groupRooms.length ? 'none' : 'block';
+  if (noRoomMsgDms) noRoomMsgDms.style.display = dmRooms.length ? 'none' : 'block';
+
+  // Render groups
+  groupRooms.forEach((room) => {
     const li = document.createElement("li");
     li.className = "room-list-item";
     li.textContent = room.name + (room.creatorId ? ` (créée par ${room.creatorId})` : "");
     li.style.cursor = "pointer";
     li.onclick = () => joinRoom(room);
-    roomList.appendChild(li);
+    roomListRooms && roomListRooms.appendChild(li);
+  });
+
+  // Render DMs
+  dmRooms.forEach((room) => {
+    const li = document.createElement("li");
+    li.className = "room-list-item";
+    // Prefer showing other participant name if available
+    let label = room.name || 'DM';
+    try {
+      const meId = currentUser?.id;
+      const members: Array<{ id: string; name: string }> = Array.isArray(room.users) ? room.users : [];
+      const other = meId ? members.find((u) => u && u.id !== meId) : null;
+      if (other && other.name) label = other.name;
+    } catch {}
+    li.textContent = label;
+    li.style.cursor = "pointer";
+    li.onclick = () => joinRoom(room);
+    roomListDms && roomListDms.appendChild(li);
   });
 }
 
