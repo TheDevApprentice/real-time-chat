@@ -62,6 +62,12 @@ export const WsSendMessageSchema = z.object({
   timestamp: z.number().int().positive().optional(),
 });
 
+// User search (REST) schemas
+export const SearchUsersQuerySchema = z.object({
+  q: z.string().min(1).max(50),
+  limit: z.coerce.number().int().min(1).max(50).optional(),
+});
+
 // Helper to parse with friendly error
 export function parseOrThrow<T>(schema: z.ZodSchema<T>, data: unknown): T {
   const r = schema.safeParse(data);
