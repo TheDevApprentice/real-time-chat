@@ -7,7 +7,6 @@
   >
     <template #sidebar>
       <HomeSideBar
-        :rooms="rooms"
         :mockConversations="mockConversations"
         :sidebarHovered="sidebarHovered"
         @askLogout="askLogout"
@@ -42,7 +41,6 @@
 <script setup lang="ts">
 import { ref, computed, defineAsyncComponent, onBeforeUnmount } from "vue";
 import type { Conversation } from "@components/home/chatZone/SideBarConversations.vue";
-import type { Room } from "@components/home/layout/HomeSideBar.vue";
 import type { Bubble } from "@components/home/chat/view/ChatBubble.vue";
 import { useAuthStore } from "@/stores/AuthStore";
 
@@ -214,12 +212,6 @@ const mockMessages: Bubble[] = [
   },
 ];
 
-// Simulation de rooms pour la sidebar (à remplacer par tes vraies données)
-const rooms: Room[] = [
-  { id: 1, name: "Famille", avatar: "👪", active: false },
-  { id: 2, name: "Mes Canards", avatar: "🦆", active: false },
-];
-
 const mockConversations: Conversation[] = [
   {
     id: 1,
@@ -228,7 +220,7 @@ const mockConversations: Conversation[] = [
     name: "Famille",
     type: "room",
     messages: mockMessages,
-    active: false,
+    active: true,
     mostRecent: true,
   },
   {
@@ -238,8 +230,8 @@ const mockConversations: Conversation[] = [
     name: "Mes Canards",
     type: "room",
     messages: mockMessages,
-    active: false,
-    mostRecent: false,
+    active: true,
+    mostRecent: true,
   },
   {
     id: 3,
@@ -248,7 +240,7 @@ const mockConversations: Conversation[] = [
     name: "Bot Lidya",
     type: "user",
     messages: mockMessages,
-    active: false,
+    active: true,
     mostRecent: true,
   },
   {
