@@ -84,6 +84,22 @@
             <input type="text" id="create-room-name" class="chat-input-message" placeholder="Nom de la room" maxlength="32" required />
             <button type="submit" class="chat-send-btn">Créer</button>
           </form>
+          <div id="create-room-options" style="margin-top:8px;">
+            <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" id="create-room-private" />
+              <span>Room privée (visible uniquement par les membres)</span>
+            </label>
+            <div id="private-room-invite" style="display:none;margin-top:10px;">
+              <div style="font-weight:600;margin-bottom:6px;">Inviter des amis</div>
+              <form id="invite-friends-form" class="chat-input-bar" autocomplete="off" style="margin-bottom:6px;">
+                <input type="text" id="invite-friend-input" class="chat-input-message" placeholder="Rechercher parmi vos amis..." maxlength="50" />
+                <button type="submit" class="chat-send-btn">Ajouter</button>
+              </form>
+              <ul id="invite-friend-results" class="room-list"></ul>
+              <div style="margin-top:6px;color:#666;font-size:0.9rem;">Invités:</div>
+              <ul id="invited-users" class="room-list"></ul>
+            </div>
+          </div>
         </div>
       </div>
       <!-- Chatbox for selected room (hidden by default) -->

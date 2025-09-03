@@ -49,6 +49,13 @@ const roomList = document.getElementById("room-list") as HTMLElement;
 const noRoomMsg = document.getElementById("no-room-msg") as HTMLElement;
 const createRoomForm = document.getElementById("create-room-form") as HTMLFormElement;
 const createRoomName = document.getElementById("create-room-name") as HTMLInputElement;
+// Private room UI
+const createRoomPrivate = document.getElementById("create-room-private") as HTMLInputElement | null;
+const privateRoomInvite = document.getElementById("private-room-invite") as HTMLElement | null;
+const inviteFriendsForm = document.getElementById("invite-friends-form") as HTMLFormElement | null;
+const inviteFriendInput = document.getElementById("invite-friend-input") as HTMLInputElement | null;
+const inviteFriendResults = document.getElementById("invite-friend-results") as HTMLElement | null;
+const invitedUsersList = document.getElementById("invited-users") as HTMLElement | null;
 
 const chatCard = document.getElementById("chat-card") as HTMLElement;
 const chatWindow = document.getElementById("chat-window") as HTMLElement;
@@ -69,6 +76,7 @@ let currentUser: { id: string, name: string } | null = null;
 let selectedRoom: any = null;
 let rooms: any[] = [];
 let lastFriendItems: any[] = [];
+let invitedUserIds: string[] = [];
 
 // --- AUTH LOGIC dsiconnet all session user on all device ---
 socket.on("forceLogout", function(data) {
@@ -81,12 +89,23 @@ socket.on("forceLogout", function(data) {
 // --- ROOM LIST LOGIC ---
 function renderRoomList() {
   roomList.innerHTML = "";
-  if (rooms.length === 0) {
+  // Filter: show public rooms, and private rooms if the current user is a member (or creator)
+  const visibleRooms = rooms.filter((room) => {
+    if (room.isPublic === false) {
+      const meId = currentUser?.id;
+      if (!meId) return false;
+      if (room.creatorId === meId) return true;
+      const members: Array<{ id: string; name: string }> = Array.isArray(room.users) ? room.users : [];
+      return members.some((u) => u && u.id === meId);
+    }
+    return true; // public
+  });
+  if (visibleRooms.length === 0) {
     noRoomMsg.style.display = "block";
     return;
   }
   noRoomMsg.style.display = "none";
-  rooms.forEach((room) => {
+  visibleRooms.forEach((room) => {
     const li = document.createElement("li");
     li.className = "room-list-item";
     li.textContent = room.name + (room.creatorId ? ` (créée par ${room.creatorId})` : "");
@@ -106,8 +125,17 @@ createRoomForm.addEventListener("submit", function (e) {
   e.preventDefault();
   const name = createRoomName.value.trim();
   if (!name || !currentUser) return;
-  socket.emit("createRoom", { name, creatorId: currentUser.id });
+  const isPrivate = !!(createRoomPrivate && createRoomPrivate.checked);
+  const isPublic = !isPrivate;
+  const payload: any = { name, creatorId: currentUser.id, type: 'room', isPublic };
+  if (isPrivate) {
+    payload.invitedUserIds = invitedUserIds.slice();
+  }
+  socket.emit("createRoom", payload);
   createRoomName.value = "";
+  // reset invites UI
+  invitedUserIds = [];
+  if (invitedUsersList) invitedUsersList.innerHTML = "";
 });
 
 // --- JOIN ROOM ---
@@ -475,4 +503,88 @@ socket.on('friendUpdated', (_evt: any) => {
   // Simply refresh the list to reflect latest state
   requestFriendList();
 });
+
+// -------- Private room helpers --------
+function renderInvitedUsers() {
+  if (!invitedUsersList) return;
+  invitedUsersList.innerHTML = '';
+  invitedUserIds.forEach((uid) => {
+    const info = lastFriendItems.find((f) => f.userId === uid || f.id === uid) || {} as any;
+    const name = info.name || uid;
+    const li = document.createElement('li');
+    li.className = 'room-list-item';
+    const label = document.createElement('span');
+    label.textContent = name;
+    const actions = document.createElement('span');
+    actions.style.float = 'right';
+    const rm = document.createElement('button');
+    rm.textContent = 'Retirer';
+    rm.className = 'auth-btn';
+    rm.onclick = () => {
+      invitedUserIds = invitedUserIds.filter((id) => id !== uid);
+      renderInvitedUsers();
+    };
+    actions.appendChild(rm);
+    li.appendChild(label);
+    li.appendChild(actions);
+    invitedUsersList.appendChild(li);
+  });
+}
+
+function renderInviteSearchResults(users: Array<{ id: string; name: string }>) {
+  if (!inviteFriendResults) return;
+  inviteFriendResults.innerHTML = '';
+  users.forEach((u) => {
+    const li = document.createElement('li');
+    li.className = 'room-list-item';
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = u.name;
+    const actions = document.createElement('span');
+    actions.style.float = 'right';
+    const addBtn = document.createElement('button');
+    addBtn.textContent = '+';
+    addBtn.className = 'chat-send-btn';
+    addBtn.style.width = '32px';
+    addBtn.style.padding = '4px 0';
+    addBtn.onclick = () => {
+      if (!invitedUserIds.includes(u.id)) invitedUserIds.push(u.id);
+      renderInvitedUsers();
+    };
+    actions.appendChild(addBtn);
+    li.appendChild(nameSpan);
+    li.appendChild(actions);
+    inviteFriendResults.appendChild(li);
+  });
+}
+
+function filterFriendsByQuery(q: string): Array<{ id: string; name: string }> {
+  const norm = (s: string) => s.toLowerCase();
+  // Only accepted friends
+  const accepted = lastFriendItems.filter((it) => it.status === 'accepted');
+  return accepted
+    .map((it) => ({ id: it.userId || it.id, name: it.name || 'inconnu' }))
+    .filter((u) => !q || norm(u.name).includes(norm(q)));
+}
+
+// Toggle private section visibility
+if (createRoomPrivate && privateRoomInvite) {
+  createRoomPrivate.addEventListener('change', () => {
+    privateRoomInvite.style.display = createRoomPrivate.checked ? 'block' : 'none';
+  });
+}
+
+// Invite friends search
+if (inviteFriendsForm && inviteFriendInput) {
+  inviteFriendsForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const q = inviteFriendInput.value.trim();
+    const list = filterFriendsByQuery(q);
+    renderInviteSearchResults(list);
+  });
+  inviteFriendInput.addEventListener('input', () => {
+    const q = inviteFriendInput.value.trim();
+    const list = filterFriendsByQuery(q);
+    renderInviteSearchResults(list);
+  });
+}
 
