@@ -15,6 +15,7 @@ services:
       FRONTEND_URL: http://localhost:3080
       TRUST_PROXY: "false"
       BCRYPT_COST: "12"
+      REDIS_URL: redis://redis:6379
       DATABASE_DRIVER: sqlite
       SQLITE_FILE: /data/chat.sqlite
       # POSTGRES_HOST: postgres
