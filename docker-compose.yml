@@ -49,7 +49,6 @@ services:
       # - mysql
     restart: unless-stopped
 
-  # MinIO (S3-compatible storage) using custom image with built-in bucket init
   minio:
     build:
       context: ./server/Minio
@@ -84,17 +83,14 @@ services:
       - redis_data:/data
     restart: unless-stopped
 
-  redis-insight:
-    image: redis/redisinsight:latest
-    container_name: redis-insight
-    ports:
-      - "5540:5540"
-    environment:
-      - RI_HOST=0.0.0.0
-      # Required to store database credentials securely; 32+ chars recommended
-      - RI_ENCRYPTION_KEY=please-change-this-long-random-secret-key-32chars-min
-      # Optional: protect the Redis Insight UI with a password
-      # - RI_PASSWORD=admin
+  sqlite:
+    build:
+      context: ./server/Database/SqlLite
+      dockerfile: Dockerfile
+    image: realtime-chat-sqlite:latest
+    container_name: chat-sqlite
+    volumes:
+      - sqlite_data:/data
     restart: unless-stopped
 
   # postgres:
@@ -130,29 +126,31 @@ services:
   #     - mysql_data:/var/lib/mysql
   #   restart: unless-stopped
 
-  # SQLite container built from our custom Dockerfile
-  sqlite:
-    build:
-      context: ./server/Database/SqlLite
-      dockerfile: Dockerfile
-    image: realtime-chat-sqlite:latest
-    container_name: chat-sqlite
-    volumes:
-      - sqlite_data:/data
-    restart: unless-stopped
-
   # Web UI for browsing the SQLite database
-  sqlite-web:
-    image: coleifer/sqlite-web:latest
-    container_name: chat-sqlite-web
-    command: ["sqlite_web", "-H", "0.0.0.0", "/data/chat.sqlite"]
-    ports:
-      - "8080:8080"
-    volumes:
-      - sqlite_data:/data
-    depends_on:
-      - sqlite
-    restart: unless-stopped
+  # sqlite-web:
+  #   image: coleifer/sqlite-web:latest
+  #   container_name: chat-sqlite-web
+  #   command: ["sqlite_web", "-H", "0.0.0.0", "/data/chat.sqlite"]
+  #   ports:
+  #     - "8080:8080"
+  #   volumes:
+  #     - sqlite_data:/data
+  #   depends_on:
+  #     - sqlite
+  #   restart: unless-stopped
+
+  # redis-insight:
+  #   image: redis/redisinsight:latest
+  #   container_name: redis-insight
+  #   ports:
+  #     - "5540:5540"
+  #   environment:
+  #     - RI_HOST=0.0.0.0
+  #     # Required to store database credentials securely; 32+ chars recommended
+  #     - RI_ENCRYPTION_KEY=please-change-this-long-random-secret-key-32chars-min
+  #     # Optional: protect the Redis Insight UI with a password
+  #     # - RI_PASSWORD=admin
+  #   restart: unless-stopped
 
 volumes:
   sqlite_data:
