@@ -18,7 +18,7 @@ router.get("/users", rateLimit("user:getUsers", 200), async (req: Request, res: 
   try {
     const dbFile = process.env.SQLITE_FILE;
     if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
-    const db = DatabaseService.getInstance(dbFile);
+    const db = DatabaseService.getInstance();
     const users: User[] = await db.getUsers();
     res.json(users.map((u: User) => u.toJSON()));
   } catch (e) {
@@ -33,9 +33,7 @@ router.get(
   rateLimit("user:getSessions", 60),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const dbFile = process.env.SQLITE_FILE;
-      if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
-      const db = DatabaseService.getInstance(dbFile);
+      const db = DatabaseService.getInstance();
       if (!req.user)
         return res.status(401).json({ error: "Not authenticated." });
       const sessions = await db.getUserSessionsByUserId(req.user.id);
@@ -49,9 +47,7 @@ router.get(
 // Récupérer une session par token
 router.get("/sessions/:token", rateLimit("user:getSessionByToken", 120), async (req, res) => {
   try {
-    const dbFile = process.env.SQLITE_FILE;
-    if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
-    const db = DatabaseService.getInstance(dbFile);
+    const db = DatabaseService.getInstance();
     const session = await db.getUserSessionByToken(req.params.token);
     if (!session) return res.status(404).json({ error: "Session not found." });
     res.json(session.toJSON());
@@ -67,9 +63,7 @@ router.delete(
   rateLimit("user:deleteSession", 30),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const dbFile = process.env.SQLITE_FILE;
-      if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
-      const db = DatabaseService.getInstance(dbFile);
+      const db = DatabaseService.getInstance();
       if (!req.user)
         return res.status(401).json({ error: "Not authenticated." });
       const session = await db.getUserSessionByToken(req.params.token);
@@ -114,9 +108,7 @@ router.delete(
   rateLimit("user:deleteAllSessions", 10),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const dbFile = process.env.SQLITE_FILE;
-      if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
-      const db = DatabaseService.getInstance(dbFile);
+      const db = DatabaseService.getInstance();
       if (!req.user)
         return res.status(401).json({ error: "Not authenticated." });
       await db.deleteAllUserSessionsByUserId(req.user.id);

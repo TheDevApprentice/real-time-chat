@@ -33,7 +33,6 @@ VOLUME ["/data"]
 
 # Default envs (override in compose)
 ENV PORT=3080
-ENV SQLITE_FILE=/data/chat.sqlite
 ENV FRONTEND_URL=http://localhost:3080
 ENV TRUST_PROXY=false
 ENV BCRYPT_COST=12

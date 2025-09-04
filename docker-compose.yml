@@ -12,10 +12,23 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3080
-      SQLITE_FILE: /data/chat.sqlite
       FRONTEND_URL: http://localhost:3080
       TRUST_PROXY: "false"
       BCRYPT_COST: "10"
+      DATABASE_DRIVER: sqlite
+      SQLITE_FILE: /data/chat.sqlite
+      POSTGRES_HOST: null
+      POSTGRES_PORT: null
+      POSTGRES_DB: null
+      POSTGRES_USER: null
+      POSTGRES_PASSWORD: null
+      POSTGRES_SSL: null
+      MYSQL_HOST: null
+      MYSQL_PORT: null
+      MYSQL_DB: null
+      MYSQL_USER: null
+      MYSQL_PASSWORD: null
+      MYSQL_SSL: null
     volumes:
       - sqlite_data:/data
     depends_on:

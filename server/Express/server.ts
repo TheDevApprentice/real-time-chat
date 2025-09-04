@@ -45,7 +45,7 @@ class AppServer {
       throw new Error('SQLITE_FILE environment variable is not defined');
     }
     // Initialize database
-    const dbService = DatabaseService.getInstance(sqliteFile);
+    const dbService = DatabaseService.getInstance();
     dbService.init();
 
     // Start WebSocket service

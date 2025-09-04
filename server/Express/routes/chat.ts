@@ -20,9 +20,7 @@ router.use(authMiddleware);
 // Get all rooms
 router.get("/rooms", rateLimit("chat:getRooms", 200), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const dbFile = process.env.SQLITE_FILE;
-    if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
-    const db = DatabaseService.getInstance(dbFile);
+    const db = DatabaseService.getInstance();
     const rooms = await db.getRooms();
     res.json(rooms.map((r) => r.toJSON()));
   } catch (err) {
@@ -34,9 +32,7 @@ router.get("/rooms", rateLimit("chat:getRooms", 200), async (req: AuthenticatedR
 router.get("/users/search", rateLimit("chat:searchUsers", 150), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { q, limit } = parseOrThrow(SearchUsersQuerySchema, req.query);
-    const dbFile = process.env.SQLITE_FILE;
-    if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
-    const db = DatabaseService.getInstance(dbFile);
+    const db = DatabaseService.getInstance();
     const users = await db.searchUsersByName(q, limit ?? 20);
     res.json(users.map((u) => u.toJSON()));
   } catch (err) {
@@ -50,9 +46,7 @@ router.get("/users/search", rateLimit("chat:searchUsers", 150), async (req: Auth
 // Get messages for a room
 router.get("/rooms/:roomId/messages", rateLimit("chat:getMessages", 200), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const dbFile = process.env.SQLITE_FILE;
-    if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
-    const db = DatabaseService.getInstance(dbFile);
+    const db = DatabaseService.getInstance();
     const { roomId } = req.params;
     const messages = await db.getMessagesForRoom(roomId);
     res.json(messages.map((m) => m.toJSON()));
@@ -64,9 +58,7 @@ router.get("/rooms/:roomId/messages", rateLimit("chat:getMessages", 200), async 
 // Get users for a room
 router.get("/rooms/:roomId/users", rateLimit("chat:getRoomUsers", 200), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const dbFile = process.env.SQLITE_FILE;
-    if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
-    const db = DatabaseService.getInstance(dbFile);
+    const db = DatabaseService.getInstance();
     const { roomId } = req.params;
     const users = await db.getUsersForRoom(roomId);
     res.json(users.map((u) => u.toJSON()));

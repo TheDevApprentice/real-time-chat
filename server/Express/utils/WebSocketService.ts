@@ -32,12 +32,7 @@ export class WebSocketService {
   }
 
   private handleConnections(): void {
-
-    const sqliteFile = process.env.SQLITE_FILE;
-    if (!sqliteFile) {
-      throw new Error("SQLITE_FILE environment variable is not defined");
-    }
-    const dbService = DatabaseService.getInstance(sqliteFile);
+    const dbService = DatabaseService.getInstance();
 
     this.io.on("connection", async (socket: Socket) => {
       // helper: rate limit check

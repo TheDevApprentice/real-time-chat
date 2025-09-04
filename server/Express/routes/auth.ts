@@ -20,9 +20,7 @@ const rateLimit = (
 router.post("/register", rateLimit("auth:register", 20), async (req, res) => {
   try {
     const { username, password, confirmPassword } = parseOrThrow(RegisterSchema, req.body);
-    const dbFile = process.env.SQLITE_FILE;
-    if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
-    const db = DatabaseService.getInstance(dbFile);
+    const db = DatabaseService.getInstance();
     const users = await db.getUsers();
     if (users.find((u) => u.name === username)) {
       return res.status(409).json({ error: "Username already exists." });
@@ -49,9 +47,7 @@ router.post(
     const { token } = req.body || {};
     if (!token) return res.status(400).json({ error: "token is required." });
     try {
-      const dbFile = process.env.SQLITE_FILE;
-      if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
-      const db = DatabaseService.getInstance(dbFile);
+      const db = DatabaseService.getInstance();
       const session = await db.getUserSessionByToken(token);
       if (!session) return res.status(401).json({ error: "Invalid token." });
       // Set HttpOnly cookie: use hardened __Host-session only in production (requires Secure),
@@ -99,9 +95,7 @@ router.get(
 router.post("/refresh-token", rateLimit("auth:refresh", 60), async (req, res) => {
   try {
     const { refreshToken } = parseOrThrow(RefreshTokenSchema, req.body);
-    const dbFile = process.env.SQLITE_FILE;
-    if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
-    const db = DatabaseService.getInstance(dbFile);
+    const db = DatabaseService.getInstance();
     // Lookup direct par refresh token
     const session = await db.getUserSessionByRefreshToken(refreshToken);
     if (!session) {

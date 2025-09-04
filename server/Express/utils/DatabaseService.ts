@@ -1,31 +1,23 @@
-import sqlite3 from "sqlite3";
 import { Logger } from "./Logger";
 import { User } from "../models/User";
 import { Message } from "../models/Message";
 import { Room } from "../models/Room";
 import { UserSession } from "../models/UserSession";
-
-sqlite3.verbose();
+import { CallbackDB } from "../db/adapters/callbackDb";
+import { createCallbackDbFromEnv } from "../db/factory";
 
 export class DatabaseService {
   private static instance: DatabaseService;
-  private db: sqlite3.Database;
+  private db: CallbackDB;
 
-  private constructor(private filePath: string) {
-    this.db = new sqlite3.Database(this.filePath, (err) => {
-      if (err) {
-        Logger.error(`Failed to open database: ${err.message}`);
-        throw err;
-      }
-    });
+  private constructor() {
+    // Use factory to select DB by env (default sqlite). filePath kept for backward compat.
+    this.db = createCallbackDbFromEnv(process.env);
   }
 
-  static getInstance(filePath: string): DatabaseService {
+  static getInstance(): DatabaseService {
     if (!DatabaseService.instance) {
-      if (!filePath) {
-        throw new Error("Database file path is required");
-      }
-      DatabaseService.instance = new DatabaseService(filePath);
+      DatabaseService.instance = new DatabaseService();
     }
     return DatabaseService.instance;
   }
@@ -36,7 +28,7 @@ export class DatabaseService {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         password TEXT NOT NULL
-      )`);
+      )`, undefined, () => {});
       this.db.run(`CREATE TABLE IF NOT EXISTS rooms (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -44,14 +36,14 @@ export class DatabaseService {
         createdAt INTEGER NOT NULL,
         type TEXT DEFAULT 'room',
         isPublic INTEGER DEFAULT 1
-      )`);
+      )`, undefined, () => {});
       this.db.run(`CREATE TABLE IF NOT EXISTS user_rooms (
         userId TEXT NOT NULL,
         roomId TEXT NOT NULL,
         PRIMARY KEY (userId, roomId),
         FOREIGN KEY (userId) REFERENCES users(id),
         FOREIGN KEY (roomId) REFERENCES rooms(id)
-      )`);
+      )`, undefined, () => {});
       this.db.run(`CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         authorId TEXT,
@@ -64,7 +56,7 @@ export class DatabaseService {
         deliveredAt INTEGER,
         readAt INTEGER,
         FOREIGN KEY (roomId) REFERENCES rooms(id)
-      )`);
+      )`, undefined, () => {});
       this.db.run(`CREATE TABLE IF NOT EXISTS user_sessions (
         id TEXT PRIMARY KEY,
         userId TEXT NOT NULL,
@@ -74,16 +66,16 @@ export class DatabaseService {
         refreshToken TEXT,
         refreshTokenExpiresAt INTEGER,
         FOREIGN KEY (userId) REFERENCES users(id)
-      )`);
+      )`, undefined, () => {});
       // Migration : ajoute les colonnes si elles n'existent pas
-      this.db.run(`ALTER TABLE user_sessions ADD COLUMN refreshToken TEXT`, () => {});
-      this.db.run(`ALTER TABLE user_sessions ADD COLUMN refreshTokenExpiresAt INTEGER`, () => {});
+      this.db.run(`ALTER TABLE user_sessions ADD COLUMN refreshToken TEXT`, undefined, () => {});
+      this.db.run(`ALTER TABLE user_sessions ADD COLUMN refreshTokenExpiresAt INTEGER`, undefined, () => {});
       // Index pour accélérer la recherche par refreshToken
-      this.db.run(`CREATE INDEX IF NOT EXISTS idx_user_sessions_refresh ON user_sessions(refreshToken)`);
+      this.db.run(`CREATE INDEX IF NOT EXISTS idx_user_sessions_refresh ON user_sessions(refreshToken)`, undefined, () => {});
       // Rooms migrations (SQLite ne supporte pas IF NOT EXISTS pour ADD COLUMN avant 3.35) :
       // on tente et on ignore l'erreur si la colonne existe déjà
-      this.db.run(`ALTER TABLE rooms ADD COLUMN type TEXT DEFAULT 'room'`, () => {});
-      this.db.run(`ALTER TABLE rooms ADD COLUMN isPublic INTEGER DEFAULT 1`, () => {});
+      this.db.run(`ALTER TABLE rooms ADD COLUMN type TEXT DEFAULT 'room'`, undefined, () => {});
+      this.db.run(`ALTER TABLE rooms ADD COLUMN isPublic INTEGER DEFAULT 1`, undefined, () => {});
       // Friends table: pair relationship with status and requester
       this.db.run(`CREATE TABLE IF NOT EXISTS friends (
         id TEXT PRIMARY KEY,
@@ -96,10 +88,10 @@ export class DatabaseService {
         UNIQUE(userA, userB),
         FOREIGN KEY (userA) REFERENCES users(id),
         FOREIGN KEY (userB) REFERENCES users(id)
-      )`);
+      )`, undefined, () => {});
       // For fast lookups
-      this.db.run(`CREATE INDEX IF NOT EXISTS idx_friends_userA ON friends(userA)`);
-      this.db.run(`CREATE INDEX IF NOT EXISTS idx_friends_userB ON friends(userB)`);
+      this.db.run(`CREATE INDEX IF NOT EXISTS idx_friends_userA ON friends(userA)`, undefined, () => {});
+      this.db.run(`CREATE INDEX IF NOT EXISTS idx_friends_userB ON friends(userB)`, undefined, () => {});
       // Logger.info("Database tables initialized (users, rooms, user_rooms, messages, user_sessions)");
     });
   }
@@ -123,10 +115,10 @@ export class DatabaseService {
   
   getUsers(): Promise<User[]> {
     return new Promise((resolve, reject) => {
-      this.db.all(`SELECT id, name, password FROM users`, (err, rows) => {
+      this.db.all(`SELECT id, name, password FROM users`, undefined, (err: Error | null, rows?: any[]) => {
         if (err) return reject(err);
         // Map each row to a User instance (OOP strict)
-        const users: (User | undefined)[] = (rows as Array<{ id: string; name: string; password: string }> ).map(
+        const users: (User | undefined)[] = ((rows as Array<{ id: string; name: string; password: string }> ) || []).map(
           User.fromDbRow
         );
         resolve(users.filter((user) => user !== undefined));
@@ -168,11 +160,11 @@ export class DatabaseService {
   // Lister toutes les rooms
   async getRooms(): Promise<Room[]> {
     return new Promise((resolve, reject) => {
-      this.db.all(`SELECT id, name, creatorId, createdAt, type, isPublic FROM rooms`, async (err, rows) => {
+      this.db.all(`SELECT id, name, creatorId, createdAt, type, isPublic FROM rooms`, undefined, async (err: Error | null, rows?: any[]) => {
         if (err) return reject(err);
         // For each room, fetch users and construct Room with users
         const roomObjs: Room[] = [];
-        for (const row of rows as Array<{ id: string; name: string; creatorId: string; createdAt: number; type?: 'room'|'user'|null; isPublic?: number }>) {
+        for (const row of (rows as Array<{ id: string; name: string; creatorId: string; createdAt: number; type?: 'room'|'user'|null; isPublic?: number }>) || []) {
           const users = await this.getUsersForRoom(row.id);
           roomObjs.push(Room.fromDbRow(row, users));
         }
@@ -244,10 +236,10 @@ export class DatabaseService {
         `SELECT r.id, r.name, r.creatorId, r.createdAt, r.type, r.isPublic FROM rooms r
          INNER JOIN user_rooms ur ON ur.roomId = r.id WHERE ur.userId = ?`,
         [userId],
-        async (err, rows) => {
+        async (err: Error | null, rows?: any[]) => {
           if (err) return reject(err);
           const roomObjs: Room[] = [];
-          for (const row of rows as Array<{ id: string; name: string; creatorId: string; createdAt: number; type?: 'room'|'user'|null; isPublic?: number }>) {
+          for (const row of (rows as Array<{ id: string; name: string; creatorId: string; createdAt: number; type?: 'room'|'user'|null; isPublic?: number }>) || []) {
             const users = await this.getUsersForRoom(row.id);
             roomObjs.push(Room.fromDbRow(row, users));
           }
@@ -266,10 +258,10 @@ export class DatabaseService {
          WHERE r.isPublic = 1 OR r.id IN (SELECT roomId FROM user_rooms WHERE userId = ?)
          ORDER BY r.createdAt DESC`,
         [userId],
-        async (err, rows) => {
+        async (err: Error | null, rows?: any[]) => {
           if (err) return reject(err);
           const roomObjs: Room[] = [];
-          for (const row of rows as Array<{ id: string; name: string; creatorId: string; createdAt: number; type?: 'room'|'user'|null; isPublic?: number }>) {
+          for (const row of (rows as Array<{ id: string; name: string; creatorId: string; createdAt: number; type?: 'room'|'user'|null; isPublic?: number }>) || []) {
             const users = await this.getUsersForRoom(row.id);
             roomObjs.push(Room.fromDbRow(row, users));
           }
@@ -286,9 +278,9 @@ export class DatabaseService {
         `SELECT u.id, u.name FROM users u
          INNER JOIN user_rooms ur ON ur.userId = u.id WHERE ur.roomId = ?`,
         [roomId],
-        (err, rows) => {
+        (err: Error | null, rows?: any[]) => {
           if (err) return reject(err);
-          const users = (rows as Array<{ id: string; name: string }> ).map(
+          const users = ((rows as Array<{ id: string; name: string }> ) || []).map(
             User.fromDbRow
           );
           resolve(users.filter(u => u !== undefined));
@@ -333,10 +325,10 @@ export class DatabaseService {
       this.db.all(
         `SELECT id, authorId, authorName, content, timestamp, status, sentAt, deliveredAt, readAt FROM messages WHERE roomId = ?`,
         [roomId],
-        (err, rows) => {
+        (err: Error | null, rows?: any[]) => {
           if (err) return reject(err);
           const messages: (Message | undefined)[] = (
-            rows as Array<{
+            (rows as Array<{
               id: number;
               authorId: string;
               authorName: string;
@@ -346,7 +338,7 @@ export class DatabaseService {
               sentAt: number;
               deliveredAt: number;
               readAt: number;
-            }>
+            }>) || []
           ).map(Message.fromDbRow);
           resolve(messages.filter((message) => message !== undefined));
         }
@@ -418,12 +410,12 @@ async getUserSessionsByUserId(userId: string): Promise<UserSession[]> {
       `SELECT * FROM user_sessions WHERE userId = ?`,
       [userId],
       async (
-        err,
-        rows: Array<{ id: string; userId: string; token: string; createdAt: number; expiresAt?: number; refreshToken?: string; refreshTokenExpiresAt?: number }>
+        err: Error | null,
+        rows?: Array<{ id: string; userId: string; token: string; createdAt: number; expiresAt?: number; refreshToken?: string; refreshTokenExpiresAt?: number }>
       ) => {
         if (err) return reject(err);
         const sessions = await Promise.all(
-          rows.map(async (row) => {
+          (rows || []).map(async (row) => {
             const user = await this.getUserById(row.userId);
             return new UserSession(
               row.id,
@@ -581,7 +573,7 @@ async respondFriendRequest(userId: string, otherUserId: string, action: 'accept'
           this.db.get(
             `SELECT id, userA, userB, status, requesterId, createdAt, updatedAt FROM friends WHERE id = ?`,
             [id],
-            (err2, row: any) => {
+            (err2: Error | null, row?: any) => {
               if (err2) return reject(err2);
               resolve(row as any);
             }
@@ -603,11 +595,11 @@ async listFriendsAndRequests(userId: string): Promise<Array<{ id: string; userId
        WHERE f.userA = ? OR f.userB = ?`,
       [userId, userId, userId, userId],
       (
-        err,
-        rows: Array<{ id: string; userA: string; userB: string; status: 'pending' | 'accepted'; requesterId: string; otherId: string; otherName: string }>
+        err: Error | null,
+        rows?: Array<{ id: string; userA: string; userB: string; status: 'pending' | 'accepted'; requesterId: string; otherId: string; otherName: string }>
       ) => {
         if (err) return reject(err);
-        const mapped = rows.map((r) => ({
+        const mapped = (rows || []).map((r) => ({
           id: r.id,
           userId: r.otherId,
           name: r.otherName,

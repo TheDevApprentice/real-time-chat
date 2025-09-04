@@ -13,7 +13,7 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
     if (!token) token = req.cookies?.['session_token'] as string | undefined;
     if (!token) token = req.cookies?.['sessionToken'] as string | undefined;
     if (!token) return res.status(401).json({ error: 'Missing session token.' });
-    const db = DatabaseService.getInstance(process.env.SQLITE_FILE || '');
+    const db = DatabaseService.getInstance();
     const session = await db.getUserSessionByToken(token);
     if (!session || !session.user) {
       return res.status(401).json({ error: 'Invalid or expired session.' });
