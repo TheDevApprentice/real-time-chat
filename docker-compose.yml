@@ -17,18 +17,18 @@ services:
       BCRYPT_COST: "10"
       DATABASE_DRIVER: sqlite
       SQLITE_FILE: /data/chat.sqlite
-      POSTGRES_HOST: null
-      POSTGRES_PORT: null
-      POSTGRES_DB: null
-      POSTGRES_USER: null
-      POSTGRES_PASSWORD: null
-      POSTGRES_SSL: null
-      MYSQL_HOST: null
-      MYSQL_PORT: null
-      MYSQL_DB: null
-      MYSQL_USER: null
-      MYSQL_PASSWORD: null
-      MYSQL_SSL: null
+      # POSTGRES_HOST: null
+      # POSTGRES_PORT: null
+      # POSTGRES_DB: null
+      # POSTGRES_USER: null
+      # POSTGRES_PASSWORD: null
+      # POSTGRES_SSL: null
+      # MYSQL_HOST: null
+      # MYSQL_PORT: null
+      # MYSQL_DB: null
+      # MYSQL_USER: null
+      # MYSQL_PASSWORD: null
+      # MYSQL_SSL: null
     volumes:
       - sqlite_data:/data
     depends_on:

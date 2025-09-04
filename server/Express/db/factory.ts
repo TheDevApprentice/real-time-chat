@@ -1,6 +1,8 @@
 import { CallbackDB } from "./adapters/callbackDb";
-import { createSqliteCallbackDb } from "./adapters/callbackDb";
+import { createSqliteCallbackDb } from "./adapters/sqlliteCallbackDb";
 import { Logger } from "../utils/Logger";
+import { createPostgresCallbackDb } from "./adapters/postgresCallbackDb";
+import { createMysqlCallbackDb } from "./adapters/mysqlCallbackDb";
 
 export type SupportedDrivers = "sqlite" | "postgres" | "mysql";
 const DRIVER: SupportedDrivers = process.env.DATABASE_DRIVER as SupportedDrivers;
@@ -31,12 +33,9 @@ export function createCallbackDbFromEnv(env: NodeJS.ProcessEnv = process.env): C
       const password = env.POSTGRES_PASSWORD || "";
       const ssl = String(env.POSTGRES_SSL || "false").toLowerCase() === "true";
       Logger.info(
-        `DatabaseFactory (planned) Postgres -> host=${host} port=${port} db=${database} user=${user} ssl=${ssl}`
+        `DatabaseFactory Postgres -> host=${host} port=${port} db=${database} user=${user} ssl=${ssl}`
       );
-      // Not implemented yet: return a Postgres-backed CallbackDB adapter here
-      throw new Error(
-        "Postgres driver planned but not implemented yet. Set DATABASE_DRIVER=sqlite or implement a Postgres CallbackDB adapter."
-      );
+      return createPostgresCallbackDb({ host, port, database, user, password, ssl });
     }
     case "mysql": {
       // Expected env vars for MySQL/MariaDB
@@ -47,26 +46,13 @@ export function createCallbackDbFromEnv(env: NodeJS.ProcessEnv = process.env): C
       const password = env.MYSQL_PASSWORD || "";
       const ssl = String(env.MYSQL_SSL || "false").toLowerCase() === "true";
       Logger.info(
-        `DatabaseFactory (planned) MySQL -> host=${host} port=${port} db=${database} user=${user} ssl=${ssl}`
+        `DatabaseFactory MySQL -> host=${host} port=${port} db=${database} user=${user} ssl=${ssl}`
       );
-      // Not implemented yet: return a MySQL-backed CallbackDB adapter here
-      throw new Error(
-        "MySQL driver planned but not implemented yet. Set DATABASE_DRIVER=sqlite or implement a MySQL CallbackDB adapter."
-      );
+      return createMysqlCallbackDb({ host, port, database, user, password, ssl });
     }
     default:
       throw new Error(`Unsupported DATABASE_DRIVER: ${driver}`);
   }
 }
 
-export function createCallbackDb(opts: DbFactoryOptions): CallbackDB {
-  const driver = (opts.driver || "sqlite").toLowerCase() as SupportedDrivers;
-  switch (driver) {
-    case "sqlite": {
-      const file = opts.sqliteFile || "/data/chat.sqlite";
-      return createSqliteCallbackDb(file);
-    }
-    default:
-      throw new Error(`Unsupported driver: ${driver}`);
-  }
-}
+
