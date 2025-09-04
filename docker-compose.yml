@@ -15,7 +15,7 @@ services:
       FRONTEND_URL: http://localhost:3080
       TRUST_PROXY: "false"
       BCRYPT_COST: "12"
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:changeme@redis:6379
       DATABASE_DRIVER: sqlite
       SQLITE_FILE: /data/chat.sqlite
       # POSTGRES_HOST: postgres
@@ -49,8 +49,26 @@ services:
     container_name: chat-redis
     ports:
       - "6379:6379"
+    # For dev you can inline a password; for production use secrets.
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"${REDIS_PASSWORD:-changeme}\""]
+    environment:
+      # Set a strong password here (dev example)
+      REDIS_PASSWORD: changeme
     volumes:
       - redis_data:/data
+    restart: unless-stopped
+
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: redis-insight
+    ports:
+      - "5540:5540"
+    environment:
+      - RI_HOST=0.0.0.0
+      # Required to store database credentials securely; 32+ chars recommended
+      - RI_ENCRYPTION_KEY=please-change-this-long-random-secret-key-32chars-min
+      # Optional: protect the Redis Insight UI with a password
+      # - RI_PASSWORD=admin
     restart: unless-stopped
 
   # postgres:
