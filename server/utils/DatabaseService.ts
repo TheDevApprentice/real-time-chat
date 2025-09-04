@@ -17,7 +17,6 @@ export class DatabaseService {
         Logger.error(`Failed to open database: ${err.message}`);
         throw err;
       }
-      // Logger.info(`Connected to SQLite database at ${this.filePath}`);
     });
   }
 
@@ -42,7 +41,9 @@ export class DatabaseService {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         creatorId TEXT NOT NULL,
-        createdAt INTEGER NOT NULL
+        createdAt INTEGER NOT NULL,
+        type TEXT DEFAULT 'room',
+        isPublic INTEGER DEFAULT 1
       )`);
       this.db.run(`CREATE TABLE IF NOT EXISTS user_rooms (
         userId TEXT NOT NULL,
@@ -58,6 +59,10 @@ export class DatabaseService {
         content TEXT,
         timestamp INTEGER,
         roomId TEXT NOT NULL,
+        status TEXT DEFAULT 'sent',
+        sentAt INTEGER,
+        deliveredAt INTEGER,
+        readAt INTEGER,
         FOREIGN KEY (roomId) REFERENCES rooms(id)
       )`);
       this.db.run(`CREATE TABLE IF NOT EXISTS user_sessions (
@@ -75,6 +80,26 @@ export class DatabaseService {
       this.db.run(`ALTER TABLE user_sessions ADD COLUMN refreshTokenExpiresAt INTEGER`, () => {});
       // Index pour accélérer la recherche par refreshToken
       this.db.run(`CREATE INDEX IF NOT EXISTS idx_user_sessions_refresh ON user_sessions(refreshToken)`);
+      // Rooms migrations (SQLite ne supporte pas IF NOT EXISTS pour ADD COLUMN avant 3.35) :
+      // on tente et on ignore l'erreur si la colonne existe déjà
+      this.db.run(`ALTER TABLE rooms ADD COLUMN type TEXT DEFAULT 'room'`, () => {});
+      this.db.run(`ALTER TABLE rooms ADD COLUMN isPublic INTEGER DEFAULT 1`, () => {});
+      // Friends table: pair relationship with status and requester
+      this.db.run(`CREATE TABLE IF NOT EXISTS friends (
+        id TEXT PRIMARY KEY,
+        userA TEXT NOT NULL,
+        userB TEXT NOT NULL,
+        status TEXT NOT NULL, -- 'pending' | 'accepted'
+        requesterId TEXT NOT NULL,
+        createdAt INTEGER NOT NULL,
+        updatedAt INTEGER NOT NULL,
+        UNIQUE(userA, userB),
+        FOREIGN KEY (userA) REFERENCES users(id),
+        FOREIGN KEY (userB) REFERENCES users(id)
+      )`);
+      // For fast lookups
+      this.db.run(`CREATE INDEX IF NOT EXISTS idx_friends_userA ON friends(userA)`);
+      this.db.run(`CREATE INDEX IF NOT EXISTS idx_friends_userB ON friends(userB)`);
       // Logger.info("Database tables initialized (users, rooms, user_rooms, messages, user_sessions)");
     });
   }
@@ -126,8 +151,8 @@ export class DatabaseService {
   addRoom(room: import('../models/Room').Room): Promise<import('../models/Room').Room> {
     return new Promise((resolve, reject) => {
       this.db.run(
-        `INSERT INTO rooms (id, name, creatorId, createdAt) VALUES (?, ?, ?, ?)`,
-        [room.id, room.name, room.creatorId, room.createdAt],
+        `INSERT INTO rooms (id, name, creatorId, createdAt, type, isPublic) VALUES (?, ?, ?, ?, ?, ?)`,
+        [room.id, room.name, room.creatorId, room.createdAt, room.type, room.isPublic ? 1 : 0],
         (err) => {
           if (err) {
             Logger.error('Erreur ajout room: ' + err.message);
@@ -143,16 +168,32 @@ export class DatabaseService {
   // Lister toutes les rooms
   async getRooms(): Promise<Room[]> {
     return new Promise((resolve, reject) => {
-      this.db.all(`SELECT id, name, creatorId, createdAt FROM rooms`, async (err, rows) => {
+      this.db.all(`SELECT id, name, creatorId, createdAt, type, isPublic FROM rooms`, async (err, rows) => {
         if (err) return reject(err);
         // For each room, fetch users and construct Room with users
         const roomObjs: Room[] = [];
-        for (const row of rows as Array<{ id: string; name: string; creatorId: string; createdAt: number }>) {
+        for (const row of rows as Array<{ id: string; name: string; creatorId: string; createdAt: number; type?: 'room'|'user'|null; isPublic?: number }>) {
           const users = await this.getUsersForRoom(row.id);
           roomObjs.push(Room.fromDbRow(row, users));
         }
         resolve(roomObjs);
       });
+    });
+  }
+
+  // Récupérer une room par ID
+  async getRoomById(id: string): Promise<Room | undefined> {
+    return new Promise((resolve, reject) => {
+      this.db.get(
+        `SELECT id, name, creatorId, createdAt, type, isPublic FROM rooms WHERE id = ?`,
+        [id],
+        async (err, row: { id: string; name: string; creatorId: string; createdAt: number; type?: 'room'|'user'|null; isPublic?: number } | undefined) => {
+          if (err) return reject(err);
+          if (!row) return resolve(undefined);
+          const users = await this.getUsersForRoom(row.id);
+          resolve(Room.fromDbRow(row, users));
+        }
+      );
     });
   }
 
@@ -174,17 +215,61 @@ export class DatabaseService {
     });
   }
 
+  // Vérifier si un user est membre d'une room
+  async isUserInRoom(userId: string, roomId: string): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      this.db.get(
+        `SELECT 1 FROM user_rooms WHERE userId = ? AND roomId = ?`,
+        [userId, roomId],
+        (err, row) => {
+          if (err) return reject(err);
+          resolve(!!row);
+        }
+      );
+    });
+  }
+
+  // Ajouter plusieurs users à une room
+  async addUsersToRoomBulk(userIds: string[], roomId: string): Promise<void> {
+    const uniq = Array.from(new Set(userIds));
+    for (const uid of uniq) {
+      await this.addUserToRoom(uid, roomId);
+    }
+  }
+
   // Lister les rooms d’un user
   async getRoomsForUser(userId: string): Promise<Room[]> {
     return new Promise((resolve, reject) => {
       this.db.all(
-        `SELECT r.id, r.name, r.creatorId, r.createdAt FROM rooms r
+        `SELECT r.id, r.name, r.creatorId, r.createdAt, r.type, r.isPublic FROM rooms r
          INNER JOIN user_rooms ur ON ur.roomId = r.id WHERE ur.userId = ?`,
         [userId],
         async (err, rows) => {
           if (err) return reject(err);
           const roomObjs: Room[] = [];
-          for (const row of rows as Array<{ id: string; name: string; creatorId: string; createdAt: number }>) {
+          for (const row of rows as Array<{ id: string; name: string; creatorId: string; createdAt: number; type?: 'room'|'user'|null; isPublic?: number }>) {
+            const users = await this.getUsersForRoom(row.id);
+            roomObjs.push(Room.fromDbRow(row, users));
+          }
+          resolve(roomObjs);
+        }
+      );
+    });
+  }
+
+  // Lister les rooms visibles pour un utilisateur: publiques OU membership
+  async getVisibleRoomsForUser(userId: string): Promise<Room[]> {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        `SELECT r.id, r.name, r.creatorId, r.createdAt, r.type, r.isPublic
+         FROM rooms r
+         WHERE r.isPublic = 1 OR r.id IN (SELECT roomId FROM user_rooms WHERE userId = ?)
+         ORDER BY r.createdAt DESC`,
+        [userId],
+        async (err, rows) => {
+          if (err) return reject(err);
+          const roomObjs: Room[] = [];
+          for (const row of rows as Array<{ id: string; name: string; creatorId: string; createdAt: number; type?: 'room'|'user'|null; isPublic?: number }>) {
             const users = await this.getUsersForRoom(row.id);
             roomObjs.push(Room.fromDbRow(row, users));
           }
@@ -216,19 +301,25 @@ export class DatabaseService {
   addMessageToRoom(message: Message, roomId: string): Promise<void> {
     return new Promise((resolve, reject) => {
       this.db.run(
-        `INSERT INTO messages (authorId, authorName, content, timestamp, roomId) VALUES (?, ?, ?, ?, ?)`,
+        `INSERT INTO messages (authorId, authorName, content, timestamp, roomId, status, sentAt) VALUES (?, ?, ?, ?, ?, 'sent', ?)`,
         [
           message.author.id,
           message.author.name,
           message.content,
           message.timestamp,
           roomId,
+          message.timestamp,
         ],
-        (err) => {
+        function (this: any, err) {
           if (err) {
             Logger.error('Erreur ajout message: ' + err.message);
             return reject(err);
           }
+          try {
+            if (this && typeof this.lastID !== 'undefined') {
+              message.id = String(this.lastID);
+            }
+          } catch {}
           Logger.info(`Ajout message: ${message.author.name} / ${message.content} / room: ${roomId}`);
           resolve();
         }
@@ -240,16 +331,21 @@ export class DatabaseService {
   getMessagesForRoom(roomId: string): Promise<Message[]> {
     return new Promise((resolve, reject) => {
       this.db.all(
-        `SELECT authorId, authorName, content, timestamp FROM messages WHERE roomId = ?`,
+        `SELECT id, authorId, authorName, content, timestamp, status, sentAt, deliveredAt, readAt FROM messages WHERE roomId = ?`,
         [roomId],
         (err, rows) => {
           if (err) return reject(err);
           const messages: (Message | undefined)[] = (
             rows as Array<{
+              id: number;
               authorId: string;
               authorName: string;
               content: string;
               timestamp: number;
+              status: string;
+              sentAt: number;
+              deliveredAt: number;
+              readAt: number;
             }>
           ).map(Message.fromDbRow);
           resolve(messages.filter((message) => message !== undefined));
@@ -321,10 +417,13 @@ async getUserSessionsByUserId(userId: string): Promise<UserSession[]> {
     this.db.all(
       `SELECT * FROM user_sessions WHERE userId = ?`,
       [userId],
-      async (err, rows: Array<{ id: string, userId: string, token: string, createdAt: number, expiresAt?: number, refreshToken?: string, refreshTokenExpiresAt?: number }>) => {
+      async (
+        err,
+        rows: Array<{ id: string; userId: string; token: string; createdAt: number; expiresAt?: number; refreshToken?: string; refreshTokenExpiresAt?: number }>
+      ) => {
         if (err) return reject(err);
         const sessions = await Promise.all(
-          rows.map(async row => {
+          rows.map(async (row) => {
             const user = await this.getUserById(row.userId);
             return new UserSession(
               row.id,
@@ -343,86 +442,238 @@ async getUserSessionsByUserId(userId: string): Promise<UserSession[]> {
     );
   });
 }
-  // Récupérer une session utilisateur par token
-  async getUserSessionByToken(token: string): Promise<UserSession | null> {
+
+// Récupérer une session utilisateur par token
+async getUserSessionByToken(token: string): Promise<UserSession | null> {
   return new Promise((resolve, reject) => {
     this.db.get(
       `SELECT * FROM user_sessions WHERE token = ?`,
       [token],
-      async (err, row: { id: string, userId: string, token: string, createdAt: number, expiresAt?: number, refreshToken?: string, refreshTokenExpiresAt?: number } | undefined) => {
+      async (
+        err,
+        row: { id: string; userId: string; token: string; createdAt: number; expiresAt?: number; refreshToken?: string; refreshTokenExpiresAt?: number } | undefined
+      ) => {
         if (err) return reject(err);
         if (!row) return resolve(null);
         // Vérifier expiration
         if (row.expiresAt && row.expiresAt < Date.now()) {
-          // Logger.info(`Session expirée pour token: ${token}`);
-          // Supprimer la session expirée
-          this.deleteUserSession(token);
+          await this.deleteUserSession(token);
           return resolve(null);
         }
-        // Charger l'utilisateur lié
         const user = await this.getUserById(row.userId);
         if (!user) return resolve(null);
         const session = new UserSession(
-        row.id,
-        row.userId,
-        row.token,
-        row.createdAt,
-        row.expiresAt,
-        row.refreshToken,
-        row.refreshTokenExpiresAt,
-        user
-      );
+          row.id,
+          row.userId,
+          row.token,
+          row.createdAt,
+          row.expiresAt,
+          row.refreshToken,
+          row.refreshTokenExpiresAt,
+          user
+        );
         resolve(session);
       }
     );
   });
 }
 
-  deleteUserSession(token: string): Promise<void> {
+deleteUserSession(token: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    this.db.run(
+      `DELETE FROM user_sessions WHERE token = ?`,
+      [token],
+      (err) => {
+        if (err) {
+          Logger.error('Erreur suppression session: ' + err.message);
+          return reject(err);
+        }
+        resolve();
+      }
+    );
+  });
+}
+
+// Lookup direct par refreshToken
+async getUserSessionByRefreshToken(refreshToken: string): Promise<UserSession | null> {
+  return new Promise((resolve, reject) => {
+    this.db.get(
+      `SELECT * FROM user_sessions WHERE refreshToken = ?`,
+      [refreshToken],
+      async (
+        err,
+        row: { id: string; userId: string; token: string; createdAt: number; expiresAt?: number; refreshToken?: string; refreshTokenExpiresAt?: number } | undefined
+      ) => {
+        if (err) return reject(err);
+        if (!row) return resolve(null);
+        const user = await this.getUserById(row.userId);
+        if (!user) return resolve(null);
+        const session = new UserSession(
+          row.id,
+          row.userId,
+          row.token,
+          row.createdAt,
+          row.expiresAt,
+          row.refreshToken,
+          row.refreshTokenExpiresAt,
+          user
+        );
+        resolve(session);
+      }
+    );
+  });
+}
+
+// --- USERS SEARCH ---
+async searchUsersByName(query: string, limit = 20): Promise<User[]> {
+  return new Promise((resolve, reject) => {
+    const like = `%${query.replace(/%/g, '').replace(/_/g, '')}%`;
+    this.db.all(
+      `SELECT id, name, password FROM users WHERE name LIKE ? ORDER BY name LIMIT ?`,
+      [like, limit],
+      (err, rows) => {
+        if (err) return reject(err);
+        const users = (rows as Array<{ id: string; name: string; password: string }>).map(User.fromDbRow);
+        resolve(users.filter((u) => u !== undefined));
+      }
+    );
+  });
+}
+
+// --- FRIENDS ---
+private orderPair(a: string, b: string): { a: string; b: string } {
+  return a < b ? { a, b } : { a: b, b: a };
+}
+
+async createFriendRequest(requesterId: string, targetUserId: string): Promise<{ id: string; status: 'pending'; userA: string; userB: string; requesterId: string; createdAt: number; updatedAt: number }> {
+  const { a, b } = this.orderPair(requesterId, targetUserId);
+  const id = `${a}:${b}`;
+  const now = Date.now();
+  return new Promise((resolve, reject) => {
+    this.db.run(
+      `INSERT INTO friends (id, userA, userB, status, requesterId, createdAt, updatedAt) VALUES (?, ?, ?, 'pending', ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET status=excluded.status, requesterId=excluded.requesterId, updatedAt=excluded.updatedAt`,
+      [id, a, b, requesterId, now, now],
+      (err) => {
+        if (err) return reject(err);
+        resolve({ id, status: 'pending', userA: a, userB: b, requesterId, createdAt: now, updatedAt: now });
+      }
+    );
+  });
+}
+
+async respondFriendRequest(userId: string, otherUserId: string, action: 'accept' | 'reject'): Promise<{ id: string; status: 'accepted' | 'pending'; userA: string; userB: string; requesterId: string; createdAt: number; updatedAt: number } | null> {
+  const { a, b } = this.orderPair(userId, otherUserId);
+  const id = `${a}:${b}`;
+  const now = Date.now();
+  return new Promise((resolve, reject) => {
+    if (action === 'reject') {
+      this.db.run(`DELETE FROM friends WHERE id = ?`, [id], (err) => {
+        if (err) return reject(err);
+        resolve(null);
+      });
+    } else {
+      this.db.run(
+        `UPDATE friends SET status = 'accepted', updatedAt = ? WHERE id = ?`,
+        [now, id],
+        (err) => {
+          if (err) return reject(err);
+          this.db.get(
+            `SELECT id, userA, userB, status, requesterId, createdAt, updatedAt FROM friends WHERE id = ?`,
+            [id],
+            (err2, row: any) => {
+              if (err2) return reject(err2);
+              resolve(row as any);
+            }
+          );
+        }
+      );
+    }
+  });
+}
+
+async listFriendsAndRequests(userId: string): Promise<Array<{ id: string; userId: string; name: string; status: 'pending' | 'accepted'; isRequester: boolean }>> {
+  return new Promise((resolve, reject) => {
+    this.db.all(
+      `SELECT f.id, f.userA, f.userB, f.status, f.requesterId,
+              CASE WHEN f.userA = ? THEN f.userB ELSE f.userA END AS otherId,
+              u.name as otherName
+       FROM friends f
+       JOIN users u ON u.id = CASE WHEN f.userA = ? THEN f.userB ELSE f.userA END
+       WHERE f.userA = ? OR f.userB = ?`,
+      [userId, userId, userId, userId],
+      (
+        err,
+        rows: Array<{ id: string; userA: string; userB: string; status: 'pending' | 'accepted'; requesterId: string; otherId: string; otherName: string }>
+      ) => {
+        if (err) return reject(err);
+        const mapped = rows.map((r) => ({
+          id: r.id,
+          userId: r.otherId,
+          name: r.otherName,
+          status: r.status,
+          isRequester: r.requesterId === userId,
+        }));
+        resolve(mapped);
+      }
+    );
+  });
+}
+
+  // --- MESSAGE STATUS UPDATES ---
+  async markMessageDelivered(messageId: number, ts: number = Date.now()): Promise<void> {
     return new Promise((resolve, reject) => {
       this.db.run(
-        `DELETE FROM user_sessions WHERE token = ?`,
-        [token],
+        `UPDATE messages
+         SET status = CASE WHEN status = 'read' THEN status ELSE 'delivered' END,
+             deliveredAt = COALESCE(deliveredAt, ?)
+         WHERE id = ?`,
+        [ts, messageId],
         (err) => {
-          if (err) {
-            Logger.error('Erreur suppression session: ' + err.message);
-            return reject(err);
-          }
-          // Logger.info(`Suppression session pour token: ${token}`);
+          if (err) return reject(err);
           resolve();
         }
       );
     });
   }
 
-  // Lookup direct par refreshToken
-  async getUserSessionByRefreshToken(refreshToken: string): Promise<UserSession | null> {
+  async markMessageRead(messageId: number, ts: number = Date.now()): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.db.get(
-        `SELECT * FROM user_sessions WHERE refreshToken = ?`,
-        [refreshToken],
-        async (
-          err,
-          row: { id: string; userId: string; token: string; createdAt: number; expiresAt?: number; refreshToken?: string; refreshTokenExpiresAt?: number } | undefined
-        ) => {
+      this.db.run(
+        `UPDATE messages
+         SET status = 'read',
+             readAt = ?,
+             deliveredAt = COALESCE(deliveredAt, ?)
+         WHERE id = ?`,
+        [ts, ts, messageId],
+        (err) => {
           if (err) return reject(err);
-          if (!row) return resolve(null);
-          // Vérifier expiration de la session (optionnel) et de refreshToken sera gérée par appelant
-          const user = await this.getUserById(row.userId);
-          if (!user) return resolve(null);
-          const session = new UserSession(
-            row.id,
-            row.userId,
-            row.token,
-            row.createdAt,
-            row.expiresAt,
-            row.refreshToken,
-            row.refreshTokenExpiresAt,
-            user
-          );
-          resolve(session);
+          resolve();
         }
       );
     });
   }
+
+  // --- UNREAD COUNTS (global status-based per room) ---
+  // Count messages for rooms where the user is a member, authored by others,
+  // and whose status is not 'read'.
+  async getUnreadCountsForUser(userId: string): Promise<Record<string, number>> {
+    return new Promise((resolve, reject) => {
+      const sql = `
+        SELECT m.roomId as roomId, COUNT(*) as cnt
+        FROM messages m
+        INNER JOIN user_rooms ur ON ur.roomId = m.roomId AND ur.userId = ?
+        WHERE (m.authorId IS NULL OR m.authorId <> ?)
+          AND (m.status IS NULL OR m.status <> 'read')
+        GROUP BY m.roomId
+      `;
+      this.db.all(sql, [userId, userId], (err, rows: Array<{ roomId: string; cnt: number }> | undefined) => {
+        if (err) return reject(err);
+        const out: Record<string, number> = {};
+        for (const r of rows || []) out[r.roomId] = Number(r.cnt) || 0;
+        resolve(out);
+      });
+    });
+  }
+
 }

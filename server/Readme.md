@@ -149,3 +149,7 @@ Both are validated at startup. The server will not start if either is missing.
 ---
 
 For any questions or contributions, please open an issue or submit a pull request.
+
+
+compile ts file: 
+npx tsc chat-client.ts --target ES2019 --module none  --skipLibCheck

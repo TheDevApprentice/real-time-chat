@@ -28,6 +28,9 @@ export const RefreshTokenSchema = z.object({
 // Chat schemas
 export const CreateRoomSchema = z.object({
   name: z.string().min(1).max(100),
+  type: z.enum(['room', 'user']).optional(),
+  isPublic: z.boolean().optional(),
+  invitedUserIds: z.array(z.string().min(1)).max(100).optional(),
 });
 
 export const JoinRoomParamsSchema = z.object({
@@ -50,6 +53,9 @@ export const WsRefreshTokenSchema = z.object({
 
 export const WsCreateRoomSchema = z.object({
   name: z.string().min(1).max(100),
+  type: z.enum(['room', 'user']).optional(),
+  isPublic: z.boolean().optional(),
+  invitedUserIds: z.array(z.string().min(1)).max(100).optional(),
 });
 
 export const WsJoinRoomSchema = z.object({
@@ -60,6 +66,12 @@ export const WsSendMessageSchema = z.object({
   roomId: z.string().min(1),
   content: z.string().min(1).max(2000),
   timestamp: z.number().int().positive().optional(),
+});
+
+// User search (REST) schemas
+export const SearchUsersQuerySchema = z.object({
+  q: z.string().min(1).max(50),
+  limit: z.coerce.number().int().min(1).max(50).optional(),
 });
 
 // Helper to parse with friendly error

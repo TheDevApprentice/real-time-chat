@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import { DatabaseService } from "../utils/DatabaseService";
 import { bruteForceGuard } from "../utils/BruteForceGuard";
 import { authMiddleware, AuthenticatedRequest } from "../middleware/auth";
-import { CreateRoomSchema, JoinRoomParamsSchema, parseOrThrow, ValidationHttpError } from "../utils/validation";
+import { SearchUsersQuerySchema, parseOrThrow, ValidationHttpError } from "../utils/validation";
 
 
 const router = Router();
@@ -30,36 +30,15 @@ router.get("/rooms", rateLimit("chat:getRooms", 200), async (req: AuthenticatedR
   }
 });
 
-// Create a room
-router.post("/rooms", rateLimit("chat:createRoom", 30), async (req: AuthenticatedRequest, res: Response) => {
+// Search users by name (for search bar)
+router.get("/users/search", rateLimit("chat:searchUsers", 150), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { name } = parseOrThrow(CreateRoomSchema, req.body);
+    const { q, limit } = parseOrThrow(SearchUsersQuerySchema, req.query);
     const dbFile = process.env.SQLITE_FILE;
     if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
     const db = DatabaseService.getInstance(dbFile);
-    const Room = (await import("../models/Room")).Room;
-    const creatorId = req.user!.id;
-    const room = new Room(name, creatorId);
-    await db.addRoom(room);
-    res.status(201).json(room.toJSON());
-  } catch (err) {
-    if (err instanceof ValidationHttpError) {
-      return res.status(err.status).json({ error: err.message, details: err.details });
-    }
-    res.status(500).json({ error: (err as Error).message });
-  }
-});
-
-// Join a room
-router.post("/rooms/:roomId/join", rateLimit("chat:joinRoom", 120), async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const { roomId } = parseOrThrow(JoinRoomParamsSchema, req.params);
-    const dbFile = process.env.SQLITE_FILE;
-    if (!dbFile) throw new Error("SQLITE_FILE env variable is not set");
-    const db = DatabaseService.getInstance(dbFile);
-    const userId = req.user!.id;
-    await db.addUserToRoom(userId, roomId);
-    res.status(200).json({ success: true });
+    const users = await db.searchUsersByName(q, limit ?? 20);
+    res.json(users.map((u) => u.toJSON()));
   } catch (err) {
     if (err instanceof ValidationHttpError) {
       return res.status(err.status).json({ error: err.message, details: err.details });

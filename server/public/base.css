@@ -646,3 +646,58 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* --- Friends & Requests two-column layout --- */
+.friend-sections {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.friend-column {
+  flex: 1 1 0;
+}
+.friend-column-title {
+  font-weight: 600;
+  margin: 6px 0 8px 2px;
+  color: var(--page-text-color);
+  opacity: 0.85;
+}
+.friend-list {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.friend-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--page-bg-card);
+  box-shadow: var(--page-card-shadow);
+}
+.friend-item:hover {
+  box-shadow: var(--page-card-shadow-hover);
+}
+.friend-item-name {
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.friend-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .friend-sections {
+    flex-direction: column;
+  }
+  .friend-item-name {
+    max-width: 66%;
+  }
+}

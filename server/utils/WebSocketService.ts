@@ -14,6 +14,7 @@ import {
   WsCreateRoomSchema,
   WsJoinRoomSchema,
   WsSendMessageSchema,
+  RegisterSchema,
   parseOrThrow,
 } from "./validation";
 
@@ -98,6 +99,135 @@ export class WebSocketService {
         this.socketRates.delete(socket.id);
       });
 
+      // --- MESSAGE STATUS: delivered ---
+      socket.on("messageDelivered", async (data, callback) => {
+        try {
+          if (!allow("chat:msgDelivered", 120, 60_000)) {
+            return callback && callback({ success: false, error: "Rate limit exceeded." });
+          }
+          const userId = socket.data.userId as string | undefined;
+          if (!userId) return callback && callback({ success: false, error: "Not authenticated." });
+          const { messageId, roomId, timestamp } = (data || {}) as { messageId?: number; roomId?: string; timestamp?: number };
+          if (!messageId || !roomId) return callback && callback({ success: false, error: "Missing messageId or roomId." });
+          await dbService.markMessageDelivered(messageId, timestamp ?? Date.now());
+          // Notify all sockets of room members (not only those joined to Socket.IO room)
+          try {
+            const members = await dbService.getUsersForRoom(roomId);
+            const memberIds = new Set((members || []).map((u) => u.id));
+            const sockets = await this.io.fetchSockets();
+            for (const s of sockets) {
+              const uid = s.data.userId as string | undefined;
+              if (uid && memberIds.has(uid)) {
+                s.emit("messageStatusUpdated", { messageId, status: "delivered", deliveredAt: timestamp ?? Date.now() });
+              }
+            }
+          } catch {
+            this.io.to(roomId).emit("messageStatusUpdated", { messageId, status: "delivered", deliveredAt: timestamp ?? Date.now() });
+          }
+          callback && callback({ success: true });
+        } catch (err) {
+          callback && callback({ success: false, error: "Failed to mark delivered." });
+        }
+      });
+
+      // --- MESSAGE STATUS: read ---
+      socket.on("messageRead", async (data, callback) => {
+        try {
+          if (!allow("chat:msgRead", 120, 60_000)) {
+            return callback && callback({ success: false, error: "Rate limit exceeded." });
+          }
+          const userId = socket.data.userId as string | undefined;
+          if (!userId) return callback && callback({ success: false, error: "Not authenticated." });
+          const { messageId, roomId, timestamp } = (data || {}) as { messageId?: number; roomId?: string; timestamp?: number };
+          if (!messageId || !roomId) return callback && callback({ success: false, error: "Missing messageId or roomId." });
+          await dbService.markMessageRead(messageId, timestamp ?? Date.now());
+          // Notify all sockets of room members (not only those joined to Socket.IO room)
+          try {
+            const members = await dbService.getUsersForRoom(roomId);
+            const memberIds = new Set((members || []).map((u) => u.id));
+            const sockets = await this.io.fetchSockets();
+            for (const s of sockets) {
+              const uid = s.data.userId as string | undefined;
+              if (uid && memberIds.has(uid)) {
+                s.emit("messageStatusUpdated", { messageId, status: "read", readAt: timestamp ?? Date.now() });
+              }
+            }
+          } catch {
+            this.io.to(roomId).emit("messageStatusUpdated", { messageId, status: "read", readAt: timestamp ?? Date.now() });
+          }
+          callback && callback({ success: true });
+        } catch (err) {
+          callback && callback({ success: false, error: "Failed to mark read." });
+        }
+      });
+
+      // --- FRIENDS: create request ---
+      socket.on("friendRequest", async (data, callback) => {
+        try {
+          if (!allow("friend:request", 30, 60_000)) {
+            return callback && callback({ success: false, error: "Rate limit exceeded." });
+          }
+          const requesterId = socket.data.userId as string | undefined;
+          if (!requesterId) return callback && callback({ success: false, error: "Not authenticated." });
+          const { targetUserId } = (data || {}) as { targetUserId?: string };
+          if (!targetUserId || targetUserId === requesterId) {
+            return callback && callback({ success: false, error: "Invalid targetUserId." });
+          }
+          const fr = await dbService.createFriendRequest(requesterId, targetUserId);
+          // Notify target user's sockets
+          const sockets = await this.io.fetchSockets();
+          for (const s of sockets) {
+            if (s.data.userId === targetUserId) {
+              s.emit("friendUpdated", { type: "request", data: fr });
+            }
+          }
+          callback && callback({ success: true, request: fr });
+        } catch (err) {
+          callback && callback({ success: false, error: "Failed to create friend request." });
+        }
+      });
+
+      // --- FRIENDS: respond to request ---
+      socket.on("friendRespond", async (data, callback) => {
+        try {
+          if (!allow("friend:respond", 60, 60_000)) {
+            return callback && callback({ success: false, error: "Rate limit exceeded." });
+          }
+          const userId = socket.data.userId as string | undefined;
+          if (!userId) return callback && callback({ success: false, error: "Not authenticated." });
+          const { otherUserId, action } = (data || {}) as { otherUserId?: string; action?: "accept" | "reject" };
+          if (!otherUserId || (action !== "accept" && action !== "reject")) {
+            return callback && callback({ success: false, error: "Invalid payload." });
+          }
+          const res = await dbService.respondFriendRequest(userId, otherUserId, action);
+          // Notify both users
+          const sockets = await this.io.fetchSockets();
+          for (const s of sockets) {
+            if (s.data.userId === userId || s.data.userId === otherUserId) {
+              s.emit("friendUpdated", { type: "respond", data: res, action });
+            }
+          }
+          callback && callback({ success: true, result: res });
+        } catch (err) {
+          callback && callback({ success: false, error: "Failed to respond to friend request." });
+        }
+      });
+
+      // --- FRIENDS: list ---
+      socket.on("friendList", async (data, callback) => {
+        try {
+          if (!allow("friend:list", 60, 60_000)) {
+            return callback && callback({ success: false, error: "Rate limit exceeded." });
+          }
+          const userId = socket.data.userId as string | undefined;
+          if (!userId) return callback && callback({ success: false, error: "Not authenticated." });
+          const list = await dbService.listFriendsAndRequests(userId);
+          callback && callback({ success: true, items: list });
+        } catch (err) {
+          callback && callback({ success: false, error: "Failed to list friends." });
+        }
+      });
+
       // AUTH: Authenticate via token (auto-login)
       socket.on("authenticate", async (data, callback) => {
         try {
@@ -122,9 +252,16 @@ export class WebSocketService {
           callback &&
             callback({
               success: true,
-              // id: session.user.id,
+              id: session.user.id,
               name: session.user.name,
             });
+          // Emit initial unread counts after successful authentication
+          try {
+            const counts = await dbService.getUnreadCountsForUser(session.user.id);
+            socket.emit("unreadCounts", { counts });
+          } catch (e) {
+            Logger.error(e instanceof Error ? e.message : String(e));
+          }
         } catch (err) {
           callback && callback({ success: false, error: "Auth failed." });
         }
@@ -208,6 +345,7 @@ export class WebSocketService {
       //   .catch((err: Error) => Logger.error(err.toString()));
 
       // --- REFRESH TOKEN EVENT ---
+      
       socket.on("refreshToken", async (data, callback) => {
         if (!allow("auth:refresh", 20, 60_000)) {
           return callback && callback({ error: "Rate limit exceeded." });
@@ -270,7 +408,7 @@ export class WebSocketService {
             });
             return;
           }
-          const { name } = parseOrThrow(WsCreateRoomSchema, data);
+          const { name, type, isPublic, invitedUserIds } = parseOrThrow(WsCreateRoomSchema, data);
           const creatorId = socket.data.userId;
           // Vérifier que creatorId correspond à l'utilisateur connecté
           if (creatorId !== socket.data.userId) {
@@ -280,14 +418,24 @@ export class WebSocketService {
             return;
           }
           const Room = (await import("../models/Room")).Room;
-          const room = new Room(name, creatorId);
+          const room = new Room(name, creatorId, Date.now(), undefined, [], { type: type ?? 'room', isPublic });
           await dbService.addRoom(room);
-          // Broadcast la nouvelle room à tous
-          const rooms = await dbService.getRooms();
-          this.io.emit(
-            "rooms",
-            rooms.map((r) => r.toJSON())
-          );
+          // Always add creator as member
+          await dbService.addUserToRoom(creatorId, room.id);
+          // If private, add invited users
+          const invitees = Array.isArray(invitedUserIds) ? invitedUserIds.filter((id: string) => !!id && id !== creatorId) : [];
+          if (!room.isPublic && invitees.length > 0) {
+            // @ts-ignore addUsersToRoomBulk exists in DatabaseService
+            await (dbService as any).addUsersToRoomBulk(invitees, room.id);
+          }
+          // Emit personalized visible rooms to connected users
+          const sockets = await this.io.fetchSockets();
+          for (const s of sockets) {
+            const uid = s.data.userId as string | undefined;
+            if (!uid) continue;
+            const vis = await dbService.getVisibleRoomsForUser(uid);
+            s.emit("rooms", vis.map((r) => r.toJSON()));
+          }
         } catch (err) {
           Logger.error(err instanceof Error ? err.message : String(err));
         }
@@ -303,11 +451,18 @@ export class WebSocketService {
             });
             return;
           }
-          const rooms = await dbService.getRooms();
+          const rooms = await dbService.getVisibleRoomsForUser(socket.data.userId);
           socket.emit(
             "rooms",
             rooms.map((r) => r.toJSON())
           );
+          // Also send unread counts so client can render badges after refresh
+          try {
+            const counts = await dbService.getUnreadCountsForUser(socket.data.userId);
+            socket.emit("unreadCounts", { counts });
+          } catch (e) {
+            Logger.error(e instanceof Error ? e.message : String(e));
+          }
         } catch (err) {
           Logger.error(err instanceof Error ? err.message : String(err));
         }
@@ -340,6 +495,20 @@ export class WebSocketService {
             socket.emit("error", { error: "User not found." });
             return;
           }
+          // Check room and permissions
+          const room = await dbService.getRoomById(roomId);
+          if (!room) {
+            socket.emit("error", { error: "Room not found." });
+            return;
+          }
+          if (!room.isPublic) {
+            const isMember = await dbService.isUserInRoom(userId, roomId);
+            if (!isMember && room.creatorId !== userId) {
+              socket.emit("error", { error: "Access denied to private room." });
+              return;
+            }
+          }
+          // Add membership on join (idempotent)
           await dbService.addUserToRoom(userId, roomId);
           socket.join(roomId);
           // Envoyer l'historique des messages de la room
@@ -388,10 +557,23 @@ export class WebSocketService {
           const safeContent = sanitizeText(content);
           const msgObj = new Message(user, safeContent, timestamp);
           await dbService.addMessageToRoom(msgObj, roomId);
-          // Broadcast à la room uniquement
-          this.io
-            .to(roomId)
-            .emit("message", { roomId, message: msgObj.toJSON() });
+          // Diffuser le message à tous les sockets des utilisateurs membres de la room,
+          // même si leur socket n'a pas explicitement "join" la room côté Socket.IO.
+          // Cela garantit la réception (unread + delivered) même depuis la liste des rooms.
+          try {
+            const members = await dbService.getUsersForRoom(roomId);
+            const memberIds = new Set((members || []).map((u) => u.id));
+            const sockets = await this.io.fetchSockets();
+            for (const s of sockets) {
+              const uid = s.data.userId as string | undefined;
+              if (uid && memberIds.has(uid)) {
+                s.emit("message", { roomId, message: msgObj.toJSON() });
+              }
+            }
+          } catch (e) {
+            // Fallback: au cas où, on continue d'émettre dans la room Socket.IO
+            this.io.to(roomId).emit("message", { roomId, message: msgObj.toJSON() });
+          }
         } catch (err) {
           Logger.error(err instanceof Error ? err.message : String(err));
         }
