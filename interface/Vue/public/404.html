@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,follow">
+  <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg" />
+  <title>Page non trouvée - Bahabun Restaurant</title>
+  <style>
+    :root {
+      --primary-color: #a01b5d;
+      --secondary-color: #2e8b57;
+      --dark-bg: #1f2937;
+      --light-bg: #f7f7f7;
+      --text-light: #ffffff;
+      --text-dark: #333333;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      background-color: var(--light-bg);
+      color: var(--text-dark);
+    }
+
+    body.dark {
+      background-color: var(--dark-bg);
+      color: var(--text-light);
+    }
+
+    .container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .logo {
+      margin-bottom: 2rem;
+      font-size: 3rem;
+      font-weight: bold;
+      transform: scaleX(1.15);
+      letter-spacing: -0.05em;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+    }
+
+    .logo .baha {
+      background: linear-gradient(135deg, #a01b5d, #871d40, #4b0082);
+      color: transparent;
+      -webkit-background-clip: text;
+      background-clip: text;
+      padding: 0 2px;
+      border: 2px solid white;
+      border-right: 0;
+    }
+
+    .logo .bun {
+      background-color: #2e8b57;
+      color: transparent;
+      -webkit-background-clip: text;
+      background-clip: text;
+      padding: 0 2px;
+      border: 2px solid white;
+      border-left: 0;
+    }
+
+    .error-code {
+      font-size: 8rem;
+      margin-bottom: 0;
+      font-weight: bold;
+      color: var(--primary-color);
+    }
+
+    .error-message {
+      font-size: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .btn {
+      display: inline-block;
+      background-color: var(--primary-color);
+      color: white;
+      padding: 0.8rem 1.5rem;
+      text-decoration: none;
+      border-radius: 30px;
+      font-weight: bold;
+      transition: all 0.3s ease;
+    }
+
+    .btn:hover {
+      background-color: var(--secondary-color);
+      transform: translateY(-3px);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body:not(.light) {
+        background-color: var(--dark-bg);
+        color: var(--text-light);
+      }
+
+      body:not(.light) .btn {
+        background-color: #a01b5d;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <span class="baha">Baha</span><span class="bun">bun</span>
+    </div>
+    <h1 class="error-code">404</h1>
+    <p class="error-message">Oups ! Cette page semble avoir disparu du menu.</p>
+    <a href="/" class="btn">Retour à l'accueil</a>
+  </div>
+  <script>
+    // Détection du mode sombre
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    // Appliquer le mode sombre si l'utilisateur le préfère ou s'il l'a activé précédemment
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark' || (prefersDark && !savedTheme)) {
+      document.body.classList.add('dark');
+    } else if (savedTheme === 'light') {
+      document.body.classList.add('light');
+    }
+    // Redirection automatique après 5 secondes
+    setTimeout(() => {
+      window.location.href = '/';
+    }, 5000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+version: "3.9"
+
+services:
+  server:
+    build:
+      context: ./server/Express
+      dockerfile: Dockerfile
+    image: realtime-chat-server:latest
+    container_name: chat-server
+    ports:
+      - "3080:3080"
+    environment:
+      NODE_ENV: production
+      PORT: 3080
+      FRONTEND_URL: http://localhost:3080
+      TRUST_PROXY: "false"
+      BCRYPT_COST: "10"
+      DATABASE_DRIVER: sqlite
+      SQLITE_FILE: /data/chat.sqlite
+      # POSTGRES_HOST: null
+      # POSTGRES_PORT: null
+      # POSTGRES_DB: null
+      # POSTGRES_USER: null
+      # POSTGRES_PASSWORD: null
+      # POSTGRES_SSL: null
+      # MYSQL_HOST: null
+      # MYSQL_PORT: null
+      # MYSQL_DB: null
+      # MYSQL_USER: null
+      # MYSQL_PASSWORD: null
+      # MYSQL_SSL: null
+    volumes:
+      - sqlite_data:/data
+    depends_on:
+      - sqlite
+    restart: unless-stopped
+
+  # Web UI for browsing the SQLite database
+  sqlite-web:
+    image: coleifer/sqlite-web:latest
+    container_name: chat-sqlite-web
+    command: ["sqlite_web", "-H", "0.0.0.0", "/data/chat.sqlite"]
+    ports:
+      - "8080:8080"
+    volumes:
+      - sqlite_data:/data
+    depends_on:
+      - sqlite
+    restart: unless-stopped
+
+  # SQLite container built from our custom Dockerfile
+  sqlite:
+    build:
+      context: ./server/Database/SqlLite
+      dockerfile: Dockerfile
+    image: realtime-chat-sqlite:latest
+    container_name: chat-sqlite
+    volumes:
+      - sqlite_data:/data
+    restart: unless-stopped
+
+volumes:
+  sqlite_data:

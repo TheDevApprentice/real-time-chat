@@ -1,0 +1,20 @@
+/* TEAM */
+Chef/Owner: [Nom du propriétaire]
+Contact: contact@bahabun.fr
+Twitter: @bahabun
+Location: Paris, France
+
+Developer: [Nom du développeur]
+Website: https://[votresite].com
+From: Paris, France
+
+Designer: [Nom du designer]
+Website: https://[sitedudesigner].com
+From: Paris, France
+
+/* SITE */
+Last update: 2025-06-19
+Language: French, English, Vietnamese
+Doctype: HTML5
+IDE: Visual Studio Code
+Technology: Vue.js, Vite, PWA, GSAP, TailwindCSS

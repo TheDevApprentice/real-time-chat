@@ -1,0 +1,24 @@
+# Robots.txt pour Bahabun - Restaurant Vietnamien Halal
+# https://bahabun.fr/
+
+# Autoriser tous les robots d'exploration
+User-agent: *
+Allow: /
+
+# Interdire certains dossiers spécifiques
+Disallow: /admin/
+Disallow: /private/
+Disallow: /api/
+Disallow: /dev-dist/
+Disallow: /src/
+Disallow: /*.json$
+Disallow: /*.ts$
+Disallow: /*.js.map$
+Disallow: /*.css.map$
+
+# Sitemap
+Sitemap: https://bahabun.fr/sitemap.xml
+
+# Délai de crawl pour Google
+User-agent: Googlebot
+Crawl-delay: 1
