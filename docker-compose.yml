@@ -10,7 +10,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3080
-      FRONTEND_URL: http://localhost:3080
+      FRONTEND_URL: http://localhost:5173
       TRUST_PROXY: "false"
       BCRYPT_COST: "12"
       REDIS_URL: redis://:changeme@redis:6379
