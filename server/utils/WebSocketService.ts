@@ -1,6 +1,7 @@
 import { Server as HttpServer } from "http";
 import { Server as SocketServer, Socket } from "socket.io";
 import { Message } from "../models/Message";
+import { Room } from "../models/Room";
 import { UserSession } from "../models/UserSession";
 import { DatabaseService } from "./DatabaseService";
 import { Logger } from "./Logger";
@@ -417,7 +418,6 @@ export class WebSocketService {
             });
             return;
           }
-          const Room = (await import("../models/Room")).Room;
           const room = new Room(name, creatorId, Date.now(), undefined, [], { type: type ?? 'room', isPublic });
           await dbService.addRoom(room);
           // Always add creator as member
