@@ -35,6 +35,16 @@ services:
       - sqlite
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    container_name: chat-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
   # Web UI for browsing the SQLite database
   sqlite-web:
     image: coleifer/sqlite-web:latest
@@ -61,3 +71,4 @@ services:
 
 volumes:
   sqlite_data:
+  redis_data:
