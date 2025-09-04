@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   server:
     build:
@@ -16,6 +14,15 @@ services:
       TRUST_PROXY: "false"
       BCRYPT_COST: "12"
       REDIS_URL: redis://:changeme@redis:6379
+      # S3/MinIO configuration
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: admin
+      S3_SECRET_KEY: adminadmin123
+      S3_BUCKET: chat-bucket
+      S3_USE_PATH_STYLE: "true"
+      # Base URL for public access from host (used to form public links)
+      S3_PUBLIC_URL_BASE: http://localhost:9000/chat-bucket
       DATABASE_DRIVER: sqlite
       SQLITE_FILE: /data/chat.sqlite
       # POSTGRES_HOST: postgres
@@ -37,8 +44,27 @@ services:
     depends_on:
       - sqlite
       - redis
+      - minio
       # - postgres
       # - mysql
+    restart: unless-stopped
+
+  # MinIO (S3-compatible storage) using custom image with built-in bucket init
+  minio:
+    build:
+      context: ./server/Minio
+      dockerfile: Dockerfile
+    image: realtime-chat-minio:latest
+    container_name: chat-minio
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=adminadmin123
+      - S3_BUCKET=chat-bucket
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # MinIO Console
+    volumes:
+      - minio_data:/data
     restart: unless-stopped
 
   redis:
@@ -131,5 +157,6 @@ services:
 volumes:
   sqlite_data:
   redis_data:
+  minio_data:
   # postgres_data:
   # mysql_data:

@@ -74,7 +74,17 @@ class AppServer {
           scriptSrc: ["'self'"],
           // Inline style attributes exist in our HTML; allow them conservatively
           styleSrc: ["'self'", "'unsafe-inline'"],
-          imgSrc: ["'self'", 'data:'],
+          imgSrc: [
+            "'self'",
+            'data:',
+            // Allow images served from MinIO public base (if configured)
+            ...(process.env.S3_PUBLIC_URL_BASE ? [new URL(process.env.S3_PUBLIC_URL_BASE).origin] : []),
+          ],
+          mediaSrc: [
+            "'self'",
+            'blob:',
+            ...(process.env.S3_PUBLIC_URL_BASE ? [new URL(process.env.S3_PUBLIC_URL_BASE).origin] : []),
+          ],
           // Allow API/WebSocket connections to self and configured frontend (dev)
           connectSrc: ["'self'", (process.env.FRONTEND_URL || "'self'"), 'ws:', 'wss:'],
           objectSrc: ["'none'"],
@@ -93,6 +103,12 @@ class AppServer {
 
   private setupRoutes(): void {
     // Serve SPA entry
+    // Healthcheck
+    this.app.get('/health', (req, res) => {
+      res.status(200).json({ status: 'ok' });
+    });
+
+    // SPA
     this.app.get('/', (req, res) => {
       res.sendFile(path.join(__dirname, 'public', 'index.html'));
     });
