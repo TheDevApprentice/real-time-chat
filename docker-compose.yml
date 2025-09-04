@@ -14,35 +14,86 @@ services:
       PORT: 3080
       FRONTEND_URL: http://localhost:3080
       TRUST_PROXY: "false"
-      BCRYPT_COST: "10"
+      BCRYPT_COST: "12"
       DATABASE_DRIVER: sqlite
       SQLITE_FILE: /data/chat.sqlite
-      # POSTGRES_HOST: null
-      # POSTGRES_PORT: null
-      # POSTGRES_DB: null
-      # POSTGRES_USER: null
-      # POSTGRES_PASSWORD: null
-      # POSTGRES_SSL: null
-      # MYSQL_HOST: null
-      # MYSQL_PORT: null
-      # MYSQL_DB: null
-      # MYSQL_USER: null
-      # MYSQL_PASSWORD: null
-      # MYSQL_SSL: null
+      # POSTGRES_HOST: postgres
+      # POSTGRES_PORT: 5432
+      # POSTGRES_DB: chat
+      # POSTGRES_USER: chat
+      # POSTGRES_PASSWORD: chat
+      # POSTGRES_SSL: false
+      # MYSQL_HOST: mysql
+      # MYSQL_PORT: 3306
+      # MYSQL_DB: chat
+      # MYSQL_USER: chat
+      # MYSQL_PASSWORD: chat
+      # MYSQL_SSL: false
     volumes:
       - sqlite_data:/data
+      # - postgres_data:/var/lib/postgresql/data
+      # - mysql_data:/var/lib/mysql
     depends_on:
       - sqlite
+      - redis
+      # - postgres
+      # - mysql
     restart: unless-stopped
 
   redis:
-    image: redis:7-alpine
+    build:
+      context: ./server/Redis
+      dockerfile: Dockerfile
+    image: realtime-chat-redis:latest
     container_name: chat-redis
-    command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    restart: unless-stopped
+
+  # postgres:
+  #   build:
+  #     context: ./server/Database/Postgres
+  #     dockerfile: Dockerfile
+  #   image: realtime-chat-postgres:latest
+  #   container_name: chat-postgres
+  #   environment:
+  #     POSTGRES_DB: chat
+  #     POSTGRES_USER: chat
+  #     POSTGRES_PASSWORD: chat
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   restart: unless-stopped
+
+  # mysql:
+  #   build:
+  #     context: ./server/Database/MySql
+  #     dockerfile: Dockerfile
+  #   image: realtime-chat-mysql:latest
+  #   container_name: chat-mysql
+  #   environment:
+  #     MYSQL_DATABASE: chat
+  #     MYSQL_USER: chat
+  #     MYSQL_PASSWORD: chat
+  #     MYSQL_ROOT_PASSWORD: root
+  #   ports:
+  #     - "3306:3306"
+  #   volumes:
+  #     - mysql_data:/var/lib/mysql
+  #   restart: unless-stopped
+
+  # SQLite container built from our custom Dockerfile
+  sqlite:
+    build:
+      context: ./server/Database/SqlLite
+      dockerfile: Dockerfile
+    image: realtime-chat-sqlite:latest
+    container_name: chat-sqlite
+    volumes:
+      - sqlite_data:/data
     restart: unless-stopped
 
   # Web UI for browsing the SQLite database
@@ -58,17 +109,8 @@ services:
       - sqlite
     restart: unless-stopped
 
-  # SQLite container built from our custom Dockerfile
-  sqlite:
-    build:
-      context: ./server/Database/SqlLite
-      dockerfile: Dockerfile
-    image: realtime-chat-sqlite:latest
-    container_name: chat-sqlite
-    volumes:
-      - sqlite_data:/data
-    restart: unless-stopped
-
 volumes:
   sqlite_data:
   redis_data:
+  # postgres_data:
+  # mysql_data:
