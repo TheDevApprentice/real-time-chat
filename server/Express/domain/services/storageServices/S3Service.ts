@@ -1,6 +1,7 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { IS3Service } from "../../interfaces/storageInterface/IS3Service";
 
-export class S3Service {
+export class S3Service implements IS3Service {
   private static instance: S3Service;
   private client: S3Client;
   private bucket: string;
