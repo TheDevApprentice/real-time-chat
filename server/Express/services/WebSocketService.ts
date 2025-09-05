@@ -9,7 +9,6 @@ import {
   WsCreateRoomSchema,
   WsJoinRoomSchema,
   WsSendMessageSchema,
-  RegisterSchema,
   parseOrThrow,
 } from "../utils/validation";
 import { WsRouter } from "../wsRoutes/WsRouter";
