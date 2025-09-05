@@ -1,7 +1,6 @@
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 import { WsContext } from "../router/WsContext";
-import { bruteForceGuard } from "../../../utils/BruteForceGuard";
 import { UserSession } from "../../../models";
 
 export class AuthWsController {
@@ -28,38 +27,13 @@ export class AuthWsController {
     const { db } = ctx.services;
     const { username, password } = ctx.payload!;
 
-    // brute-force guard: IP + username
-    const trustProxyEnv = process.env.TRUST_PROXY;
-    const trustProxy =
-      trustProxyEnv === "true" ||
-      (!!trustProxyEnv && trustProxyEnv !== "false");
-    const xff = (ctx.socket.handshake.headers as any)["x-forwarded-for"] as
-      | string
-      | undefined;
-    const ip =
-      trustProxy && xff
-        ? xff.split(",")[0].trim()
-        : ctx.socket.handshake.address || "unknown";
-    if (bruteForceGuard.isBlockedIP(ip)) {
-      return {
-        error: "Too many login attempts from this IP. Try again later.",
-      };
-    }
-    if (bruteForceGuard.isBlockedKey(username)) {
-      return {
-        error: "Too many login attempts for this user. Try again later.",
-      };
-    }
-
     const users = await db.getUsers();
     const user = users.find((u) => u.name === username);
     if (!user) {
-      bruteForceGuard.onFailure(ip, username);
       return { error: "Invalid credentials." };
     }
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
-      bruteForceGuard.onFailure(ip, username);
       return { error: "Invalid credentials." };
     }
 
@@ -80,8 +54,6 @@ export class AuthWsController {
       user
     );
     await db.addUserSession(session);
-
-    bruteForceGuard.onSuccess(ip, username);
 
     return {
       id: user.id,
