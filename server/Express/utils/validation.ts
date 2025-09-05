@@ -1,19 +1,5 @@
 import { z } from "zod";
 
-// HTTP-friendly validation error
-export class ValidationHttpError extends Error {
-  status = 422 as const;
-  details: Array<{ path: string; message: string }>;
-  constructor(issues: import("zod").ZodIssue[]) {
-    super("Invalid payload");
-    this.name = "ValidationHttpError";
-    this.details = issues.map((i) => ({
-      path: i.path.join("."),
-      message: i.message,
-    }));
-  }
-}
-
 // Auth schemas
 export const RegisterSchema = z
   .object({
@@ -78,12 +64,3 @@ export const SearchUsersQuerySchema = z.object({
   q: z.string().min(1).max(50),
   limit: z.coerce.number().int().min(1).max(50).optional(),
 });
-
-// Helper to parse with friendly error
-export function parseOrThrow<T>(schema: z.ZodSchema<T>, data: unknown): T {
-  const r = schema.safeParse(data);
-  if (!r.success) {
-    throw new ValidationHttpError(r.error.issues);
-  }
-  return r.data;
-}
