@@ -12,10 +12,16 @@ export function createPostgresCallbackDb(config: {
   ssl?: boolean;
 }): CallbackDB {
   Logger.info(
-    `createPostgresCallbackDb planned (not implemented): host=${config.host} port=${config.port} db=${config.database} user=${config.user} ssl=${!!config.ssl}`
+    `createPostgresCallbackDb planned (not implemented): host=${
+      config.host
+    } port=${config.port} db=${config.database} user=${
+      config.user
+    } ssl=${!!config.ssl}`
   );
   const notImpl = (method: string) => () => {
-    throw new Error(`Postgres adapter not implemented. Missing method: ${method}`);
+    throw new Error(
+      `Postgres adapter not implemented. Missing method: ${method}`
+    );
   };
   return {
     serialize(cb: () => void): void {
@@ -43,7 +49,8 @@ export function createPostgresCallbackDb(config: {
       _rowCb: EachRowCb<T>,
       completeCb?: RunCb
     ) => {
-      if (completeCb) completeCb(new Error("Postgres adapter not implemented: each"));
+      if (completeCb)
+        completeCb(new Error("Postgres adapter not implemented: each"));
     },
   };
 }

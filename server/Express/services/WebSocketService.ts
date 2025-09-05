@@ -2,7 +2,7 @@ import { Server as HttpServer } from "http";
 import { Server as SocketServer, Socket } from "socket.io";
 import { DatabaseService } from "./DatabaseService";
 import { Logger } from "../utils/Logger";
-import { 
+import {
   WsAuthenticateSchema,
   WsLoginSchema,
   WsRefreshTokenSchema,
@@ -22,7 +22,10 @@ import { WsContext } from "../wsRoutes/WsContext";
 export class WebSocketService {
   private io: SocketServer;
   // Simple per-socket rate limiter storage
-  private socketRates: Map<string, Record<string, { count: number; windowStart: number }>> = new Map();
+  private socketRates: Map<
+    string,
+    Record<string, { count: number; windowStart: number }>
+  > = new Map();
   // WS Router + Controllers
   private router: WsRouter;
   private authCtrl: AuthWsController;
@@ -65,7 +68,9 @@ export class WebSocketService {
       // --- SESSION RESTORE VIA TOKEN OR COOKIE ---
       let token = socket.handshake.auth?.token as string | undefined;
       if (!token) {
-        const cookieHeader = (socket.handshake.headers as any)["cookie"] as string | undefined;
+        const cookieHeader = (socket.handshake.headers as any)["cookie"] as
+          | string
+          | undefined;
         if (cookieHeader) {
           // Prefer hardened __Host-session cookie name
           let m = cookieHeader.match(/(?:^|; )__Host-session=([^;]+)/);
@@ -102,24 +107,35 @@ export class WebSocketService {
         io: this.io,
         socket: sock,
         services: { db: dbService },
-        env: { FRONTEND_URL: process.env.FRONTEND_URL, TRUST_PROXY: process.env.TRUST_PROXY },
+        env: {
+          FRONTEND_URL: process.env.FRONTEND_URL,
+          TRUST_PROXY: process.env.TRUST_PROXY,
+        },
       });
 
       // Auth events
       this.router.register("authenticate", async (ctx: WsContext) => {
-        const payload = parseOrThrow(WsAuthenticateSchema, (ctx as any).payload);
+        const payload = parseOrThrow(
+          WsAuthenticateSchema,
+          (ctx as any).payload
+        );
         (ctx as any).payload = payload;
         return this.authCtrl.authenticate(ctx as any);
       });
       this.router.register("login", async (ctx: WsContext) => {
-        if (!allow("auth:login", 10, 60_000)) return { error: "Rate limit exceeded." };
+        if (!allow("auth:login", 10, 60_000))
+          return { error: "Rate limit exceeded." };
         const payload = parseOrThrow(WsLoginSchema, (ctx as any).payload);
         (ctx as any).payload = payload;
         return this.authCtrl.login(ctx as any);
       });
       this.router.register("refreshToken", async (ctx: WsContext) => {
-        if (!allow("auth:refresh", 20, 60_000)) return { error: "Rate limit exceeded." };
-        const payload = parseOrThrow(WsRefreshTokenSchema, (ctx as any).payload);
+        if (!allow("auth:refresh", 20, 60_000))
+          return { error: "Rate limit exceeded." };
+        const payload = parseOrThrow(
+          WsRefreshTokenSchema,
+          (ctx as any).payload
+        );
         (ctx as any).payload = payload;
         return this.authCtrl.refreshToken(ctx as any);
       });
@@ -127,20 +143,30 @@ export class WebSocketService {
         // token provided in payload (string or cookie-extracted upstream)
         return this.authCtrl.logout(ctx as any);
       });
-      this.router.register("getSessions", async (ctx: WsContext) => this.authCtrl.getSessions(ctx as any));
-      this.router.register("revokeSession", async (ctx: WsContext) => this.authCtrl.revokeSession(ctx as any));
-      this.router.register("logoutAll", async (ctx: WsContext) => this.authCtrl.logoutAll(ctx as any));
+      this.router.register("getSessions", async (ctx: WsContext) =>
+        this.authCtrl.getSessions(ctx as any)
+      );
+      this.router.register("revokeSession", async (ctx: WsContext) =>
+        this.authCtrl.revokeSession(ctx as any)
+      );
+      this.router.register("logoutAll", async (ctx: WsContext) =>
+        this.authCtrl.logoutAll(ctx as any)
+      );
 
       // Rooms events
       this.router.register("createRoom", async (ctx: WsContext) => {
-        if (!allow("chat:createRoom", 10, 60_000)) return { error: "Rate limit exceeded." };
+        if (!allow("chat:createRoom", 10, 60_000))
+          return { error: "Rate limit exceeded." };
         const payload = parseOrThrow(WsCreateRoomSchema, (ctx as any).payload);
         (ctx as any).payload = payload;
         return this.roomsCtrl.createRoom(ctx as any);
       });
-      this.router.register("getRooms", async (ctx: WsContext) => this.roomsCtrl.getRooms(ctx as any));
+      this.router.register("getRooms", async (ctx: WsContext) =>
+        this.roomsCtrl.getRooms(ctx as any)
+      );
       this.router.register("joinRoom", async (ctx: WsContext) => {
-        if (!allow("chat:joinRoom", 20, 60_000)) return { error: "Rate limit exceeded." };
+        if (!allow("chat:joinRoom", 20, 60_000))
+          return { error: "Rate limit exceeded." };
         const payload = parseOrThrow(WsJoinRoomSchema, (ctx as any).payload);
         (ctx as any).payload = payload;
         return this.roomsCtrl.joinRoom(ctx as any);
@@ -148,31 +174,37 @@ export class WebSocketService {
 
       // Messages events
       this.router.register("sendMessageToRoom", async (ctx: WsContext) => {
-        if (!allow("chat:sendMessage", 60, 10_000)) return { error: "Rate limit exceeded." };
+        if (!allow("chat:sendMessage", 60, 10_000))
+          return { error: "Rate limit exceeded." };
         const payload = parseOrThrow(WsSendMessageSchema, (ctx as any).payload);
         (ctx as any).payload = payload;
         return this.messagesCtrl.sendMessageToRoom(ctx as any);
       });
       this.router.register("messageDelivered", async (ctx: WsContext) => {
-        if (!allow("chat:msgDelivered", 120, 60_000)) return { success: false, error: "Rate limit exceeded." };
+        if (!allow("chat:msgDelivered", 120, 60_000))
+          return { success: false, error: "Rate limit exceeded." };
         return this.messagesCtrl.messageDelivered(ctx as any);
       });
       this.router.register("messageRead", async (ctx: WsContext) => {
-        if (!allow("chat:msgRead", 120, 60_000)) return { success: false, error: "Rate limit exceeded." };
+        if (!allow("chat:msgRead", 120, 60_000))
+          return { success: false, error: "Rate limit exceeded." };
         return this.messagesCtrl.messageRead(ctx as any);
       });
 
       // Friends events
       this.router.register("friendRequest", async (ctx: WsContext) => {
-        if (!allow("friend:request", 30, 60_000)) return { success: false, error: "Rate limit exceeded." };
+        if (!allow("friend:request", 30, 60_000))
+          return { success: false, error: "Rate limit exceeded." };
         return this.friendsCtrl.friendRequest(ctx as any);
       });
       this.router.register("friendRespond", async (ctx: WsContext) => {
-        if (!allow("friend:respond", 60, 60_000)) return { success: false, error: "Rate limit exceeded." };
+        if (!allow("friend:respond", 60, 60_000))
+          return { success: false, error: "Rate limit exceeded." };
         return this.friendsCtrl.friendRespond(ctx as any);
       });
       this.router.register("friendList", async (ctx: WsContext) => {
-        if (!allow("friend:list", 60, 60_000)) return { success: false, error: "Rate limit exceeded." };
+        if (!allow("friend:list", 60, 60_000))
+          return { success: false, error: "Rate limit exceeded." };
         return this.friendsCtrl.friendList(ctx as any);
       });
 

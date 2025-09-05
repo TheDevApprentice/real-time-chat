@@ -16,7 +16,7 @@ export class SessionsRepo {
           session.createdAt,
           session.expiresAt ?? null,
           session.refreshToken ?? null,
-          session.refreshTokenExpiresAt ?? null
+          session.refreshTokenExpiresAt ?? null,
         ],
         (err) => {
           if (err) return reject(err);
@@ -28,10 +28,14 @@ export class SessionsRepo {
 
   deleteAllUserSessionsByUserId(userId: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.db.run(`DELETE FROM user_sessions WHERE userId = ?`, [userId], (err) => {
-        if (err) return reject(err);
-        resolve();
-      });
+      this.db.run(
+        `DELETE FROM user_sessions WHERE userId = ?`,
+        [userId],
+        (err) => {
+          if (err) return reject(err);
+          resolve();
+        }
+      );
     });
   }
 
@@ -42,7 +46,15 @@ export class SessionsRepo {
         [userId],
         async (
           err: Error | null,
-          rows?: Array<{ id: string; userId: string; token: string; createdAt: number; expiresAt?: number; refreshToken?: string; refreshTokenExpiresAt?: number }>
+          rows?: Array<{
+            id: string;
+            userId: string;
+            token: string;
+            createdAt: number;
+            expiresAt?: number;
+            refreshToken?: string;
+            refreshTokenExpiresAt?: number;
+          }>
         ) => {
           if (err) return reject(err);
           const sessions = await Promise.all(
@@ -73,7 +85,17 @@ export class SessionsRepo {
         [token],
         async (
           err,
-          row: { id: string; userId: string; token: string; createdAt: number; expiresAt?: number; refreshToken?: string; refreshTokenExpiresAt?: number } | undefined
+          row:
+            | {
+                id: string;
+                userId: string;
+                token: string;
+                createdAt: number;
+                expiresAt?: number;
+                refreshToken?: string;
+                refreshTokenExpiresAt?: number;
+              }
+            | undefined
         ) => {
           if (err) return reject(err);
           if (!row) return resolve(null);
@@ -101,21 +123,37 @@ export class SessionsRepo {
 
   deleteUserSession(token: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.db.run(`DELETE FROM user_sessions WHERE token = ?`, [token], (err) => {
-        if (err) return reject(err);
-        resolve();
-      });
+      this.db.run(
+        `DELETE FROM user_sessions WHERE token = ?`,
+        [token],
+        (err) => {
+          if (err) return reject(err);
+          resolve();
+        }
+      );
     });
   }
 
-  async getUserSessionByRefreshToken(refreshToken: string): Promise<UserSession | null> {
+  async getUserSessionByRefreshToken(
+    refreshToken: string
+  ): Promise<UserSession | null> {
     return new Promise((resolve, reject) => {
       this.db.get(
         `SELECT * FROM user_sessions WHERE refreshToken = ?`,
         [refreshToken],
         async (
           err,
-          row: { id: string; userId: string; token: string; createdAt: number; expiresAt?: number; refreshToken?: string; refreshTokenExpiresAt?: number } | undefined
+          row:
+            | {
+                id: string;
+                userId: string;
+                token: string;
+                createdAt: number;
+                expiresAt?: number;
+                refreshToken?: string;
+                refreshTokenExpiresAt?: number;
+              }
+            | undefined
         ) => {
           if (err) return reject(err);
           if (!row) return resolve(null);

@@ -1,4 +1,4 @@
-export type FriendStatus = 'pending' | 'accepted';
+export type FriendStatus = "pending" | "accepted";
 
 export class Friend {
   constructor(

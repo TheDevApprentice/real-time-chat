@@ -1,4 +1,4 @@
-import { User } from './User';
+import { User } from "./User";
 
 export class UserSession {
   id: string;
@@ -10,7 +10,16 @@ export class UserSession {
   refreshTokenExpiresAt?: number;
   user?: User;
 
-  constructor(id: string, userId: string, token: string, createdAt: number, expiresAt?: number, refreshToken?: string, refreshTokenExpiresAt?: number, user?: User) {
+  constructor(
+    id: string,
+    userId: string,
+    token: string,
+    createdAt: number,
+    expiresAt?: number,
+    refreshToken?: string,
+    refreshTokenExpiresAt?: number,
+    user?: User
+  ) {
     this.id = id;
     this.userId = userId;
     this.token = token;

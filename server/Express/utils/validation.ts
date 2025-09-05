@@ -1,25 +1,30 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 // HTTP-friendly validation error
 export class ValidationHttpError extends Error {
   status = 422 as const;
   details: Array<{ path: string; message: string }>;
-  constructor(issues: import('zod').ZodIssue[]) {
-    super('Invalid payload');
-    this.name = 'ValidationHttpError';
-    this.details = issues.map((i) => ({ path: i.path.join('.'), message: i.message }));
+  constructor(issues: import("zod").ZodIssue[]) {
+    super("Invalid payload");
+    this.name = "ValidationHttpError";
+    this.details = issues.map((i) => ({
+      path: i.path.join("."),
+      message: i.message,
+    }));
   }
 }
 
 // Auth schemas
-export const RegisterSchema = z.object({
-  username: z.string().min(3).max(50),
-  password: z.string().min(6).max(200),
-  confirmPassword: z.string().min(6).max(200),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: 'Passwords do not match.',
-  path: ['confirmPassword'],
-});
+export const RegisterSchema = z
+  .object({
+    username: z.string().min(3).max(50),
+    password: z.string().min(6).max(200),
+    confirmPassword: z.string().min(6).max(200),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match.",
+    path: ["confirmPassword"],
+  });
 
 export const RefreshTokenSchema = z.object({
   refreshToken: z.string().uuid().or(z.string().min(10)),
@@ -28,7 +33,7 @@ export const RefreshTokenSchema = z.object({
 // Chat schemas
 export const CreateRoomSchema = z.object({
   name: z.string().min(1).max(100),
-  type: z.enum(['room', 'user']).optional(),
+  type: z.enum(["room", "user"]).optional(),
   isPublic: z.boolean().optional(),
   invitedUserIds: z.array(z.string().min(1)).max(100).optional(),
 });
@@ -53,7 +58,7 @@ export const WsRefreshTokenSchema = z.object({
 
 export const WsCreateRoomSchema = z.object({
   name: z.string().min(1).max(100),
-  type: z.enum(['room', 'user']).optional(),
+  type: z.enum(["room", "user"]).optional(),
   isPublic: z.boolean().optional(),
   invitedUserIds: z.array(z.string().min(1)).max(100).optional(),
 });

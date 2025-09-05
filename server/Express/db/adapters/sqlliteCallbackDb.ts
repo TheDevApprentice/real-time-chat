@@ -39,7 +39,8 @@ export function createSqliteCallbackDb(filePath: string): CallbackDB {
       rowCb: EachRowCb<T>,
       completeCb?: RunCb
     ) {
-      if (Array.isArray(params)) db.each(sql, params, rowCb as any, completeCb as any);
+      if (Array.isArray(params))
+        db.each(sql, params, rowCb as any, completeCb as any);
       else db.each(sql, rowCb as any, completeCb as any);
     },
   };

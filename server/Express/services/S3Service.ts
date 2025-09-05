@@ -11,11 +11,14 @@ export class S3Service {
     const region = process.env.S3_REGION || "us-east-1";
     const accessKeyId = process.env.S3_ACCESS_KEY;
     const secretAccessKey = process.env.S3_SECRET_KEY;
-    const usePathStyle = (process.env.S3_USE_PATH_STYLE || "true").toLowerCase() === "true";
+    const usePathStyle =
+      (process.env.S3_USE_PATH_STYLE || "true").toLowerCase() === "true";
     const bucket = process.env.S3_BUCKET;
 
     if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) {
-      throw new Error("Missing S3 configuration. Please set S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY, S3_BUCKET");
+      throw new Error(
+        "Missing S3 configuration. Please set S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY, S3_BUCKET"
+      );
     }
 
     this.client = new S3Client({
@@ -39,7 +42,7 @@ export class S3Service {
   public async uploadBuffer(
     buffer: Buffer,
     key: string,
-    contentType: string,
+    contentType: string
   ): Promise<{ key: string; url: string }> {
     const cmd = new PutObjectCommand({
       Bucket: this.bucket,

@@ -21,7 +21,9 @@ export class FriendsWsController {
     return { success: true, request: fr };
   }
 
-  async friendRespond(ctx: WsContext<{ otherUserId: string; action: 'accept' | 'reject' }>) {
+  async friendRespond(
+    ctx: WsContext<{ otherUserId: string; action: "accept" | "reject" }>
+  ) {
     const { db } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };

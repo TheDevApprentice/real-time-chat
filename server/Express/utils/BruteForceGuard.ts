@@ -22,7 +22,10 @@ export class BruteForceGuard {
   ) {
     // Periodic cleanup of stale rate-limit entries to avoid memory growth
     const CLEANUP_EVERY_MS = 5 * 60 * 1000; // 5 minutes
-    this.cleanupTimer = setInterval(() => this.cleanupRateLimitMap(), CLEANUP_EVERY_MS);
+    this.cleanupTimer = setInterval(
+      () => this.cleanupRateLimitMap(),
+      CLEANUP_EVERY_MS
+    );
     // Do not keep the process alive just for the timer
     if (typeof this.cleanupTimer.unref === "function") {
       this.cleanupTimer.unref();
@@ -30,7 +33,11 @@ export class BruteForceGuard {
   }
 
   private isBlockedAttempt(attempt?: Attempt): boolean {
-    return !!(attempt && attempt.blockedUntil && attempt.blockedUntil > Date.now());
+    return !!(
+      attempt &&
+      attempt.blockedUntil &&
+      attempt.blockedUntil > Date.now()
+    );
   }
 
   isBlockedIP(ip: string): boolean {
@@ -84,13 +91,12 @@ export class BruteForceGuard {
       const key = `${routeKey}:${ip}`;
       const now = Date.now();
       const existing = this.rlMap.get(key);
-      const state =
-        existing || {
-          count: 0,
-          windowStart: now,
-          windowMs,
-          lastSeen: now,
-        };
+      const state = existing || {
+        count: 0,
+        windowStart: now,
+        windowMs,
+        lastSeen: now,
+      };
       // If a different windowMs is passed later, take the stricter (smaller) one
       state.windowMs = Math.min(state.windowMs, windowMs);
       if (now - state.windowStart > windowMs) {

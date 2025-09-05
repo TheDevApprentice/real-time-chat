@@ -18,7 +18,10 @@ export class MessagesRepo {
         ],
         function (this: any, err) {
           if (err) return reject(err);
-          try { if (this && typeof this.lastID !== 'undefined') message.id = String(this.lastID); } catch {}
+          try {
+            if (this && typeof this.lastID !== "undefined")
+              message.id = String(this.lastID);
+          } catch {}
           resolve();
         }
       );
@@ -51,7 +54,10 @@ export class MessagesRepo {
     });
   }
 
-  markMessageDelivered(messageId: number, ts: number = Date.now()): Promise<void> {
+  markMessageDelivered(
+    messageId: number,
+    ts: number = Date.now()
+  ): Promise<void> {
     return new Promise((resolve, reject) => {
       this.db.run(
         `UPDATE messages
@@ -94,12 +100,16 @@ export class MessagesRepo {
           AND (m.status IS NULL OR m.status <> 'read')
         GROUP BY m.roomId
       `;
-      this.db.all(sql, [userId, userId], (err, rows: Array<{ roomId: string; cnt: number }> | undefined) => {
-        if (err) return reject(err);
-        const out: Record<string, number> = {};
-        for (const r of rows || []) out[r.roomId] = Number(r.cnt) || 0;
-        resolve(out);
-      });
+      this.db.all(
+        sql,
+        [userId, userId],
+        (err, rows: Array<{ roomId: string; cnt: number }> | undefined) => {
+          if (err) return reject(err);
+          const out: Record<string, number> = {};
+          for (const r of rows || []) out[r.roomId] = Number(r.cnt) || 0;
+          resolve(out);
+        }
+      );
     });
   }
 }

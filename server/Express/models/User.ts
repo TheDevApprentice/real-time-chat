@@ -6,7 +6,7 @@ export class User {
   constructor(id: string, name: string, password: string) {
     this._id = id;
     this._name = name;
-    this._password = password || ''; 
+    this._password = password || "";
   }
 
   get id(): string {
@@ -38,8 +38,12 @@ export class User {
   }
 
   // Factory for DB rows
-  static fromDbRow(row: { id: string; name: string; password?: string }): User | undefined {
+  static fromDbRow(row: {
+    id: string;
+    name: string;
+    password?: string;
+  }): User | undefined {
     if (!row) return undefined;
-    return new User(row.id, row.name, row.password || '');
+    return new User(row.id, row.name, row.password || "");
   }
 }

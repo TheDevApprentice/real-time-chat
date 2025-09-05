@@ -30,14 +30,25 @@ export class AuthWsController {
 
     // brute-force guard: IP + username
     const trustProxyEnv = process.env.TRUST_PROXY;
-    const trustProxy = trustProxyEnv === "true" || (!!trustProxyEnv && trustProxyEnv !== "false");
-    const xff = (ctx.socket.handshake.headers as any)["x-forwarded-for"] as string | undefined;
-    const ip = trustProxy && xff ? xff.split(",")[0].trim() : (ctx.socket.handshake.address || "unknown");
+    const trustProxy =
+      trustProxyEnv === "true" ||
+      (!!trustProxyEnv && trustProxyEnv !== "false");
+    const xff = (ctx.socket.handshake.headers as any)["x-forwarded-for"] as
+      | string
+      | undefined;
+    const ip =
+      trustProxy && xff
+        ? xff.split(",")[0].trim()
+        : ctx.socket.handshake.address || "unknown";
     if (bruteForceGuard.isBlockedIP(ip)) {
-      return { error: "Too many login attempts from this IP. Try again later." };
+      return {
+        error: "Too many login attempts from this IP. Try again later.",
+      };
     }
     if (bruteForceGuard.isBlockedKey(username)) {
-      return { error: "Too many login attempts for this user. Try again later." };
+      return {
+        error: "Too many login attempts for this user. Try again later.",
+      };
     }
 
     const users = await db.getUsers();
@@ -87,7 +98,10 @@ export class AuthWsController {
     const { refreshToken } = ctx.payload!;
     const session = await db.getUserSessionByRefreshToken(refreshToken);
     if (!session) return { error: "Invalid refresh token." };
-    if (!session.refreshTokenExpiresAt || session.refreshTokenExpiresAt < Date.now()) {
+    if (
+      !session.refreshTokenExpiresAt ||
+      session.refreshTokenExpiresAt < Date.now()
+    ) {
       await db.deleteUserSession(session.token);
       return { error: "Refresh token expired." };
     }

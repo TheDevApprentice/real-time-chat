@@ -12,7 +12,11 @@ export function createMysqlCallbackDb(config: {
   ssl?: boolean;
 }): CallbackDB {
   Logger.info(
-    `createMysqlCallbackDb planned (not implemented): host=${config.host} port=${config.port} db=${config.database} user=${config.user} ssl=${!!config.ssl}`
+    `createMysqlCallbackDb planned (not implemented): host=${
+      config.host
+    } port=${config.port} db=${config.database} user=${
+      config.user
+    } ssl=${!!config.ssl}`
   );
   return {
     serialize(cb: () => void): void {
@@ -40,7 +44,8 @@ export function createMysqlCallbackDb(config: {
       _rowCb: EachRowCb<T>,
       completeCb?: RunCb
     ) => {
-      if (completeCb) completeCb(new Error("MySQL adapter not implemented: each"));
+      if (completeCb)
+        completeCb(new Error("MySQL adapter not implemented: each"));
     },
   };
 }

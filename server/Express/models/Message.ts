@@ -1,7 +1,7 @@
-import { randomUUID } from 'crypto';
-import { User } from './User';
+import { randomUUID } from "crypto";
+import { User } from "./User";
 
-export type MessageStatus = 'sent' | 'delivered' | 'read';
+export type MessageStatus = "sent" | "delivered" | "read";
 
 export class Message {
   private _id: string;
@@ -17,10 +17,10 @@ export class Message {
     author: User,
     content: string,
     timestamp: number = Date.now(),
-    status: MessageStatus = 'sent',
+    status: MessageStatus = "sent",
     sentAt?: number,
     deliveredAt?: number,
-    readAt?: number,
+    readAt?: number
   ) {
     this._id = randomUUID();
     this._author = author;
@@ -32,33 +32,65 @@ export class Message {
     this._readAt = readAt;
   }
 
-  get id(): string { return this._id; }
-  set id(value: string) { this._id = value; }
+  get id(): string {
+    return this._id;
+  }
+  set id(value: string) {
+    this._id = value;
+  }
 
-  get author(): User { return this._author; }
-  set author(value: User) { this._author = value; }
+  get author(): User {
+    return this._author;
+  }
+  set author(value: User) {
+    this._author = value;
+  }
 
-  get content(): string { return this._content; }
-  set content(value: string) { this._content = value; }
+  get content(): string {
+    return this._content;
+  }
+  set content(value: string) {
+    this._content = value;
+  }
 
-  get timestamp(): number { return this._timestamp; }
-  set timestamp(value: number) { this._timestamp = value; }
+  get timestamp(): number {
+    return this._timestamp;
+  }
+  set timestamp(value: number) {
+    this._timestamp = value;
+  }
 
-  get status(): MessageStatus { return this._status; }
-  set status(value: MessageStatus) { this._status = value; }
+  get status(): MessageStatus {
+    return this._status;
+  }
+  set status(value: MessageStatus) {
+    this._status = value;
+  }
 
-  get sentAt(): number | undefined { return this._sentAt; }
-  set sentAt(value: number | undefined) { this._sentAt = value; }
+  get sentAt(): number | undefined {
+    return this._sentAt;
+  }
+  set sentAt(value: number | undefined) {
+    this._sentAt = value;
+  }
 
-  get deliveredAt(): number | undefined { return this._deliveredAt; }
-  set deliveredAt(value: number | undefined) { this._deliveredAt = value; }
+  get deliveredAt(): number | undefined {
+    return this._deliveredAt;
+  }
+  set deliveredAt(value: number | undefined) {
+    this._deliveredAt = value;
+  }
 
-  get readAt(): number | undefined { return this._readAt; }
-  set readAt(value: number | undefined) { this._readAt = value; }
+  get readAt(): number | undefined {
+    return this._readAt;
+  }
+  set readAt(value: number | undefined) {
+    this._readAt = value;
+  }
 
   toJSON(): {
     id: string;
-    author: ReturnType<User['toJSON']>;
+    author: ReturnType<User["toJSON"]>;
     content: string;
     timestamp: number;
     status: MessageStatus;
@@ -90,9 +122,17 @@ export class Message {
     deliveredAt?: number;
     readAt?: number;
   }): Message {
-    const user = new User(row.authorId, row.authorName, '');
-    const status = (row.status as MessageStatus) ?? 'sent';
-    const msg = new Message(user, row.content, row.timestamp, status, row.sentAt, row.deliveredAt, row.readAt);
+    const user = new User(row.authorId, row.authorName, "");
+    const status = (row.status as MessageStatus) ?? "sent";
+    const msg = new Message(
+      user,
+      row.content,
+      row.timestamp,
+      status,
+      row.sentAt,
+      row.deliveredAt,
+      row.readAt
+    );
     // Use DB id as stable string identifier
     msg.id = String(row.id);
     return msg;

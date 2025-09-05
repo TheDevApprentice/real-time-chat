@@ -1,24 +1,23 @@
 import { WsContext } from "../WsContext";
 import { Message } from "../../models";
+import { sanitizeText } from "../../utils/text";
 
 export class MessagesWsController {
-  private sanitizeText(input: string): string {
-    const trimmed = (input ?? "").toString().trim();
-    const limited = trimmed.slice(0, 2000);
-    return limited.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  }
-
-  async sendMessageToRoom(ctx: WsContext<{ roomId: string; content: string; timestamp: number }>) {
+  async sendMessageToRoom(
+    ctx: WsContext<{ roomId: string; content: string; timestamp: number }>
+  ) {
     const { db } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
-    if (!userId) return { error: "Vous devez être connecté pour envoyer un message." };
+    if (!userId)
+      return { error: "Vous devez être connecté pour envoyer un message." };
     const { roomId, content, timestamp } = (ctx.payload || {}) as any;
-    if (!roomId || !content) return { error: "Not authenticated or missing data." };
+    if (!roomId || !content)
+      return { error: "Not authenticated or missing data." };
 
     const user = await db.getUserById(userId);
     if (!user) return { error: "User not found." };
 
-    const safeContent = this.sanitizeText(content);
+    const safeContent = sanitizeText(content);
     const msgObj = new Message(user, safeContent, timestamp);
     await db.addMessageToRoom(msgObj, roomId);
 
@@ -40,12 +39,15 @@ export class MessagesWsController {
     return { success: true };
   }
 
-  async messageDelivered(ctx: WsContext<{ messageId: number; roomId: string; timestamp?: number }>) {
+  async messageDelivered(
+    ctx: WsContext<{ messageId: number; roomId: string; timestamp?: number }>
+  ) {
     const { db } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const { messageId, roomId, timestamp } = (ctx.payload || {}) as any;
-    if (!messageId || !roomId) return { success: false, error: "Missing messageId or roomId." };
+    if (!messageId || !roomId)
+      return { success: false, error: "Missing messageId or roomId." };
 
     await db.markMessageDelivered(messageId, timestamp ?? Date.now());
     try {
@@ -55,21 +57,34 @@ export class MessagesWsController {
       for (const s of sockets) {
         const uid = (s.data as any)?.userId as string | undefined;
         if (uid && memberIds.has(uid)) {
-          s.emit("messageStatusUpdated", { messageId, status: "delivered", deliveredAt: timestamp ?? Date.now() });
+          s.emit("messageStatusUpdated", {
+            messageId,
+            status: "delivered",
+            deliveredAt: timestamp ?? Date.now(),
+          });
         }
       }
     } catch {
-      ctx.io.to(roomId).emit("messageStatusUpdated", { messageId, status: "delivered", deliveredAt: timestamp ?? Date.now() });
+      ctx.io
+        .to(roomId)
+        .emit("messageStatusUpdated", {
+          messageId,
+          status: "delivered",
+          deliveredAt: timestamp ?? Date.now(),
+        });
     }
     return { success: true };
   }
 
-  async messageRead(ctx: WsContext<{ messageId: number; roomId: string; timestamp?: number }>) {
+  async messageRead(
+    ctx: WsContext<{ messageId: number; roomId: string; timestamp?: number }>
+  ) {
     const { db } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const { messageId, roomId, timestamp } = (ctx.payload || {}) as any;
-    if (!messageId || !roomId) return { success: false, error: "Missing messageId or roomId." };
+    if (!messageId || !roomId)
+      return { success: false, error: "Missing messageId or roomId." };
 
     await db.markMessageRead(messageId, timestamp ?? Date.now());
     try {
@@ -79,11 +94,21 @@ export class MessagesWsController {
       for (const s of sockets) {
         const uid = (s.data as any)?.userId as string | undefined;
         if (uid && memberIds.has(uid)) {
-          s.emit("messageStatusUpdated", { messageId, status: "read", readAt: timestamp ?? Date.now() });
+          s.emit("messageStatusUpdated", {
+            messageId,
+            status: "read",
+            readAt: timestamp ?? Date.now(),
+          });
         }
       }
     } catch {
-      ctx.io.to(roomId).emit("messageStatusUpdated", { messageId, status: "read", readAt: timestamp ?? Date.now() });
+      ctx.io
+        .to(roomId)
+        .emit("messageStatusUpdated", {
+          messageId,
+          status: "read",
+          readAt: timestamp ?? Date.now(),
+        });
     }
     return { success: true };
   }

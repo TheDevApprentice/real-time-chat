@@ -9,7 +9,14 @@ export class RoomsRepo {
     return new Promise((resolve, reject) => {
       this.db.run(
         `INSERT INTO rooms (id, name, creatorId, createdAt, type, isPublic) VALUES (?, ?, ?, ?, ?, ?)`,
-        [room.id, room.name, room.creatorId, room.createdAt, room.type, room.isPublic ? 1 : 0],
+        [
+          room.id,
+          room.name,
+          room.creatorId,
+          room.createdAt,
+          room.type,
+          room.isPublic ? 1 : 0,
+        ],
         (err) => {
           if (err) return reject(err);
           resolve(room);
@@ -20,15 +27,26 @@ export class RoomsRepo {
 
   getRooms(): Promise<Room[]> {
     return new Promise((resolve, reject) => {
-      this.db.all(`SELECT id, name, creatorId, createdAt, type, isPublic FROM rooms`, undefined, async (err: Error | null, rows?: any[]) => {
-        if (err) return reject(err);
-        const roomObjs: Room[] = [];
-        for (const row of (rows as Array<{ id: string; name: string; creatorId: string; createdAt: number; type?: 'room'|'user'|null; isPublic?: number }>) || []) {
-          const users = await this.getUsersForRoom(row.id);
-          roomObjs.push(Room.fromDbRow(row, users));
+      this.db.all(
+        `SELECT id, name, creatorId, createdAt, type, isPublic FROM rooms`,
+        undefined,
+        async (err: Error | null, rows?: any[]) => {
+          if (err) return reject(err);
+          const roomObjs: Room[] = [];
+          for (const row of (rows as Array<{
+            id: string;
+            name: string;
+            creatorId: string;
+            createdAt: number;
+            type?: "room" | "user" | null;
+            isPublic?: number;
+          }>) || []) {
+            const users = await this.getUsersForRoom(row.id);
+            roomObjs.push(Room.fromDbRow(row, users));
+          }
+          resolve(roomObjs);
         }
-        resolve(roomObjs);
-      });
+      );
     });
   }
 
@@ -37,7 +55,19 @@ export class RoomsRepo {
       this.db.get(
         `SELECT id, name, creatorId, createdAt, type, isPublic FROM rooms WHERE id = ?`,
         [id],
-        async (err, row: { id: string; name: string; creatorId: string; createdAt: number; type?: 'room'|'user'|null; isPublic?: number } | undefined) => {
+        async (
+          err,
+          row:
+            | {
+                id: string;
+                name: string;
+                creatorId: string;
+                createdAt: number;
+                type?: "room" | "user" | null;
+                isPublic?: number;
+              }
+            | undefined
+        ) => {
           if (err) return reject(err);
           if (!row) return resolve(undefined);
           const users = await this.getUsersForRoom(row.id);
@@ -89,7 +119,14 @@ export class RoomsRepo {
         async (err: Error | null, rows?: any[]) => {
           if (err) return reject(err);
           const roomObjs: Room[] = [];
-          for (const row of (rows as Array<{ id: string; name: string; creatorId: string; createdAt: number; type?: 'room'|'user'|null; isPublic?: number }>) || []) {
+          for (const row of (rows as Array<{
+            id: string;
+            name: string;
+            creatorId: string;
+            createdAt: number;
+            type?: "room" | "user" | null;
+            isPublic?: number;
+          }>) || []) {
             const users = await this.getUsersForRoom(row.id);
             roomObjs.push(Room.fromDbRow(row, users));
           }
@@ -110,7 +147,14 @@ export class RoomsRepo {
         async (err: Error | null, rows?: any[]) => {
           if (err) return reject(err);
           const roomObjs: Room[] = [];
-          for (const row of (rows as Array<{ id: string; name: string; creatorId: string; createdAt: number; type?: 'room'|'user'|null; isPublic?: number }>) || []) {
+          for (const row of (rows as Array<{
+            id: string;
+            name: string;
+            creatorId: string;
+            createdAt: number;
+            type?: "room" | "user" | null;
+            isPublic?: number;
+          }>) || []) {
             const users = await this.getUsersForRoom(row.id);
             roomObjs.push(Room.fromDbRow(row, users));
           }
@@ -128,18 +172,18 @@ export class RoomsRepo {
         [roomId],
         (err: Error | null, rows?: any[]) => {
           if (err) return reject(err);
-          const users = ((rows as Array<{ id: string; name: string }> ) || []).map(
-            User.fromDbRow
-          );
-          resolve(users.filter(u => u !== undefined));
+          const users = (
+            (rows as Array<{ id: string; name: string }>) || []
+          ).map(User.fromDbRow);
+          resolve(users.filter((u) => u !== undefined));
         }
       );
     });
   }
 
-  async getRoomsAndUsers(): Promise<{ room: Room, users: User[] }[]> {
+  async getRoomsAndUsers(): Promise<{ room: Room; users: User[] }[]> {
     const rooms = await this.getRooms();
-    const result: { room: Room, users: User[] }[] = [];
+    const result: { room: Room; users: User[] }[] = [];
     for (const room of rooms) {
       const users = await this.getUsersForRoom(room.id);
       result.push({ room, users });

@@ -1,20 +1,28 @@
-import { CallbackDB, createSqliteCallbackDb, createPostgresCallbackDb, createMysqlCallbackDb } from "./adapters";
+import {
+  CallbackDB,
+  createSqliteCallbackDb,
+  createPostgresCallbackDb,
+  createMysqlCallbackDb,
+} from "./adapters";
 import { Logger } from "../utils/Logger";
 
 export type SupportedDrivers = "sqlite" | "postgres" | "mysql";
-const DRIVER: SupportedDrivers = process.env.DATABASE_DRIVER as SupportedDrivers;
+const DRIVER: SupportedDrivers = process.env
+  .DATABASE_DRIVER as SupportedDrivers;
 
 export interface DbFactoryOptions {
   driver?: SupportedDrivers;
   sqliteFile?: string;
 }
 
-export function createCallbackDbFromEnv(env: NodeJS.ProcessEnv = process.env): CallbackDB {
-  const driver = ((DRIVER as string).toLowerCase()) as SupportedDrivers;
+export function createCallbackDbFromEnv(
+  env: NodeJS.ProcessEnv = process.env
+): CallbackDB {
+  const driver = (DRIVER as string).toLowerCase() as SupportedDrivers;
   Logger.info(`DatabaseFactory using driver: ${driver}`);
   switch (driver) {
     case "sqlite": {
-      const file = (env.SQLITE_FILE) as string;
+      const file = env.SQLITE_FILE as string;
       if (!file) {
         throw new Error("Database file path is required");
       }
@@ -32,7 +40,14 @@ export function createCallbackDbFromEnv(env: NodeJS.ProcessEnv = process.env): C
       Logger.info(
         `DatabaseFactory Postgres -> host=${host} port=${port} db=${database} user=${user} ssl=${ssl}`
       );
-      return createPostgresCallbackDb({ host, port, database, user, password, ssl });
+      return createPostgresCallbackDb({
+        host,
+        port,
+        database,
+        user,
+        password,
+        ssl,
+      });
     }
     case "mysql": {
       // Expected env vars for MySQL/MariaDB
@@ -45,11 +60,16 @@ export function createCallbackDbFromEnv(env: NodeJS.ProcessEnv = process.env): C
       Logger.info(
         `DatabaseFactory MySQL -> host=${host} port=${port} db=${database} user=${user} ssl=${ssl}`
       );
-      return createMysqlCallbackDb({ host, port, database, user, password, ssl });
+      return createMysqlCallbackDb({
+        host,
+        port,
+        database,
+        user,
+        password,
+        ssl,
+      });
     }
     default:
       throw new Error(`Unsupported DATABASE_DRIVER: ${driver}`);
   }
 }
-
-

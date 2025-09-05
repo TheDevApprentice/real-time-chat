@@ -19,13 +19,18 @@ export class UsersRepo {
 
   getUsers(): Promise<User[]> {
     return new Promise((resolve, reject) => {
-      this.db.all(`SELECT id, name, password FROM users`, undefined, (err, rows?: any[]) => {
-        if (err) return reject(err);
-        const users = ((rows as Array<{ id: string; name: string; password: string }> ) || []).map(
-          User.fromDbRow
-        );
-        resolve(users.filter((u) => u !== undefined));
-      });
+      this.db.all(
+        `SELECT id, name, password FROM users`,
+        undefined,
+        (err, rows?: any[]) => {
+          if (err) return reject(err);
+          const users = (
+            (rows as Array<{ id: string; name: string; password: string }>) ||
+            []
+          ).map(User.fromDbRow);
+          resolve(users.filter((u) => u !== undefined));
+        }
+      );
     });
   }
 
@@ -34,7 +39,10 @@ export class UsersRepo {
       this.db.get(
         `SELECT id, name, password FROM users WHERE id = ?`,
         [id],
-        (err, row: { id: string; name: string; password: string } | undefined) => {
+        (
+          err,
+          row: { id: string; name: string; password: string } | undefined
+        ) => {
           if (err) return reject(err);
           if (!row) return resolve(undefined);
           resolve(User.fromDbRow(row));
@@ -45,13 +53,15 @@ export class UsersRepo {
 
   searchUsersByName(query: string, limit = 20): Promise<User[]> {
     return new Promise((resolve, reject) => {
-      const like = `%${query.replace(/%/g, '').replace(/_/g, '')}%`;
+      const like = `%${query.replace(/%/g, "").replace(/_/g, "")}%`;
       this.db.all(
         `SELECT id, name, password FROM users WHERE name LIKE ? ORDER BY name LIMIT ?`,
         [like, limit],
         (err, rows) => {
           if (err) return reject(err);
-          const users = (rows as Array<{ id: string; name: string; password: string }>).map(User.fromDbRow);
+          const users = (
+            rows as Array<{ id: string; name: string; password: string }>
+          ).map(User.fromDbRow);
           resolve(users.filter((u) => u !== undefined));
         }
       );

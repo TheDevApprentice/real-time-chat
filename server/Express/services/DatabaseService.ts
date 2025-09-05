@@ -1,7 +1,13 @@
 import { User, Room, Message, UserSession } from "../models/index";
 import { CallbackDB } from "../db/adapters/callbackDb";
 import { createCallbackDbFromEnv } from "../db/factory";
-import { UsersRepo, RoomsRepo, MessagesRepo, SessionsRepo, FriendsRepo } from "../db/repos/Index";
+import {
+  UsersRepo,
+  RoomsRepo,
+  MessagesRepo,
+  SessionsRepo,
+  FriendsRepo,
+} from "../db/repos/Index";
 
 export class DatabaseService {
   private static instance: DatabaseService;
@@ -33,27 +39,40 @@ export class DatabaseService {
 
   init(): void {
     this.db.serialize(() => {
-      this.db.run(`CREATE TABLE IF NOT EXISTS users (
+      this.db.run(
+        `CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         password TEXT NOT NULL
-      )`, undefined, () => {});
-      this.db.run(`CREATE TABLE IF NOT EXISTS rooms (
+      )`,
+        undefined,
+        () => {}
+      );
+      this.db.run(
+        `CREATE TABLE IF NOT EXISTS rooms (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         creatorId TEXT NOT NULL,
         createdAt INTEGER NOT NULL,
         type TEXT DEFAULT 'room',
         isPublic INTEGER DEFAULT 1
-      )`, undefined, () => {});
-      this.db.run(`CREATE TABLE IF NOT EXISTS user_rooms (
+      )`,
+        undefined,
+        () => {}
+      );
+      this.db.run(
+        `CREATE TABLE IF NOT EXISTS user_rooms (
         userId TEXT NOT NULL,
         roomId TEXT NOT NULL,
         PRIMARY KEY (userId, roomId),
         FOREIGN KEY (userId) REFERENCES users(id),
         FOREIGN KEY (roomId) REFERENCES rooms(id)
-      )`, undefined, () => {});
-      this.db.run(`CREATE TABLE IF NOT EXISTS messages (
+      )`,
+        undefined,
+        () => {}
+      );
+      this.db.run(
+        `CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         authorId TEXT,
         authorName TEXT,
@@ -65,8 +84,12 @@ export class DatabaseService {
         deliveredAt INTEGER,
         readAt INTEGER,
         FOREIGN KEY (roomId) REFERENCES rooms(id)
-      )`, undefined, () => {});
-      this.db.run(`CREATE TABLE IF NOT EXISTS user_sessions (
+      )`,
+        undefined,
+        () => {}
+      );
+      this.db.run(
+        `CREATE TABLE IF NOT EXISTS user_sessions (
         id TEXT PRIMARY KEY,
         userId TEXT NOT NULL,
         token TEXT NOT NULL,
@@ -75,18 +98,42 @@ export class DatabaseService {
         refreshToken TEXT,
         refreshTokenExpiresAt INTEGER,
         FOREIGN KEY (userId) REFERENCES users(id)
-      )`, undefined, () => {});
+      )`,
+        undefined,
+        () => {}
+      );
       // Migration : ajoute les colonnes si elles n'existent pas
-      this.db.run(`ALTER TABLE user_sessions ADD COLUMN refreshToken TEXT`, undefined, () => {});
-      this.db.run(`ALTER TABLE user_sessions ADD COLUMN refreshTokenExpiresAt INTEGER`, undefined, () => {});
+      this.db.run(
+        `ALTER TABLE user_sessions ADD COLUMN refreshToken TEXT`,
+        undefined,
+        () => {}
+      );
+      this.db.run(
+        `ALTER TABLE user_sessions ADD COLUMN refreshTokenExpiresAt INTEGER`,
+        undefined,
+        () => {}
+      );
       // Index pour accélérer la recherche par refreshToken
-      this.db.run(`CREATE INDEX IF NOT EXISTS idx_user_sessions_refresh ON user_sessions(refreshToken)`, undefined, () => {});
+      this.db.run(
+        `CREATE INDEX IF NOT EXISTS idx_user_sessions_refresh ON user_sessions(refreshToken)`,
+        undefined,
+        () => {}
+      );
       // Rooms migrations (SQLite ne supporte pas IF NOT EXISTS pour ADD COLUMN avant 3.35) :
       // on tente et on ignore l'erreur si la colonne existe déjà
-      this.db.run(`ALTER TABLE rooms ADD COLUMN type TEXT DEFAULT 'room'`, undefined, () => {});
-      this.db.run(`ALTER TABLE rooms ADD COLUMN isPublic INTEGER DEFAULT 1`, undefined, () => {});
+      this.db.run(
+        `ALTER TABLE rooms ADD COLUMN type TEXT DEFAULT 'room'`,
+        undefined,
+        () => {}
+      );
+      this.db.run(
+        `ALTER TABLE rooms ADD COLUMN isPublic INTEGER DEFAULT 1`,
+        undefined,
+        () => {}
+      );
       // Friends table: pair relationship with status and requester
-      this.db.run(`CREATE TABLE IF NOT EXISTS friends (
+      this.db.run(
+        `CREATE TABLE IF NOT EXISTS friends (
         id TEXT PRIMARY KEY,
         userA TEXT NOT NULL,
         userB TEXT NOT NULL,
@@ -97,10 +144,21 @@ export class DatabaseService {
         UNIQUE(userA, userB),
         FOREIGN KEY (userA) REFERENCES users(id),
         FOREIGN KEY (userB) REFERENCES users(id)
-      )`, undefined, () => {});
+      )`,
+        undefined,
+        () => {}
+      );
       // For fast lookups
-      this.db.run(`CREATE INDEX IF NOT EXISTS idx_friends_userA ON friends(userA)`, undefined, () => {});
-      this.db.run(`CREATE INDEX IF NOT EXISTS idx_friends_userB ON friends(userB)`, undefined, () => {});
+      this.db.run(
+        `CREATE INDEX IF NOT EXISTS idx_friends_userA ON friends(userA)`,
+        undefined,
+        () => {}
+      );
+      this.db.run(
+        `CREATE INDEX IF NOT EXISTS idx_friends_userB ON friends(userB)`,
+        undefined,
+        () => {}
+      );
       // Logger.info("Database tables initialized (users, rooms, user_rooms, messages, user_sessions)");
     });
   }
@@ -108,7 +166,7 @@ export class DatabaseService {
   addUser(user: User): Promise<User> {
     return this.usersRepo.addUser(user);
   }
-  
+
   getUsers(): Promise<User[]> {
     return this.usersRepo.getUsers();
   }
@@ -117,7 +175,9 @@ export class DatabaseService {
     return this.usersRepo.getUserById(id);
   }
   // Créer une room
-  addRoom(room: import('../models/Room').Room): Promise<import('../models/Room').Room> {
+  addRoom(
+    room: import("../models/Room").Room
+  ): Promise<import("../models/Room").Room> {
     return this.roomsRepo.addRoom(room as Room);
   }
 
@@ -157,7 +217,7 @@ export class DatabaseService {
   }
 
   // Lister les users d’une room
-  getUsersForRoom(roomId: string): Promise<import('../models/User').User[]> {
+  getUsersForRoom(roomId: string): Promise<import("../models/User").User[]> {
     return this.roomsRepo.getUsersForRoom(roomId);
   }
 
@@ -172,7 +232,12 @@ export class DatabaseService {
   }
 
   // [Optionnel] Récupérer toutes les rooms avec leurs users
-  getRoomsAndUsers(): Promise<{ room: import('../models/Room').Room, users: import('../models/User').User[] }[]> {
+  getRoomsAndUsers(): Promise<
+    {
+      room: import("../models/Room").Room;
+      users: import("../models/User").User[];
+    }[]
+  > {
     return this.roomsRepo.getRoomsAndUsers();
   }
   // --- SESSION MANAGEMENT ---
@@ -180,68 +245,90 @@ export class DatabaseService {
     return this.sessionsRepo.addUserSession(session);
   }
 
-
-
   // Supprimer toutes les sessions d'un utilisateur
-async deleteAllUserSessionsByUserId(userId: string): Promise<void> {
-  return this.sessionsRepo.deleteAllUserSessionsByUserId(userId);
-}
+  async deleteAllUserSessionsByUserId(userId: string): Promise<void> {
+    return this.sessionsRepo.deleteAllUserSessionsByUserId(userId);
+  }
 
-// Lister toutes les sessions d'un utilisateur
-async getUserSessionsByUserId(userId: string): Promise<UserSession[]> {
-  return this.sessionsRepo.getUserSessionsByUserId(userId);
-}
+  // Lister toutes les sessions d'un utilisateur
+  async getUserSessionsByUserId(userId: string): Promise<UserSession[]> {
+    return this.sessionsRepo.getUserSessionsByUserId(userId);
+  }
 
-// Récupérer une session utilisateur par token
-async getUserSessionByToken(token: string): Promise<UserSession | null> {
-  return this.sessionsRepo.getUserSessionByToken(token);
-}
+  // Récupérer une session utilisateur par token
+  async getUserSessionByToken(token: string): Promise<UserSession | null> {
+    return this.sessionsRepo.getUserSessionByToken(token);
+  }
 
-deleteUserSession(token: string): Promise<void> {
-  return this.sessionsRepo.deleteUserSession(token);
-}
+  deleteUserSession(token: string): Promise<void> {
+    return this.sessionsRepo.deleteUserSession(token);
+  }
 
-// Lookup direct par refreshToken
-async getUserSessionByRefreshToken(refreshToken: string): Promise<UserSession | null> {
-  return this.sessionsRepo.getUserSessionByRefreshToken(refreshToken);
-}
+  // Lookup direct par refreshToken
+  async getUserSessionByRefreshToken(
+    refreshToken: string
+  ): Promise<UserSession | null> {
+    return this.sessionsRepo.getUserSessionByRefreshToken(refreshToken);
+  }
 
-// --- USERS SEARCH ---
-async searchUsersByName(query: string, limit = 20): Promise<User[]> {
-  return this.usersRepo.searchUsersByName(query, limit);
-}
+  // --- USERS SEARCH ---
+  async searchUsersByName(query: string, limit = 20): Promise<User[]> {
+    return this.usersRepo.searchUsersByName(query, limit);
+  }
 
-// --- FRIENDS ---
-private orderPair(a: string, b: string): { a: string; b: string } {
-  return a < b ? { a, b } : { a: b, b: a };
-}
+  // --- FRIENDS ---
+  private orderPair(a: string, b: string): { a: string; b: string } {
+    return a < b ? { a, b } : { a: b, b: a };
+  }
 
-async createFriendRequest(requesterId: string, targetUserId: string): Promise<{ id: string; status: 'pending'; userA: string; userB: string; requesterId: string; createdAt: number; updatedAt: number }> {
-  return this.friendsRepo.createFriendRequest(requesterId, targetUserId);
-}
+  async createFriendRequest(
+    requesterId: string,
+    targetUserId: string
+  ): Promise<{
+    id: string;
+    status: "pending";
+    userA: string;
+    userB: string;
+    requesterId: string;
+    createdAt: number;
+    updatedAt: number;
+  }> {
+    return this.friendsRepo.createFriendRequest(requesterId, targetUserId);
+  }
 
-async respondFriendRequest(userId: string, otherUserId: string, action: 'accept' | 'reject') {
-  return this.friendsRepo.respondFriendRequest(userId, otherUserId, action);
-}
+  async respondFriendRequest(
+    userId: string,
+    otherUserId: string,
+    action: "accept" | "reject"
+  ) {
+    return this.friendsRepo.respondFriendRequest(userId, otherUserId, action);
+  }
 
-async listFriendsAndRequests(userId: string) {
-  return this.friendsRepo.listFriendsAndRequests(userId);
-}
+  async listFriendsAndRequests(userId: string) {
+    return this.friendsRepo.listFriendsAndRequests(userId);
+  }
 
   // --- MESSAGE STATUS UPDATES ---
-  async markMessageDelivered(messageId: number, ts: number = Date.now()): Promise<void> {
+  async markMessageDelivered(
+    messageId: number,
+    ts: number = Date.now()
+  ): Promise<void> {
     return this.messagesRepo.markMessageDelivered(messageId, ts);
   }
 
-  async markMessageRead(messageId: number, ts: number = Date.now()): Promise<void> {
+  async markMessageRead(
+    messageId: number,
+    ts: number = Date.now()
+  ): Promise<void> {
     return this.messagesRepo.markMessageRead(messageId, ts);
   }
 
   // --- UNREAD COUNTS (global status-based per room) ---
   // Count messages for rooms where the user is a member, authored by others,
   // and whose status is not 'read'.
-  async getUnreadCountsForUser(userId: string): Promise<Record<string, number>> {
+  async getUnreadCountsForUser(
+    userId: string
+  ): Promise<Record<string, number>> {
     return this.messagesRepo.getUnreadCountsForUser(userId);
   }
-
 }
