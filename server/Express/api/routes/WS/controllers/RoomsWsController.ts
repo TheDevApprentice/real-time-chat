@@ -124,17 +124,54 @@ export class RoomsWsController {
       await (redisService?.del?.(`cache:rooms:visible:${userId}`) ?? Promise.resolve(0));
     } catch {}
 
-    const messages = await messageService.getMessagesForRoom(roomId);
-    ctx.socket.emit("roomHistory", {
-      roomId,
-      messages: messages.map((m: Message) => m.toJSON()),
-    });
+    // Room history with Redis cache
+    let historyJson: any[] | null = null;
+    const historyKey = `cache:room:history:${roomId}`;
+    try {
+      const cachedHistory = await redisService?.get?.(historyKey);
+      if (cachedHistory) historyJson = JSON.parse(cachedHistory);
+    } catch {}
+    if (!historyJson) {
+      const messages = await messageService.getMessagesForRoom(roomId);
+      historyJson = messages.map((m: Message) => m.toJSON());
+      try {
+        await redisService?.set?.(historyKey, JSON.stringify(historyJson), { EX: 60 });
+      } catch {}
+    }
+    ctx.socket.emit("roomHistory", { roomId, messages: historyJson });
 
     const users = await roomService.getUsersForRoom(roomId);
     ctx.io
       .to(roomId)
       .emit("roomUsers", { roomId, users: users.map((u: User) => u.toJSON()) });
 
+    return { success: true };
+  }
+  
+  // Typing indicators using Redis ephemeral keys
+  async typingStart(ctx: WsContext<{ roomId: string }>) {
+    const { redisService } = ctx.services as any;
+    const userId = (ctx.socket.data as any)?.userId as string | undefined;
+    if (!userId) return { success: false, error: "Not authenticated." };
+    const roomId = (ctx.payload as any)?.roomId as string | undefined;
+    if (!roomId) return { success: false, error: "Missing roomId." };
+    try {
+      await redisService?.set?.(`typing:${roomId}:${userId}`, "1", { EX: 10 });
+    } catch {}
+    ctx.io.to(roomId).emit("typing", { roomId, userId, typing: true });
+    return { success: true };
+  }
+
+  async typingStop(ctx: WsContext<{ roomId: string }>) {
+    const { redisService } = ctx.services as any;
+    const userId = (ctx.socket.data as any)?.userId as string | undefined;
+    if (!userId) return { success: false, error: "Not authenticated." };
+    const roomId = (ctx.payload as any)?.roomId as string | undefined;
+    if (!roomId) return { success: false, error: "Missing roomId." };
+    try {
+      await redisService?.del?.(`typing:${roomId}:${userId}`);
+    } catch {}
+    ctx.io.to(roomId).emit("typing", { roomId, userId, typing: false });
     return { success: true };
   }
 }

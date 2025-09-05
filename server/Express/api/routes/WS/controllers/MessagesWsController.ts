@@ -34,6 +34,10 @@ export class MessagesWsController {
           s.emit("message", { roomId, message: msgObj.toJSON() });
         }
       }
+      // Invalidate room history cache
+      try {
+        await (redisService?.del?.(`cache:room:history:${roomId}`) ?? Promise.resolve(0));
+      } catch {}
       // Invalidate unread cache for all members
       try {
         const keysToDel = Array.from(memberIds).map((id) => `cache:unread:${id}`);

@@ -102,6 +102,18 @@ export class WebSocketGateway {
       async (ctx: WsContext<z.infer<typeof WsJoinRoomSchema>>) => this.roomsCtrl.joinRoom(ctx)
     );
 
+    // Typing indicators
+    this.router.register(
+      "typingStart",
+      requireAuth(),
+      async (ctx: WsContext<{ roomId: string }>) => this.roomsCtrl.typingStart(ctx)
+    );
+    this.router.register(
+      "typingStop",
+      requireAuth(),
+      async (ctx: WsContext<{ roomId: string }>) => this.roomsCtrl.typingStop(ctx)
+    );
+
     // Messages events
     this.router.register(
       "sendMessageToRoom",
@@ -183,8 +195,41 @@ export class WebSocketGateway {
         }
       }
       // Logger.info(`Client connected: ${socket.id}`);
-      socket.on("disconnect", () => {
+      const { redisService } = services as any;
+      let presenceInterval: NodeJS.Timeout | null = null;
+
+      const touchPresence = async (uid: string) => {
+        try {
+          await redisService.set(`presence:user:${uid}`, "online", { EX: 120 });
+          await redisService.set(`socket:user:${socket.id}`, uid, { EX: 120 });
+        } catch {}
+      };
+
+      const setupPresence = async () => {
+        const uid = (socket.data as any)?.userId as string | undefined;
+        if (!uid) return;
+        await touchPresence(uid);
+        if (!presenceInterval) {
+          presenceInterval = setInterval(() => {
+            touchPresence(uid).catch(() => undefined);
+          }, 30_000);
+          presenceInterval.unref?.();
+        }
+      };
+
+      await setupPresence();
+
+      socket.on("disconnect", async () => {
         this.socketRates.delete(socket.id);
+        if (presenceInterval) clearInterval(presenceInterval);
+        const uid = (socket.data as any)?.userId as string | undefined;
+        if (uid) {
+          try {
+            await redisService.set(`lastseen:user:${uid}`, String(Date.now()));
+            await redisService.del(`socket:user:${socket.id}`);
+            // presence key will expire by itself shortly
+          } catch {}
+        }
       });
 
       // ---------------- WS ROUTER ATTACHMENT ----------------
@@ -197,6 +242,7 @@ export class WebSocketGateway {
           userService: services.userService,
           roomService: services.roomService,
           messageService: services.messageService,
+          redisService: services.redisService,
         },
         env: {
           FRONTEND_URL: process.env.FRONTEND_URL,
