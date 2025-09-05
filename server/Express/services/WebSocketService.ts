@@ -327,19 +327,7 @@ export class WebSocketService {
         }
       });
 
-      // Envoyer la liste des rooms à la connexion
-      // dbService
-      //   .getRooms()
-      //   .then((rooms) => {
-      //     socket.emit(
-      //       "rooms",
-      //       rooms.map((r) => r.toJSON())
-      //     );
-      //   })
-      //   .catch((err: Error) => Logger.error(err.toString()));
-
       // --- REFRESH TOKEN EVENT ---
-      
       socket.on("refreshToken", async (data, callback) => {
         if (!allow("auth:refresh", 20, 60_000)) {
           return callback && callback({ error: "Rate limit exceeded." });
