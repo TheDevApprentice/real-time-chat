@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { DatabaseService } from "../services/DatabaseService";
+import { DatabaseService } from "../../services/DatabaseService";
 
 export interface AuthenticatedRequest extends Request {
   user?: any;

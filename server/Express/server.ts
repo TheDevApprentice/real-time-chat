@@ -3,10 +3,11 @@ import cors from "cors";
 import http from "http";
 import path from "path";
 import cookieParser from "cookie-parser";
-import router from "./routes";
-import { issueCsrfCookie, verifyCsrfToken } from "./middleware/csrf";
+import router from "./routes/REST/index";
+import { issueCsrfCookie, verifyCsrfToken } from "./routes/middleware/csrf";
 import helmet from "helmet";
-import { WebSocketService, DatabaseService } from "./services";
+import { DatabaseService } from "./services";
+import { WebSocketGateway } from "./routes/WS/index";
 import { Logger } from "./utils/Logger";
 
 require("@dotenvx/dotenvx").config();
@@ -48,7 +49,7 @@ class AppServer {
     dbService.init();
 
     // Start WebSocket service
-    new WebSocketService(this.server);
+    new WebSocketGateway(this.server);
   }
 
   private setupMiddleware(): void {

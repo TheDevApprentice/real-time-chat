@@ -1,5 +1,5 @@
-import { WsContext } from "../WsContext";
-import { Room } from "../../models";
+import { WsContext } from "../router/WsContext";
+import { Room } from "../../../models";
 
 export class RoomsWsController {
   async createRoom(

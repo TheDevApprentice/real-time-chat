@@ -1,4 +1,4 @@
-import { WsContext } from "../WsContext";
+import { WsContext } from "../router/WsContext";
 
 export class FriendsWsController {
   async friendRequest(ctx: WsContext<{ targetUserId: string }>) {

@@ -1,16 +1,16 @@
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { Router, Request, Response, NextFunction } from "express";
-import { User } from "../models/User";
-import { DatabaseService } from "../services/DatabaseService";
-import { bruteForceGuard } from "../utils/BruteForceGuard";
-import { authMiddleware, AuthenticatedRequest } from "../middleware/auth";
+import { User } from "../../../models/User";
+import { DatabaseService } from "../../../services/DatabaseService";
+import { bruteForceGuard } from "../../../utils/BruteForceGuard";
+import { authMiddleware, AuthenticatedRequest } from "../../middleware/auth";
 import {
   RegisterSchema,
   RefreshTokenSchema,
   parseOrThrow,
   ValidationHttpError,
-} from "../utils/validation";
+} from "../../../utils/validation";
 
 const router = Router();
 
@@ -123,7 +123,7 @@ router.post(
       await db.deleteUserSession(session.token);
       // Créer une nouvelle session
       const { randomUUID } = await import("crypto");
-      const { UserSession } = await import("../models/UserSession");
+      const { UserSession } = await import("../../../models/UserSession");
       const newToken = randomUUID();
       const newRefreshToken = randomUUID();
       const newRefreshTokenExpiresAt = Date.now() + 3 * 24 * 60 * 60 * 1000;

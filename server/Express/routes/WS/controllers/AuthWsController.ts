@@ -1,8 +1,8 @@
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
-import { WsContext } from "../WsContext";
-import { bruteForceGuard } from "../../utils/BruteForceGuard";
-import { UserSession } from "../../models";
+import { WsContext } from "../router/WsContext";
+import { bruteForceGuard } from "../../../utils/BruteForceGuard";
+import { UserSession } from "../../../models";
 
 export class AuthWsController {
   // authenticate via token (auto-login)

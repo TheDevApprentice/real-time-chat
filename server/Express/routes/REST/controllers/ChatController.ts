@@ -1,12 +1,12 @@
 import { Router, Request, Response } from "express";
-import { DatabaseService } from "../services/DatabaseService";
-import { bruteForceGuard } from "../utils/BruteForceGuard";
-import { authMiddleware, AuthenticatedRequest } from "../middleware/auth";
+import { DatabaseService } from "../../../services/DatabaseService";
+import { bruteForceGuard } from "../../../utils/BruteForceGuard";
+import { authMiddleware, AuthenticatedRequest } from "../../middleware/auth";
 import {
   SearchUsersQuerySchema,
   parseOrThrow,
   ValidationHttpError,
-} from "../utils/validation";
+} from "../../../utils/validation";
 
 const router = Router();
 

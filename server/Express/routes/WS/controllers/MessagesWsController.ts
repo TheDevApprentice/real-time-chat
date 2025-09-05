@@ -1,6 +1,6 @@
-import { WsContext } from "../WsContext";
-import { Message } from "../../models";
-import { sanitizeText } from "../../utils/text";
+import { WsContext } from "../router/WsContext";
+import { Message } from "../../../models";
+import { sanitizeText } from "../../../utils/text";
 
 export class MessagesWsController {
   async sendMessageToRoom(

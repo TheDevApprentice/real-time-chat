@@ -2,9 +2,9 @@ import { Router, Response } from "express";
 import multer from "multer";
 import path from "path";
 import { randomUUID } from "crypto";
-import { authMiddleware, AuthenticatedRequest } from "../middleware/auth";
-import { bruteForceGuard } from "../utils/BruteForceGuard";
-import { S3Service } from "../services/S3Service";
+import { authMiddleware, AuthenticatedRequest } from "../../middleware/auth";
+import { bruteForceGuard } from "../../../utils/BruteForceGuard";
+import { S3Service } from "../../../services/S3Service";
 
 const router = Router();
 

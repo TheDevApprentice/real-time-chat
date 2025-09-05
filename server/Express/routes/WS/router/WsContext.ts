@@ -1,5 +1,5 @@
 import { Server as SocketServer, Socket } from "socket.io";
-import { DatabaseService } from "../services/DatabaseService";
+import { DatabaseService } from "../../../services/DatabaseService";
 
 export interface WsEnv {
   FRONTEND_URL?: string;

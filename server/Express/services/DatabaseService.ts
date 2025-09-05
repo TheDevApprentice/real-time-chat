@@ -176,9 +176,9 @@ export class DatabaseService {
   }
   // Créer une room
   addRoom(
-    room: import("../models/Room").Room
-  ): Promise<import("../models/Room").Room> {
-    return this.roomsRepo.addRoom(room as Room);
+    room: Room
+  ): Promise<Room> {
+    return this.roomsRepo.addRoom(room);
   }
 
   // Lister toutes les rooms
@@ -217,7 +217,7 @@ export class DatabaseService {
   }
 
   // Lister les users d’une room
-  getUsersForRoom(roomId: string): Promise<import("../models/User").User[]> {
+  getUsersForRoom(roomId: string): Promise<User[]> {
     return this.roomsRepo.getUsersForRoom(roomId);
   }
 
@@ -234,8 +234,8 @@ export class DatabaseService {
   // [Optionnel] Récupérer toutes les rooms avec leurs users
   getRoomsAndUsers(): Promise<
     {
-      room: import("../models/Room").Room;
-      users: import("../models/User").User[];
+      room: Room;
+      users: User[];
     }[]
   > {
     return this.roomsRepo.getRoomsAndUsers();
@@ -277,10 +277,6 @@ export class DatabaseService {
   }
 
   // --- FRIENDS ---
-  private orderPair(a: string, b: string): { a: string; b: string } {
-    return a < b ? { a, b } : { a: b, b: a };
-  }
-
   async createFriendRequest(
     requesterId: string,
     targetUserId: string
