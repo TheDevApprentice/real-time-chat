@@ -1,8 +1,6 @@
 import { Server as HttpServer } from "http";
 import { Server as SocketServer, Socket } from "socket.io";
-import { Message } from "../models/Message";
-import { Room } from "../models/Room";
-import { UserSession } from "../models/UserSession";
+import { Message, Room, UserSession } from "../models";
 import { DatabaseService } from "./DatabaseService";
 import { Logger } from "../utils/Logger";
 import bcrypt from "bcryptjs";

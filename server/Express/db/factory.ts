@@ -1,8 +1,5 @@
-import { CallbackDB } from "./adapters/callbackDb";
-import { createSqliteCallbackDb } from "./adapters/sqlliteCallbackDb";
+import { CallbackDB, createSqliteCallbackDb, createPostgresCallbackDb, createMysqlCallbackDb } from "./adapters";
 import { Logger } from "../utils/Logger";
-import { createPostgresCallbackDb } from "./adapters/postgresCallbackDb";
-import { createMysqlCallbackDb } from "./adapters/mysqlCallbackDb";
 
 export type SupportedDrivers = "sqlite" | "postgres" | "mysql";
 const DRIVER: SupportedDrivers = process.env.DATABASE_DRIVER as SupportedDrivers;
