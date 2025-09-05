@@ -29,8 +29,7 @@ export class RoomsWsController {
       ? invitedUserIds.filter((id: string) => !!id && id !== creatorId)
       : [];
     if (!room.isPublic && invitees.length > 0) {
-      // @ts-ignore DatabaseService has addUsersToRoomBulk
-      await (db as any).addUsersToRoomBulk(invitees, room.id);
+      await roomService.addUsersToRoomBulk(invitees, room.id);
     }
 
     // Emit personalized visible rooms to connected users
