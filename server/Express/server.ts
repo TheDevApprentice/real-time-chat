@@ -6,8 +6,7 @@ import cookieParser from 'cookie-parser';
 import router from './routes';
 import { issueCsrfCookie, verifyCsrfToken } from './middleware/csrf';
 import helmet from 'helmet';
-import { WebSocketService } from './services/WebSocketService';
-import { DatabaseService } from './services/DatabaseService';
+import { WebSocketService, DatabaseService } from './services';
 import { Logger } from './utils/Logger';
 
 require("@dotenvx/dotenvx").config();
