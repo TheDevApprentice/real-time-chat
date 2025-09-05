@@ -1,5 +1,5 @@
 import { WsContext } from "../router/WsContext";
-import { Room } from "../../../../domain/entities";
+import { Room, Message, User } from "../../../../domain/entities";
 
 export class RoomsWsController {
   async createRoom(
@@ -10,7 +10,7 @@ export class RoomsWsController {
       invitedUserIds?: string[];
     }>
   ) {
-    const { roomService } = ctx.services;
+    const { roomService, redisService } = ctx.services as any;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId)
       return { error: "Vous devez être connecté pour créer une room." };
@@ -32,6 +32,15 @@ export class RoomsWsController {
       await roomService.addUsersToRoomBulk(invitees, room.id);
     }
 
+    // Invalidate cached visible rooms for impacted users
+    try {
+      const keysToDel = [
+        `cache:rooms:visible:${creatorId}`,
+        ...invitees.map((id) => `cache:rooms:visible:${id}`),
+      ];
+      await (redisService?.del?.(keysToDel) ?? Promise.resolve(0));
+    } catch {}
+
     // Emit personalized visible rooms to connected users
     const sockets = await ctx.io.fetchSockets();
     for (const s of sockets) {
@@ -40,31 +49,54 @@ export class RoomsWsController {
       const vis = await roomService.getVisibleRoomsForUser(uid);
       s.emit(
         "rooms",
-        vis.map((r) => r.toJSON())
+        vis.map((r: Room) => r.toJSON())
       );
     }
     return { success: true };
   }
 
   async getRooms(ctx: WsContext) {
-    const { roomService, messageService } = ctx.services;
+    const { roomService, messageService, redisService } = ctx.services as any;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId)
       return { error: "Vous devez être connecté pour envoyer un message." };
-    const rooms = await roomService.getVisibleRoomsForUser(userId);
-    ctx.socket.emit(
-      "rooms",
-      rooms.map((r) => r.toJSON())
-    );
+    const cacheKey = `cache:rooms:visible:${userId}`;
+    let roomsJson: any[] | null = null;
     try {
-      const counts = await messageService.getUnreadCountsForUser(userId);
+      const cached = await redisService?.get?.(cacheKey);
+      if (cached) roomsJson = JSON.parse(cached);
+    } catch {}
+
+    if (!roomsJson) {
+      const rooms = await roomService.getVisibleRoomsForUser(userId);
+      roomsJson = rooms.map((r: Room) => r.toJSON());
+      try {
+        await redisService?.set?.(cacheKey, JSON.stringify(roomsJson), { EX: 60 });
+      } catch {}
+    }
+
+    ctx.socket.emit("rooms", roomsJson);
+    // Unread counts with cache-aside
+    const unreadKey = `cache:unread:${userId}`;
+    try {
+      let counts: Record<string, number> | null = null;
+      try {
+        const cachedUnread = await redisService?.get?.(unreadKey);
+        if (cachedUnread) counts = JSON.parse(cachedUnread);
+      } catch {}
+      if (!counts) {
+        counts = await messageService.getUnreadCountsForUser(userId);
+        try {
+          await redisService?.set?.(unreadKey, JSON.stringify(counts), { EX: 45 });
+        } catch {}
+      }
       ctx.socket.emit("unreadCounts", { counts });
     } catch {}
     return { success: true };
   }
 
   async joinRoom(ctx: WsContext<{ roomId: string }>) {
-    const { userService, roomService, messageService } = ctx.services;
+    const { userService, roomService, messageService, redisService } = ctx.services as any;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId)
       return { error: "Vous devez être connecté pour envoyer un message." };
@@ -87,16 +119,21 @@ export class RoomsWsController {
     await roomService.addUserToRoom(userId, roomId);
     ctx.socket.join(roomId);
 
+    // Invalidate this user's cached visible rooms
+    try {
+      await (redisService?.del?.(`cache:rooms:visible:${userId}`) ?? Promise.resolve(0));
+    } catch {}
+
     const messages = await messageService.getMessagesForRoom(roomId);
     ctx.socket.emit("roomHistory", {
       roomId,
-      messages: messages.map((m) => m.toJSON()),
+      messages: messages.map((m: Message) => m.toJSON()),
     });
 
     const users = await roomService.getUsersForRoom(roomId);
     ctx.io
       .to(roomId)
-      .emit("roomUsers", { roomId, users: users.map((u) => u.toJSON()) });
+      .emit("roomUsers", { roomId, users: users.map((u: User) => u.toJSON()) });
 
     return { success: true };
   }

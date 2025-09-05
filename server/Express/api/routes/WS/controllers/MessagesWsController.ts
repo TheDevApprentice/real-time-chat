@@ -1,5 +1,5 @@
 import { WsContext } from "../router/WsContext";
-import { Message } from "../../../../domain/entities";
+import { Message, User } from "../../../../domain/entities";
 import { sanitizeText } from "../../../middleware/text";
 
 export class MessagesWsController {
@@ -7,6 +7,7 @@ export class MessagesWsController {
     ctx: WsContext<{ roomId: string; content: string; timestamp?: number }>
   ) {
     const { userService, messageService, roomService } = ctx.services;
+    const { redisService } = ctx.services as any;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId)
       return { error: "Vous devez être connecté pour envoyer un message." };
@@ -25,7 +26,7 @@ export class MessagesWsController {
     // Emit to all sockets of room members (not only joined sockets)
     try {
       const members = await roomService.getUsersForRoom(roomId);
-      const memberIds = new Set((members || []).map((u) => u.id));
+      const memberIds = new Set((members || []).map((u: User) => u.id));
       const sockets = await ctx.io.fetchSockets();
       for (const s of sockets) {
         const uid = (s.data as any)?.userId as string | undefined;
@@ -33,6 +34,11 @@ export class MessagesWsController {
           s.emit("message", { roomId, message: msgObj.toJSON() });
         }
       }
+      // Invalidate unread cache for all members
+      try {
+        const keysToDel = Array.from(memberIds).map((id) => `cache:unread:${id}`);
+        await (redisService?.del?.(keysToDel) ?? Promise.resolve(0));
+      } catch {}
     } catch {
       ctx.io.to(roomId).emit("message", { roomId, message: msgObj.toJSON() });
     }
@@ -44,6 +50,7 @@ export class MessagesWsController {
     ctx: WsContext<{ messageId: number; roomId: string; timestamp?: number }>
   ) {
     const { messageService, roomService } = ctx.services;
+    const { redisService } = ctx.services as any;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const { messageId, roomId, timestamp } = (ctx.payload || {}) as any;
@@ -53,7 +60,7 @@ export class MessagesWsController {
     await messageService.markMessageDelivered(messageId, timestamp ?? Date.now());
     try {
       const members = await roomService.getUsersForRoom(roomId);
-      const memberIds = new Set((members || []).map((u) => u.id));
+      const memberIds = new Set((members || []).map((u: User) => u.id));
       const sockets = await ctx.io.fetchSockets();
       for (const s of sockets) {
         const uid = (s.data as any)?.userId as string | undefined;
@@ -65,6 +72,11 @@ export class MessagesWsController {
           });
         }
       }
+      // Invalidate unread cache for all members
+      try {
+        const keysToDel = Array.from(memberIds).map((id) => `cache:unread:${id}`);
+        await (redisService?.del?.(keysToDel) ?? Promise.resolve(0));
+      } catch {}
     } catch {
       ctx.io
         .to(roomId)
@@ -81,6 +93,7 @@ export class MessagesWsController {
     ctx: WsContext<{ messageId: number; roomId: string; timestamp?: number }>
   ) {
     const {   messageService, roomService } = ctx.services;
+    const { redisService } = ctx.services as any;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const { messageId, roomId, timestamp } = (ctx.payload || {}) as any;
@@ -90,7 +103,7 @@ export class MessagesWsController {
     await messageService.markMessageRead(messageId, timestamp ?? Date.now());
     try {
       const members = await roomService.getUsersForRoom(roomId);
-      const memberIds = new Set((members || []).map((u) => u.id));
+      const memberIds = new Set((members || []).map((u: User) => u.id));
       const sockets = await ctx.io.fetchSockets();
       for (const s of sockets) {
         const uid = (s.data as any)?.userId as string | undefined;
@@ -102,6 +115,11 @@ export class MessagesWsController {
           });
         }
       }
+      // Invalidate unread cache for all members
+      try {
+        const keysToDel = Array.from(memberIds).map((id) => `cache:unread:${id}`);
+        await (redisService?.del?.(keysToDel) ?? Promise.resolve(0));
+      } catch {}
     } catch {
       ctx.io
         .to(roomId)

@@ -1,5 +1,6 @@
 import { createCallbackDbFromEnv } from "../../infrastructure/db/factory";
 import { UsersRepo } from "../../infrastructure/db/repos/UsersRepo";
+import { CachedUsersRepo } from "../../infrastructure/db/repos/CachedUsersRepo";
 import { RoomsRepo } from "../../infrastructure/db/repos/RoomsRepo";
 import { MessagesRepo } from "../../infrastructure/db/repos/MessagesRepo";
 import { SessionsRepo } from "../../infrastructure/db/repos/SessionsRepo";
@@ -40,12 +41,13 @@ export function getServices(): Services {
 
   // Domain services (DI via interfaces)
   const authService = new AuthService(sessionsRepo);
-  const userService = new UserService(usersRepo);
+  const redisService = RedisService.getInstance();
+  const cachedUsersRepo = new CachedUsersRepo(usersRepo, redisService);
+  const userService = new UserService(cachedUsersRepo);
   const roomService = new RoomService(roomsRepo);
   const messageService = new MessageService(messagesRepo);
   const friendService = new FriendService(friendsRepo);
   const s3Service = S3Service.getInstance();
-  const redisService = RedisService.getInstance();
 
   servicesSingleton = {
     authService,

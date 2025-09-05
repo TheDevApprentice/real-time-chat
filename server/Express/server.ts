@@ -8,6 +8,7 @@ import { issueCsrfCookie, verifyCsrfToken } from "./api/middleware/csrf";
 import helmet from "helmet";
 import { WebSocketGateway } from "./api/routes/WS/index";
 import { Logger } from "./utils/Logger";
+import { RedisService } from "./domain/services/cacheServices/RedisService";
 
 require("@dotenvx/dotenvx").config();
 
@@ -133,6 +134,30 @@ class AppServer {
   }
 
   public start(): void {
+    // Connect Redis (non-blocking) and handle graceful shutdown
+    const redis = RedisService.getInstance();
+    redis
+      .connect()
+      .then(() => Logger.info("Redis connected"))
+      .catch((err) => Logger.warn(`Redis connect failed: ${String(err)}`));
+
+    const shutdown = async (signal: string) => {
+      try {
+        Logger.info(`Received ${signal}, shutting down...`);
+        await redis.disconnect().catch(() => undefined);
+        this.server.close(() => {
+          Logger.info("HTTP server closed");
+          process.exit(0);
+        });
+        // Force exit if close hangs
+        setTimeout(() => process.exit(0), 5000).unref();
+      } catch {
+        process.exit(1);
+      }
+    };
+    process.once("SIGINT", () => shutdown("SIGINT"));
+    process.once("SIGTERM", () => shutdown("SIGTERM"));
+
     this.server.listen(this.port, () => {
       Logger.info(`Server listening on port ${this.port}`);
     });
