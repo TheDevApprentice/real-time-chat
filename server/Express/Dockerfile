@@ -39,8 +39,6 @@ ENV BCRYPT_COST=12
 ENV REDIS_URL=redis://:changeme@redis:6379
 ENV S3_ENDPOINT=http://minio:9000
 ENV S3_REGION=us-east-1
-ENV S3_ACCESS_KEY=admin
-ENV S3_SECRET_KEY=adminadmin123
 ENV S3_BUCKET=chat-bucket
 ENV S3_USE_PATH_STYLE="true"
 # Base URL for public access from host (used to form public links)
