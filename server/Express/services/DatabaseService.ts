@@ -1,7 +1,7 @@
-import { User, Room, Message, UserSession } from "../models";
+import { User, Room, Message, UserSession } from "../models/index";
 import { CallbackDB } from "../db/adapters/callbackDb";
 import { createCallbackDbFromEnv } from "../db/factory";
-import { UsersRepo, RoomsRepo, MessagesRepo, SessionsRepo, FriendsRepo } from "../db/repos";
+import { UsersRepo, RoomsRepo, MessagesRepo, SessionsRepo, FriendsRepo } from "../db/repos/Index";
 
 export class DatabaseService {
   private static instance: DatabaseService;
