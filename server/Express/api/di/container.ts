@@ -11,6 +11,8 @@ import { MessageService } from "../../domain/services/dbServices/MessageService"
 import { FriendService } from "../../domain/services/dbServices/FriendService";
 import { S3Service } from "../../domain/services/storageServices/S3Service";
 import { IS3Service } from "../../domain/interfaces/storageInterface/IS3Service";
+import { RedisService } from "../../domain/services/cacheServices/RedisService";
+import { IRedisService } from "../../domain/interfaces/cacheInterfaces/IRedisService";
 
 export type Services = {
   authService: AuthService;
@@ -19,6 +21,7 @@ export type Services = {
   messageService: MessageService;
   friendService: FriendService;
   s3Service: IS3Service;
+  redisService: IRedisService;
 };
 
 let servicesSingleton: Services | null = null;
@@ -42,6 +45,7 @@ export function getServices(): Services {
   const messageService = new MessageService(messagesRepo);
   const friendService = new FriendService(friendsRepo);
   const s3Service = S3Service.getInstance();
+  const redisService = RedisService.getInstance();
 
   servicesSingleton = {
     authService,
@@ -50,6 +54,7 @@ export function getServices(): Services {
     messageService,
     friendService,
     s3Service,
+    redisService,
   };
   return servicesSingleton;
 }
