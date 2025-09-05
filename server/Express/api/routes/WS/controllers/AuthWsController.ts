@@ -108,7 +108,11 @@ export class AuthWsController {
     await authService.deleteUserSession(token);
     ctx.socket.data.userId = undefined;
     ctx.socket.data.user = undefined;
-    ctx.socket.disconnect(true);
+    // Important: return success first so the WS ack can be sent,
+    // then disconnect on a short delay to avoid dropping the ack.
+    setTimeout(() => {
+      try { ctx.socket.disconnect(true); } catch {}
+    }, 25);
     return { success: true };
   }
 
@@ -143,9 +147,13 @@ export class AuthWsController {
     for (const s of sockets) {
       if ((s.data as any)?.userId === userId) {
         s.emit("forceLogout", { reason: "logoutAll" });
-        s.disconnect(true);
+        // Defer disconnect so current handler can return success and WS ack can be sent
+        setTimeout(() => {
+          try { s.disconnect(true); } catch {}
+        }, 25);
       }
     }
+    // Return success immediately so caller receives the ack
     return { success: true };
   }
 }
