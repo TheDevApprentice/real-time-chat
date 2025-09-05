@@ -82,6 +82,12 @@ services:
     ports:
       - "6379:6379"
     # For dev you can inline a password; for production use secrets.
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"${REDIS_PASSWORD:-changeme}\""]
     environment:
       # Set a strong password here (dev example)
@@ -148,18 +154,20 @@ services:
       - sqlite
     restart: unless-stopped
 
-  # redis-insight:
-  #   image: redis/redisinsight:latest
-  #   container_name: redis-insight
-  #   ports:
-  #     - "5540:5540"
-  #   environment:
-  #     - RI_HOST=0.0.0.0
-  #     # Required to store database credentials securely; 32+ chars recommended
-  #     - RI_ENCRYPTION_KEY=please-change-this-long-random-secret-key-32chars-min
-  #     # Optional: protect the Redis Insight UI with a password
-  #     # - RI_PASSWORD=admin
-  #   restart: unless-stopped
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: cse-redis-commander
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+      - HTTP_USER=admin
+      - HTTP_PASSWORD=secret
+    depends_on:
+      - redis
+    profiles:
+      - tools  # Utilise docker-compose --profile tools up pour inclure ce service
 
 volumes:
   sqlite_data:
