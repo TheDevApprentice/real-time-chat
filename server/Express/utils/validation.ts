@@ -28,6 +28,15 @@ export const JoinRoomParamsSchema = z.object({
   roomId: z.string().min(1),
 });
 
+// REST params schemas
+export const RoomIdParamsSchema = z.object({
+  roomId: z.string().min(1),
+});
+
+export const SessionTokenParamsSchema = z.object({
+  token: z.string().uuid(),
+});
+
 // WebSocket schemas
 export const WsLoginSchema = z.object({
   username: z.string().min(1).max(50),

@@ -4,6 +4,8 @@ import { User } from "../../../models/User";
 import { DatabaseService } from "../../../services/DatabaseService";
 import { bruteForceGuard } from "../../../utils/BruteForceGuard";
 import { asyncHandler } from "../middleware/asyncHandler";
+import { validateParams } from "../middleware/validate";
+import { SessionTokenParamsSchema } from "../../../utils/validation";
 
 const router = Router();
 
@@ -41,6 +43,7 @@ router.get(
 router.get(
   "/sessions/:token",
   rateLimit("user:getSessionByToken", 120),
+  validateParams(SessionTokenParamsSchema),
   asyncHandler(async (req, res) => {
     const db = DatabaseService.getInstance();
     const session = await db.getUserSessionByToken(req.params.token);
@@ -54,6 +57,7 @@ router.delete(
   "/sessions/:token",
   authMiddleware,
   rateLimit("user:deleteSession", 30),
+  validateParams(SessionTokenParamsSchema),
   asyncHandler(async (req: AuthenticatedRequest, res) => {
     const db = DatabaseService.getInstance();
     if (!req.user) return res.status(401).json({ error: "Not authenticated." });

@@ -7,6 +7,8 @@ import {
 } from "../../../utils/validation";
 import { validateQuery, RequestWithValidated } from "../middleware/validate";
 import { asyncHandler } from "../middleware/asyncHandler";
+import { validateParams } from "../middleware/validate";
+import { RoomIdParamsSchema } from "../../../utils/validation";
 
 const router = Router();
 
@@ -48,6 +50,7 @@ router.get(
 router.get(
   "/rooms/:roomId/messages",
   rateLimit("chat:getMessages", 200),
+  validateParams(RoomIdParamsSchema),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const db = DatabaseService.getInstance();
     const { roomId } = req.params;
@@ -60,6 +63,7 @@ router.get(
 router.get(
   "/rooms/:roomId/users",
   rateLimit("chat:getRoomUsers", 200),
+  validateParams(RoomIdParamsSchema),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const db = DatabaseService.getInstance();
     const { roomId } = req.params;
