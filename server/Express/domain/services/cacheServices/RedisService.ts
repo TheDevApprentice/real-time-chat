@@ -1,9 +1,9 @@
-import { createClient, RedisClientType } from "redis";
+import { createClient } from "redis";
 import { IRedisService } from "../../interfaces/cacheInterfaces/IRedisService";
 
 export class RedisService implements IRedisService {
   private static instance: RedisService | null = null;
-  private client: RedisClientType<any, any> | null = null;
+  private client: ReturnType<typeof createClient> | null = null;
 
   private constructor() {}
 
@@ -16,7 +16,7 @@ export class RedisService implements IRedisService {
     if (this.client) return; // already connected or connecting
     const url = process.env.REDIS_URL || this.buildUrlFromEnv();
     const client = createClient({ url });
-    client.on("error", (err) => {
+    client.on("error", (err: unknown) => {
       // Avoid throwing here to not crash the process; callers can decide
       // eslint-disable-next-line no-console
       console.error("Redis error:", err);
@@ -34,7 +34,7 @@ export class RedisService implements IRedisService {
     }
   }
 
-  private ensure(): RedisClientType<any, any> {
+  private ensure(): ReturnType<typeof createClient> {
     if (!this.client) throw new Error("RedisService not connected");
     return this.client;
   }
@@ -86,7 +86,7 @@ export class RedisService implements IRedisService {
     // Dedicated sub client (node-redis v4 requirement)
     const sub = this.ensure().duplicate();
     await sub.connect();
-    await sub.subscribe(channel, (msg) => handler(msg, channel));
+    await sub.subscribe(channel, (msg: string) => handler(msg, channel));
     return async () => {
       try {
         await sub.unsubscribe(channel);
