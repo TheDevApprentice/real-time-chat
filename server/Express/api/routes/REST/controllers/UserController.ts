@@ -115,4 +115,27 @@ router.delete(
   })
 );
 
+// Presence / last-seen (public minimal endpoint)
+router.get(
+  "/presence/:userId",
+  rateLimit("user:getPresence", 300),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { redisService } = getServices();
+    const userId = String(req.params.userId || "");
+    if (!userId) return res.status(400).json({ error: "Missing userId" });
+    let status: "online" | "offline" = "offline";
+    let lastSeen: number | null = null;
+    try {
+      const presence = await redisService.get(`presence:user:${userId}`);
+      if (presence) status = "online";
+      const ls = await redisService.get(`lastseen:user:${userId}`);
+      if (ls) {
+        const n = parseInt(ls, 10);
+        lastSeen = Number.isFinite(n) ? n : null;
+      }
+    } catch {}
+    res.json({ userId, status, lastSeen });
+  })
+);
+
 export default router;
