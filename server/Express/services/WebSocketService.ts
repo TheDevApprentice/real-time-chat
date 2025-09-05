@@ -62,15 +62,6 @@ export class WebSocketService {
         return item.count <= limit;
       };
 
-      const sanitizeText = (input: string): string => {
-        const trimmed = (input ?? "").toString().trim();
-        const limited = trimmed.slice(0, 2000);
-        // escape minimal HTML entities to prevent injection in clients that might render dangerously
-        return limited
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;");
-      };
       // --- SESSION RESTORE VIA TOKEN OR COOKIE ---
       let token = socket.handshake.auth?.token as string | undefined;
       if (!token) {

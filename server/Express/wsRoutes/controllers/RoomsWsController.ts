@@ -2,12 +2,6 @@ import { WsContext } from "../WsContext";
 import { Room } from "../../models";
 
 export class RoomsWsController {
-  private sanitizeText(input: string): string {
-    const trimmed = (input ?? "").toString().trim();
-    const limited = trimmed.slice(0, 2000);
-    return limited.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  }
-
   async createRoom(ctx: WsContext<{ name: string; type?: 'room' | 'user'; isPublic: boolean; invitedUserIds?: string[] }>) {
     const { db } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
