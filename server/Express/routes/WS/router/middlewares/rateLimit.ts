@@ -1,9 +1,10 @@
 import { WsMiddleware } from "../WsRouter";
+import type { WsContext } from "../WsContext";
 
-export type RateLimitKeyFn = (ctx: any) => string;
+export type RateLimitKeyFn<T> = (ctx: WsContext<T>) => string;
 
-interface RateLimitOptions {
-  key: RateLimitKeyFn; // should include socket.id in most cases
+interface RateLimitOptions<T> {
+  key: RateLimitKeyFn<T>; // should include socket.id in most cases
   limit: number;
   windowMs: number;
 }
@@ -13,7 +14,7 @@ function createStore() {
   return new Map<string, { count: number; windowStart: number }>();
 }
 
-export function rateLimit(options: RateLimitOptions): WsMiddleware<any> {
+export function rateLimit<T = any>(options: RateLimitOptions<T>): WsMiddleware<T, T> {
   const store = createStore();
   const { key, limit, windowMs } = options;
 
@@ -35,8 +36,8 @@ export function rateLimit(options: RateLimitOptions): WsMiddleware<any> {
 }
 
 // Helper: simple per-socket rate limit with a static subKey
-export function rateLimitPerSocket(subKey: string, limit: number, windowMs: number): WsMiddleware<any> {
-  return rateLimit({
+export function rateLimitPerSocket<T = any>(subKey: string, limit: number, windowMs: number): WsMiddleware<T, T> {
+  return rateLimit<T>({
     key: (ctx) => `${ctx.socket.id}:${subKey}`,
     limit,
     windowMs,

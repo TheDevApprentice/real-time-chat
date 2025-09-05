@@ -1,9 +1,10 @@
 import { WsMiddleware } from "../WsRouter";
+import type { WsContext } from "../WsContext";
 import { bruteForceGuard } from "../../../../utils/BruteForceGuard";
 
-interface BruteForceOptions {
+interface BruteForceOptions<T> {
   action: string; // logical action name, e.g. 'login', 'refresh', 'friend-op'
-  keyFrom: (ctx: any) => string; // e.g. (ctx) => ctx.payload?.username || ctx.socket.data?.userId
+  keyFrom: (ctx: WsContext<T>) => string; // e.g. (ctx) => ctx.payload?.username || ctx.socket.data?.userId
 }
 
 function getClientIp(ctx: any): string {
@@ -14,7 +15,7 @@ function getClientIp(ctx: any): string {
   return ip;
 }
 
-export function bruteForce(options: BruteForceOptions): WsMiddleware<any> {
+export function bruteForce<T = any>(options: BruteForceOptions<T>): WsMiddleware<T, T> {
   const { action, keyFrom } = options;
   return (next) => async (ctx) => {
     const ip = getClientIp(ctx);

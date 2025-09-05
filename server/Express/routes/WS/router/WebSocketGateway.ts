@@ -20,6 +20,7 @@ import { validate } from "./middlewares/validate";
 import { rateLimitPerSocket } from "./middlewares/rateLimit";
 import { requireAuth } from "./middlewares/requireAuth";
 import { bruteForce } from "./middlewares/bruteForce";
+import type { z } from "zod";
 
 export class WebSocketGateway {
   private io: SocketServer;
@@ -56,26 +57,33 @@ export class WebSocketGateway {
     this.router.register(
       "authenticate",
       validate(WsAuthenticateSchema),
-      async (ctx: WsContext) => this.authCtrl.authenticate(ctx as any)
+      async (ctx: WsContext<z.infer<typeof WsAuthenticateSchema>>) => this.authCtrl.authenticate(ctx)
     );
     this.router.register(
       "login",
       rateLimitPerSocket("auth:login", 10, 60_000),
       validate(WsLoginSchema),
-      bruteForce({ action: "login", keyFrom: (ctx) => (ctx as any).payload?.username || "unknown" }),
-      async (ctx: WsContext) => this.authCtrl.login(ctx as any)
+      bruteForce<z.infer<typeof WsLoginSchema>>({
+        action: "login",
+        keyFrom: (ctx: WsContext<z.infer<typeof WsLoginSchema>>) => ctx.payload?.username || "unknown",
+      }),
+      async (ctx: WsContext<z.infer<typeof WsLoginSchema>>) => this.authCtrl.login(ctx)
     );
     this.router.register(
       "refreshToken",
       rateLimitPerSocket("auth:refresh", 20, 60_000),
       validate(WsRefreshTokenSchema),
-      bruteForce({ action: "refresh", keyFrom: (ctx) => (ctx as any).payload?.refreshToken || (ctx.socket.data as any)?.userId || "unknown" }),
-      async (ctx: WsContext) => this.authCtrl.refreshToken(ctx as any)
+      bruteForce<z.infer<typeof WsRefreshTokenSchema>>({
+        action: "refresh",
+        keyFrom: (ctx: WsContext<z.infer<typeof WsRefreshTokenSchema>>) =>
+          ctx.payload?.refreshToken || (ctx.socket.data as any)?.userId || "unknown",
+      }),
+      async (ctx: WsContext<z.infer<typeof WsRefreshTokenSchema>>) => this.authCtrl.refreshToken(ctx)
     );
-    this.router.register("logout", async (ctx: WsContext) => this.authCtrl.logout(ctx as any));
-    this.router.register("getSessions", requireAuth(), async (ctx: WsContext) => this.authCtrl.getSessions(ctx as any));
-    this.router.register("revokeSession", requireAuth(), async (ctx: WsContext) => this.authCtrl.revokeSession(ctx as any));
-    this.router.register("logoutAll", requireAuth(), async (ctx: WsContext) => this.authCtrl.logoutAll(ctx as any));
+    this.router.register("logout", async (ctx: WsContext<{ token: string }>) => this.authCtrl.logout(ctx));
+    this.router.register("getSessions", requireAuth(), async (ctx: WsContext) => this.authCtrl.getSessions(ctx));
+    this.router.register("revokeSession", requireAuth(), async (ctx: WsContext<{ token: string }>) => this.authCtrl.revokeSession(ctx));
+    this.router.register("logoutAll", requireAuth(), async (ctx: WsContext) => this.authCtrl.logoutAll(ctx));
 
     // Rooms events
     this.router.register(
@@ -83,15 +91,15 @@ export class WebSocketGateway {
       requireAuth(),
       rateLimitPerSocket("chat:createRoom", 10, 60_000),
       validate(WsCreateRoomSchema),
-      async (ctx: WsContext) => this.roomsCtrl.createRoom(ctx as any)
+      async (ctx: WsContext<z.infer<typeof WsCreateRoomSchema>>) => this.roomsCtrl.createRoom(ctx)
     );
-    this.router.register("getRooms", requireAuth(), async (ctx: WsContext) => this.roomsCtrl.getRooms(ctx as any));
+    this.router.register("getRooms", requireAuth(), async (ctx: WsContext) => this.roomsCtrl.getRooms(ctx));
     this.router.register(
       "joinRoom",
       requireAuth(),
       rateLimitPerSocket("chat:joinRoom", 20, 60_000),
       validate(WsJoinRoomSchema),
-      async (ctx: WsContext) => this.roomsCtrl.joinRoom(ctx as any)
+      async (ctx: WsContext<z.infer<typeof WsJoinRoomSchema>>) => this.roomsCtrl.joinRoom(ctx)
     );
 
     // Messages events
@@ -100,19 +108,19 @@ export class WebSocketGateway {
       requireAuth(),
       rateLimitPerSocket("chat:sendMessage", 60, 10_000),
       validate(WsSendMessageSchema),
-      async (ctx: WsContext) => this.messagesCtrl.sendMessageToRoom(ctx as any)
+      async (ctx: WsContext<z.infer<typeof WsSendMessageSchema>>) => this.messagesCtrl.sendMessageToRoom(ctx)
     );
     this.router.register(
       "messageDelivered",
       requireAuth(),
       rateLimitPerSocket("chat:msgDelivered", 120, 60_000),
-      async (ctx: WsContext) => this.messagesCtrl.messageDelivered(ctx as any)
+      async (ctx: WsContext) => this.messagesCtrl.messageDelivered(ctx)
     );
     this.router.register(
       "messageRead",
       requireAuth(),
       rateLimitPerSocket("chat:msgRead", 120, 60_000),
-      async (ctx: WsContext) => this.messagesCtrl.messageRead(ctx as any)
+      async (ctx: WsContext) => this.messagesCtrl.messageRead(ctx)
     );
 
     // Friends events
@@ -120,19 +128,19 @@ export class WebSocketGateway {
       "friendRequest",
       requireAuth(),
       rateLimitPerSocket("friend:request", 30, 60_000),
-      async (ctx: WsContext) => this.friendsCtrl.friendRequest(ctx as any)
+      async (ctx: WsContext) => this.friendsCtrl.friendRequest(ctx)
     );
     this.router.register(
       "friendRespond",
       requireAuth(),
       rateLimitPerSocket("friend:respond", 60, 60_000),
-      async (ctx: WsContext) => this.friendsCtrl.friendRespond(ctx as any)
+      async (ctx: WsContext) => this.friendsCtrl.friendRespond(ctx)
     );
     this.router.register(
       "friendList",
       requireAuth(),
       rateLimitPerSocket("friend:list", 60, 60_000),
-      async (ctx: WsContext) => this.friendsCtrl.friendList(ctx as any)
+      async (ctx: WsContext) => this.friendsCtrl.friendList(ctx)
     );
 
     this.routerInitialized = true;

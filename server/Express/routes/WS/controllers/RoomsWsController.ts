@@ -6,7 +6,7 @@ export class RoomsWsController {
     ctx: WsContext<{
       name: string;
       type?: "room" | "user";
-      isPublic: boolean;
+      isPublic?: boolean;
       invitedUserIds?: string[];
     }>
   ) {
@@ -19,7 +19,7 @@ export class RoomsWsController {
     const creatorId = userId;
     const room = new Room(name, creatorId, Date.now(), undefined, [], {
       type: type ?? "room",
-      isPublic,
+      isPublic: isPublic ?? false,
     });
     await db.addRoom(room);
     // Always add creator
