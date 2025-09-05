@@ -11,8 +11,11 @@ services:
       NODE_ENV: production
       PORT: 3080
       FRONTEND_URL: http://localhost:5173
+      # Trust proxy (e.g. when behind a reverse proxy)
       TRUST_PROXY: "false"
+      # Bcrypt cost
       BCRYPT_COST: "12"
+      # Redis configuration
       REDIS_URL: redis://:changeme@redis:6379
       # S3/MinIO configuration
       S3_ENDPOINT: http://minio:9000
@@ -23,14 +26,18 @@ services:
       S3_USE_PATH_STYLE: "true"
       # Base URL for public access from host (used to form public links)
       S3_PUBLIC_URL_BASE: http://localhost:9000/chat-bucket
+      # Database configuration
       DATABASE_DRIVER: sqlite
+      # SQLite configuration
       SQLITE_FILE: /data/chat.sqlite
+      # PostgreSQL configuration
       # POSTGRES_HOST: postgres
       # POSTGRES_PORT: 5432
       # POSTGRES_DB: chat
       # POSTGRES_USER: chat
       # POSTGRES_PASSWORD: chat
       # POSTGRES_SSL: false
+      # MySQL configuration
       # MYSQL_HOST: mysql
       # MYSQL_PORT: 3306
       # MYSQL_DB: chat
@@ -126,6 +133,8 @@ services:
   #     - mysql_data:/var/lib/mysql
   #   restart: unless-stopped
 
+  # Web UI's for dev debugging
+  
   # Web UI for browsing the SQLite database
   # sqlite-web:
   #   image: coleifer/sqlite-web:latest
