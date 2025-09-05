@@ -1,16 +1,16 @@
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
-import { Router, Request, Response, NextFunction } from "express";
+import { Router, Request, Response } from "express";
 import { User } from "../../../models/User";
-import { DatabaseService } from "../../../services/DatabaseService";
+import { DatabaseService } from "../../../services/index";
 import { bruteForceGuard } from "../../../utils/BruteForceGuard";
 import { authMiddleware, AuthenticatedRequest } from "../../middleware/auth";
 import {
   RegisterSchema,
-  RefreshTokenSchema,
-  parseOrThrow,
-  ValidationHttpError,
+  RefreshTokenSchema
 } from "../../../utils/validation";
+import { validateBody, RequestWithValidated } from "../middleware/validate";
+import { asyncHandler } from "../middleware/asyncHandler";
 
 const router = Router();
 
@@ -19,12 +19,12 @@ const rateLimit = (routeKey: string, maxReq = 50, windowMs = 15 * 60 * 1000) =>
   bruteForceGuard.rateLimit(routeKey, maxReq, windowMs);
 
 // Registration endpoint
-router.post("/register", rateLimit("auth:register", 20), async (req, res) => {
-  try {
-    const { username, password, confirmPassword } = parseOrThrow(
-      RegisterSchema,
-      req.body
-    );
+router.post(
+  "/register",
+  rateLimit("auth:register", 20),
+  validateBody(RegisterSchema),
+  asyncHandler(async (req: RequestWithValidated<any>, res) => {
+    const { username, password } = (req.validated!.body as any)!;
     const db = DatabaseService.getInstance();
     const users = await db.getUsers();
     if (users.find((u) => u.name === username)) {
@@ -35,15 +35,8 @@ router.post("/register", rateLimit("auth:register", 20), async (req, res) => {
     const newUser = new User(randomUUID(), username, hashed);
     await db.addUser(newUser);
     res.status(201).json({ id: newUser.id, name: newUser.name });
-  } catch (err) {
-    if (err instanceof ValidationHttpError) {
-      return res
-        .status(err.status)
-        .json({ error: err.message, details: err.details });
-    }
-    res.status(500).json({ error: "Registration failed." });
-  }
-});
+  })
+);
 
 // --- SET SESSION COOKIE (HttpOnly) FROM TOKEN ---
 // Allows frontend to exchange a bare token (obtained via WebSocket auth) for a secure HttpOnly cookie.
@@ -103,76 +96,65 @@ router.get(
 router.post(
   "/refresh-token",
   rateLimit("auth:refresh", 60),
-  async (req, res) => {
-    try {
-      const { refreshToken } = parseOrThrow(RefreshTokenSchema, req.body);
-      const db = DatabaseService.getInstance();
-      // Lookup direct par refresh token
-      const session = await db.getUserSessionByRefreshToken(refreshToken);
-      if (!session) {
-        return res.status(401).json({ error: "Invalid refresh token." });
-      }
-      if (
-        !session.refreshTokenExpiresAt ||
-        session.refreshTokenExpiresAt < Date.now()
-      ) {
-        await db.deleteUserSession(session.token);
-        return res.status(401).json({ error: "Refresh token expired." });
-      }
-      // Rotation: supprimer l'ancienne session
-      await db.deleteUserSession(session.token);
-      // Créer une nouvelle session
-      const { randomUUID } = await import("crypto");
-      const { UserSession } = await import("../../../models/UserSession");
-      const newToken = randomUUID();
-      const newRefreshToken = randomUUID();
-      const newRefreshTokenExpiresAt = Date.now() + 3 * 24 * 60 * 60 * 1000;
-      const newExpiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 jours, aligné sur la durée du cookie
-      const newSession = new UserSession(
-        randomUUID(),
-        session.userId,
-        newToken,
-        Date.now(),
-        newExpiresAt,
-        newRefreshToken,
-        newRefreshTokenExpiresAt,
-        session.user
-      );
-      await db.addUserSession(newSession);
-      // Placer le nouveau token dans un cookie HTTP-only
-      const isProd = process.env.NODE_ENV === "production";
-      if (isProd) {
-        res.cookie("__Host-session", newToken, {
-          httpOnly: true,
-          sameSite: "lax",
-          secure: true,
-          maxAge: 1000 * 60 * 60 * 24 * 7, // 7 jours
-          path: "/",
-        });
-      } else {
-        res.cookie("session_token", newToken, {
-          httpOnly: true,
-          sameSite: "lax",
-          secure: false,
-          maxAge: 1000 * 60 * 60 * 24 * 7, // 7 jours
-          path: "/",
-        });
-      }
-      res.json({
-        id: session.userId,
-        name: session.user?.name,
-        refreshToken: newRefreshToken,
-        refreshTokenExpiresAt: newRefreshTokenExpiresAt,
-      });
-    } catch (err) {
-      if (err instanceof ValidationHttpError) {
-        return res
-          .status(err.status)
-          .json({ error: err.message, details: err.details });
-      }
-      res.status(500).json({ error: "Refresh token failed." });
+  validateBody(RefreshTokenSchema),
+  asyncHandler(async (req: RequestWithValidated<any>, res) => {
+    const { refreshToken } = (req.validated!.body as any)!;
+    const db = DatabaseService.getInstance();
+    // Lookup direct par refresh token
+    const session = await db.getUserSessionByRefreshToken(refreshToken);
+    if (!session) {
+      return res.status(401).json({ error: "Invalid refresh token." });
     }
-  }
+    if (!session.refreshTokenExpiresAt || session.refreshTokenExpiresAt < Date.now()) {
+      await db.deleteUserSession(session.token);
+      return res.status(401).json({ error: "Refresh token expired." });
+    }
+    // Rotation: supprimer l'ancienne session
+    await db.deleteUserSession(session.token);
+    // Créer une nouvelle session
+    const { randomUUID } = await import("crypto");
+    const { UserSession } = await import("../../../models/UserSession");
+    const newToken = randomUUID();
+    const newRefreshToken = randomUUID();
+    const newRefreshTokenExpiresAt = Date.now() + 3 * 24 * 60 * 60 * 1000;
+    const newExpiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 jours, aligné sur la durée du cookie
+    const newSession = new UserSession(
+      randomUUID(),
+      session.userId,
+      newToken,
+      Date.now(),
+      newExpiresAt,
+      newRefreshToken,
+      newRefreshTokenExpiresAt,
+      session.user
+    );
+    await db.addUserSession(newSession);
+    // Placer le nouveau token dans un cookie HTTP-only
+    const isProd = process.env.NODE_ENV === "production";
+    if (isProd) {
+      res.cookie("__Host-session", newToken, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: true,
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 jours
+        path: "/",
+      });
+    } else {
+      res.cookie("session_token", newToken, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: false,
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 jours
+        path: "/",
+      });
+    }
+    res.json({
+      id: session.userId,
+      name: session.user?.name,
+      refreshToken: newRefreshToken,
+      refreshTokenExpiresAt: newRefreshTokenExpiresAt,
+    });
+  })
 );
 
 export default router;

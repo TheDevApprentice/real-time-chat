@@ -4,7 +4,7 @@ import { sanitizeText } from "../../../utils/text";
 
 export class MessagesWsController {
   async sendMessageToRoom(
-    ctx: WsContext<{ roomId: string; content: string; timestamp: number }>
+    ctx: WsContext<{ roomId: string; content: string; timestamp?: number }>
   ) {
     const { db } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
@@ -18,7 +18,8 @@ export class MessagesWsController {
     if (!user) return { error: "User not found." };
 
     const safeContent = sanitizeText(content);
-    const msgObj = new Message(user, safeContent, timestamp);
+    const ts = typeof timestamp === "number" ? timestamp : Date.now();
+    const msgObj = new Message(user, safeContent, ts);
     await db.addMessageToRoom(msgObj, roomId);
 
     // Emit to all sockets of room members (not only joined sockets)
