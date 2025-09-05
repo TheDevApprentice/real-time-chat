@@ -3,11 +3,10 @@ import cors from "cors";
 import http from "http";
 import path from "path";
 import cookieParser from "cookie-parser";
-import router from "./routes/REST/index";
-import { issueCsrfCookie, verifyCsrfToken } from "./routes/middleware/csrf";
+import router from "./api/routes/REST/index";
+import { issueCsrfCookie, verifyCsrfToken } from "./api/middleware/csrf";
 import helmet from "helmet";
-import { DatabaseService } from "./services";
-import { WebSocketGateway } from "./routes/WS/index";
+import { WebSocketGateway } from "./api/routes/WS/index";
 import { Logger } from "./utils/Logger";
 
 require("@dotenvx/dotenvx").config();
@@ -44,9 +43,7 @@ class AppServer {
     if (!sqliteFile) {
       throw new Error("SQLITE_FILE environment variable is not defined");
     }
-    // Initialize database
-    const dbService = DatabaseService.getInstance();
-    dbService.init();
+    // Database schema is initialized by infrastructure/db/factory at connection time
 
     // Start WebSocket service
     new WebSocketGateway(this.server);

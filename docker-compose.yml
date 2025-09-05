@@ -136,17 +136,17 @@ services:
   # Web UI's for dev debugging
   
   # Web UI for browsing the SQLite database
-  # sqlite-web:
-  #   image: coleifer/sqlite-web:latest
-  #   container_name: chat-sqlite-web
-  #   command: ["sqlite_web", "-H", "0.0.0.0", "/data/chat.sqlite"]
-  #   ports:
-  #     - "8080:8080"
-  #   volumes:
-  #     - sqlite_data:/data
-  #   depends_on:
-  #     - sqlite
-  #   restart: unless-stopped
+  sqlite-web:
+    image: coleifer/sqlite-web:latest
+    container_name: chat-sqlite-web
+    command: ["sqlite_web", "-H", "0.0.0.0", "/data/chat.sqlite"]
+    ports:
+      - "8080:8080"
+    volumes:
+      - sqlite_data:/data
+    depends_on:
+      - sqlite
+    restart: unless-stopped
 
   # redis-insight:
   #   image: redis/redisinsight:latest

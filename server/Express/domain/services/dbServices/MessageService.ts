@@ -1,0 +1,36 @@
+import { Message } from "../../entities/Message";
+import { IMessageService } from "../../interfaces/dbInterfaces/Iservices/IMessageService";
+import { MessagesRepo } from "../../../infrastructure/db/repos/MessagesRepo";
+import { IMessageRepo } from "../../interfaces/dbInterfaces/Irepos/IMessageRepo";
+
+// TODO: replace 'any' with IMessageRepo interface from domain/interfaces/dbInterfaces/Irepos
+export class MessageService implements IMessageService {
+  private readonly messagesRepo: MessagesRepo;
+
+  constructor(private readonly _iMessagesRepo: IMessageRepo) {
+    this.messagesRepo = _iMessagesRepo as MessagesRepo;
+  }
+
+  addMessageToRoom(message: Message, roomId: string): Promise<void> {
+    return this.messagesRepo.addMessageToRoom(message, roomId);
+  }
+
+  getMessagesForRoom(roomId: string): Promise<Message[]> {
+    return this.messagesRepo.getMessagesForRoom(roomId);
+  }
+
+  markMessageDelivered(
+    messageId: number,
+    ts: number = Date.now()
+  ): Promise<void> {
+    return this.messagesRepo.markMessageDelivered(messageId, ts);
+  }
+
+  markMessageRead(messageId: number, ts: number = Date.now()): Promise<void> {
+    return this.messagesRepo.markMessageRead(messageId, ts);
+  }
+
+  getUnreadCountsForUser(userId: string): Promise<Record<string, number>> {
+    return this.messagesRepo.getUnreadCountsForUser(userId);
+  }
+}
