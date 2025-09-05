@@ -1,14 +1,13 @@
 import { Message } from "../../entities/Message";
 import { IMessageService } from "../../interfaces/dbInterfaces/Iservices/IMessageService";
-import { MessagesRepo } from "../../../infrastructure/db/repos/MessagesRepo";
 import { IMessageRepo } from "../../interfaces/dbInterfaces/Irepos/IMessageRepo";
 
 // TODO: replace 'any' with IMessageRepo interface from domain/interfaces/dbInterfaces/Irepos
 export class MessageService implements IMessageService {
-  private readonly messagesRepo: MessagesRepo;
+  private readonly messagesRepo: IMessageRepo;
 
   constructor(private readonly _iMessagesRepo: IMessageRepo) {
-    this.messagesRepo = _iMessagesRepo as MessagesRepo;
+    this.messagesRepo = _iMessagesRepo;
   }
 
   addMessageToRoom(message: Message, roomId: string): Promise<void> {

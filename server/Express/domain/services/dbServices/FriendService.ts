@@ -1,13 +1,12 @@
 import { IFriendsService } from "../../interfaces/dbInterfaces/Iservices/IFriendsService";
 import { IFriendRepo } from "../../interfaces/dbInterfaces/Irepos/IFriendRepo";
-import { FriendsRepo } from "../../../infrastructure/db/repos/FriendsRepo";
 
 // TODO: replace 'any' with IFriendRepo interface from domain/interfaces/dbInterfaces/Irepos
 export class FriendService implements IFriendsService {
-  private readonly friendsRepo: FriendsRepo;
+  private readonly friendsRepo: IFriendRepo;
 
   constructor(private readonly _iFriendsRepo: IFriendRepo) {
-    this.friendsRepo = _iFriendsRepo as FriendsRepo;
+    this.friendsRepo = _iFriendsRepo;
   }
 
   createFriendRequest(

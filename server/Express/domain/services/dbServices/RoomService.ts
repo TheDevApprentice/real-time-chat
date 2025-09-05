@@ -1,15 +1,14 @@
 import { Room } from "../../entities/Room";
 import { User } from "../../entities/User";
 import { IRoomService } from "../../interfaces/dbInterfaces/Iservices/IRoomService";
-import { RoomsRepo } from "../../../infrastructure/db/repos/RoomsRepo";
 import { IRoomRepo } from "../../interfaces/dbInterfaces/Irepos/IRoomRepo";
 
 // TODO: replace 'any' with IRoomRepo interface from domain/interfaces/dbInterfaces/Irepos
 export class RoomService implements IRoomService {
-  private readonly roomsRepo: RoomsRepo;
+  private readonly roomsRepo: IRoomRepo;
 
   constructor(private readonly _iRoomRepo: IRoomRepo) {
-    this.roomsRepo = _iRoomRepo as RoomsRepo;
+    this.roomsRepo = _iRoomRepo;
   }
 
   addRoom(room: Room): Promise<Room> {

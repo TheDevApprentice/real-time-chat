@@ -1,14 +1,13 @@
 import { User } from "../../entities/User";
 import { IUserService } from "../../interfaces/dbInterfaces/Iservices/IUserService";
 import { IUserRepo } from "../../interfaces/dbInterfaces/Irepos/IUserRepo";
-import { UsersRepo } from "../../../infrastructure/db/repos/UsersRepo";
 
 // TODO: replace 'any' with IUserRepo interface from domain/interfaces/dbInterfaces/Irepos
 export class UserService implements IUserService {
-  private readonly userRepo: UsersRepo;
+  private readonly userRepo: IUserRepo;
 
   constructor(private readonly _iUserRepo: IUserRepo) {
-    this.userRepo = _iUserRepo as UsersRepo;
+    this.userRepo = _iUserRepo;
   }
 
   addUser(user: User): Promise<User> {
