@@ -1,7 +1,7 @@
 import { AuthenticatedRequest, authMiddleware } from "../middleware/auth";
 import { Router, Request, Response } from "express";
 import { User } from "../models/User";
-import { DatabaseService } from "../utils/DatabaseService";
+import { DatabaseService } from "../services/DatabaseService";
 import { bruteForceGuard } from "../utils/BruteForceGuard";
 
 const router = Router();

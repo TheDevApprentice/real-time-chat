@@ -4,10 +4,10 @@ import { Message } from "../models/Message";
 import { Room } from "../models/Room";
 import { UserSession } from "../models/UserSession";
 import { DatabaseService } from "./DatabaseService";
-import { Logger } from "./Logger";
+import { Logger } from "../utils/Logger";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
-import { bruteForceGuard } from "./BruteForceGuard";
+import { bruteForceGuard } from "../utils/BruteForceGuard";
 import { 
   WsAuthenticateSchema,
   WsLoginSchema,
@@ -17,7 +17,7 @@ import {
   WsSendMessageSchema,
   RegisterSchema,
   parseOrThrow,
-} from "./validation";
+} from "../utils/validation";
 
 export class WebSocketService {
   private io: SocketServer;

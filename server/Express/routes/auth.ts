@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { Router, Request, Response, NextFunction } from "express";
 import { User } from "../models/User";
-import { DatabaseService } from "../utils/DatabaseService";
+import { DatabaseService } from "../services/DatabaseService";
 import { bruteForceGuard } from "../utils/BruteForceGuard";
 import { authMiddleware, AuthenticatedRequest } from "../middleware/auth";
 import { RegisterSchema, RefreshTokenSchema, parseOrThrow, ValidationHttpError } from "../utils/validation";
