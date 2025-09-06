@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 import { WsContext } from "../router/WsContext";
 import { User, UserSession } from "../../../../domain/entities";
+import { Logger } from "../../../../utils/Logger";
 
 export class AuthWsController {
   // authenticate via token (auto-login)
@@ -103,6 +104,8 @@ export class AuthWsController {
   }
 
   async logout(ctx: WsContext<{ token: string }>) {
+    Logger.info("Logout requested");
+    Logger.infoObj("token", ctx.payload.token);
     const { authService } = ctx.services;
     const { token } = ctx.payload!;
     await authService.deleteUserSession(token);
