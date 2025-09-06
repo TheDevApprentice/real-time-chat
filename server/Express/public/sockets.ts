@@ -39,6 +39,15 @@ var socket: any = (window as any).socket || io();
         }
       });
 
+  // --- Room online counter updates ---
+  socket.on("roomOnline", (payload: { roomId: string; count: number }) => {
+    try {
+      const rid = String(payload?.roomId || '');
+      const count = Number(payload?.count ?? 0) || 0;
+      (window as any).statsOnOnline?.(rid, count);
+    } catch {}
+  });
+
   // --- AGGREGATED TYPING COUNT ---
   socket.on("typingCount", (payload: any) => {
     try {
@@ -206,6 +215,8 @@ var socket: any = (window as any).socket || io();
 
   // --- INCOMING MESSAGE ---
   socket.on("message", (data: any) => {
+    // Stats: count message for the room
+    try { (window as any).statsOnMessage?.(String(data?.roomId || '')); } catch {}
     if (w.selectedRoom && data.roomId === w.selectedRoom.id) {
       if (typeof w.renderMsg === "function") w.renderMsg(data.message);
       // Update inline last message preview for this room

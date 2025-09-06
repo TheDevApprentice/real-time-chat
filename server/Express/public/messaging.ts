@@ -90,6 +90,8 @@
         timestamp: Date.now(),
         clientMsgId: genClientMsgId(),
       });
+      // Stats: count outgoing message
+      try { (window as any).statsOnMessage?.(String(selectedRoom.id)); } catch {}
       // Optimistic: update last message preview inline in room list
       try {
         if (typeof w.updateRoomLastMsgPreview === "function")

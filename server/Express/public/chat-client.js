@@ -724,6 +724,7 @@ function renderSearchResults(users) {
     }
     if (chatForm) {
         chatForm.addEventListener("submit", (e) => {
+            var _a, _b;
             e.preventDefault();
             const selectedRoom = w.selectedRoom;
             const currentUser = w.currentUser;
@@ -738,6 +739,11 @@ function renderSearchResults(users) {
                 timestamp: Date.now(),
                 clientMsgId: genClientMsgId(),
             });
+            // Stats: count outgoing message
+            try {
+                (_b = (_a = window).statsOnMessage) === null || _b === void 0 ? void 0 : _b.call(_a, String(selectedRoom.id));
+            }
+            catch { }
             // Optimistic: update last message preview inline in room list
             try {
                 if (typeof w.updateRoomLastMsgPreview === "function")
@@ -999,6 +1005,10 @@ function renderSearchResults(users) {
             catch {
                 alert('Lien d\'invitation (URL) copié dans le presse-papiers.');
             }
+            try {
+                showSharePanel(shareUrl);
+            }
+            catch { }
         }
         catch {
             alert('Erreur réseau');
@@ -1090,6 +1100,67 @@ function renderSearchResults(users) {
             syncDisabled();
         }
     }
+    // --- Share panel (URL + Copy) ---
+    function ensureSharePanel() {
+        let panel = document.getElementById('invite-share-panel');
+        if (panel)
+            return panel;
+        const parent = document.body;
+        panel = document.createElement('div');
+        panel.id = 'invite-share-panel';
+        panel.style.position = 'fixed';
+        panel.style.right = '16px';
+        panel.style.top = '84px';
+        panel.style.background = '#fff';
+        panel.style.border = '1px solid #ddd';
+        panel.style.borderRadius = '8px';
+        panel.style.boxShadow = '0 8px 24px rgba(0,0,0,0.15)';
+        panel.style.padding = '10px';
+        panel.style.zIndex = '9998';
+        panel.style.minWidth = '320px';
+        panel.innerHTML = `
+      <div style="display:flex; align-items:center; gap:8px;">
+        <input id="share-url-input" type="text" readonly style="flex:1; padding:8px; border:1px solid #ccc; border-radius:6px;" />
+        <button id="btn-share-copy" class="auth-btn" type="button">Copier</button>
+        <button id="btn-share-close" class="icon-btn" type="button" title="Fermer">✕</button>
+      </div>
+    `;
+        parent.appendChild(panel);
+        const close = panel.querySelector('#btn-share-close');
+        if (close)
+            close.onclick = () => { try {
+                panel.style.display = 'none';
+            }
+            catch { } };
+        const copy = panel.querySelector('#btn-share-copy');
+        if (copy)
+            copy.onclick = async () => {
+                var _a, _b, _c;
+                try {
+                    const inp = panel.querySelector('#share-url-input');
+                    const val = ((inp === null || inp === void 0 ? void 0 : inp.value) || '').trim();
+                    if (val)
+                        await ((_a = navigator.clipboard) === null || _a === void 0 ? void 0 : _a.writeText(val));
+                    (_c = (_b = window).showToast) === null || _c === void 0 ? void 0 : _c.call(_b, 'Lien copié');
+                }
+                catch { }
+            };
+        return panel;
+    }
+    function showSharePanel(url) {
+        const panel = ensureSharePanel();
+        if (!panel)
+            return;
+        panel.style.display = '';
+        const inp = panel.querySelector('#share-url-input');
+        if (inp) {
+            inp.value = url || '';
+            try {
+                inp.select();
+            }
+            catch { }
+        }
+    }
     // Wire on load
     try {
         wireToolbar();
@@ -1138,6 +1209,16 @@ window.socket = socket;
                     if (typeof showAuthPanel === "function")
                         showAuthPanel(true);
                 }
+            });
+            // --- Room online counter updates ---
+            socket.on("roomOnline", (payload) => {
+                var _a, _b, _c;
+                try {
+                    const rid = String((payload === null || payload === void 0 ? void 0 : payload.roomId) || '');
+                    const count = Number((_a = payload === null || payload === void 0 ? void 0 : payload.count) !== null && _a !== void 0 ? _a : 0) || 0;
+                    (_c = (_b = window).statsOnOnline) === null || _c === void 0 ? void 0 : _c.call(_b, rid, count);
+                }
+                catch { }
             });
             // --- AGGREGATED TYPING COUNT ---
             socket.on("typingCount", (payload) => {
@@ -1310,22 +1391,27 @@ window.socket = socket;
     });
     // --- INCOMING MESSAGE ---
     socket.on("message", (data) => {
-        var _a, _b, _c, _d, _e, _f, _g, _h;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
+        // Stats: count message for the room
+        try {
+            (_b = (_a = window).statsOnMessage) === null || _b === void 0 ? void 0 : _b.call(_a, String((data === null || data === void 0 ? void 0 : data.roomId) || ''));
+        }
+        catch { }
         if (w.selectedRoom && data.roomId === w.selectedRoom.id) {
             if (typeof w.renderMsg === "function")
                 w.renderMsg(data.message);
             // Update inline last message preview for this room
             try {
                 if (typeof w.updateRoomLastMsgPreview === 'function')
-                    w.updateRoomLastMsgPreview(String(data.roomId || ''), String(((_a = data === null || data === void 0 ? void 0 : data.message) === null || _a === void 0 ? void 0 : _a.content) || ''));
+                    w.updateRoomLastMsgPreview(String(data.roomId || ''), String(((_c = data === null || data === void 0 ? void 0 : data.message) === null || _c === void 0 ? void 0 : _c.content) || ''));
             }
             catch { }
             // Acknowledge delivery/read for messages from others in active room
             try {
                 const m = data.message;
-                const authorName = (_b = m === null || m === void 0 ? void 0 : m.author) === null || _b === void 0 ? void 0 : _b.name;
+                const authorName = (_d = m === null || m === void 0 ? void 0 : m.author) === null || _d === void 0 ? void 0 : _d.name;
                 const mine = w.currentUser && authorName === w.currentUser.name;
-                const mid = parseInt(String((_c = m === null || m === void 0 ? void 0 : m.id) !== null && _c !== void 0 ? _c : ""), 10);
+                const mid = parseInt(String((_e = m === null || m === void 0 ? void 0 : m.id) !== null && _e !== void 0 ? _e : ""), 10);
                 if (!mine && Number.isFinite(mid)) {
                     const now = Date.now();
                     socket.emit("messageDelivered", {
@@ -1345,18 +1431,18 @@ window.socket = socket;
         }
         // Otherwise, increment unread counter (ignore own messages)
         try {
-            const authorName = (_e = (_d = data === null || data === void 0 ? void 0 : data.message) === null || _d === void 0 ? void 0 : _d.author) === null || _e === void 0 ? void 0 : _e.name;
+            const authorName = (_g = (_f = data === null || data === void 0 ? void 0 : data.message) === null || _f === void 0 ? void 0 : _f.author) === null || _g === void 0 ? void 0 : _g.name;
             if (!w.currentUser || authorName === w.currentUser.name)
                 return;
             // Update list last message preview for the room
             try {
                 if (typeof w.updateRoomLastMsgPreview === 'function')
-                    w.updateRoomLastMsgPreview(String(data.roomId || ''), String(((_f = data === null || data === void 0 ? void 0 : data.message) === null || _f === void 0 ? void 0 : _f.content) || ''));
+                    w.updateRoomLastMsgPreview(String(data.roomId || ''), String(((_h = data === null || data === void 0 ? void 0 : data.message) === null || _h === void 0 ? void 0 : _h.content) || ''));
             }
             catch { }
             // Mark as delivered when message arrives for a room that's not active
             try {
-                const mid = parseInt(String((_h = (_g = data === null || data === void 0 ? void 0 : data.message) === null || _g === void 0 ? void 0 : _g.id) !== null && _h !== void 0 ? _h : ""), 10);
+                const mid = parseInt(String((_k = (_j = data === null || data === void 0 ? void 0 : data.message) === null || _j === void 0 ? void 0 : _j.id) !== null && _k !== void 0 ? _k : ""), 10);
                 if (Number.isFinite(mid)) {
                     const now = Date.now();
                     socket.emit("messageDelivered", {
@@ -2135,3 +2221,186 @@ catch { }
 /// <reference path="./sockets.ts" />
 /// <reference path="./analytics.ts" />
 /// <reference path="./chat-client.ts" />
+// stats.ts - Client-side realtime stats panel (no external libs)
+// Collects per-room metrics from incoming/outgoing events and renders sparklines
+// in a panel under the room list. Global helpers are attached to window.
+(function () {
+    const w = window;
+    const MAX_MINUTES = 60;
+    const MAX_ONLINE_POINTS = 120; // ~2 minutes at 1s sampling or event-driven
+    const buffersByRoom = Object.create(null);
+    let currentRoomId = null;
+    let renderTimer = null;
+    function epochMinute(t = Date.now()) {
+        return Math.floor(t / 60000);
+    }
+    function ensureBuffers(roomId) {
+        const key = String(roomId || "");
+        let b = buffersByRoom[key];
+        if (!b) {
+            b = buffersByRoom[key] = {
+                msgPerMin: Array(MAX_MINUTES).fill(0),
+                msgMinuteStamp: epochMinute(),
+                online: [],
+            };
+        }
+        // roll minutes if time advanced
+        const nowMin = epochMinute();
+        let diff = nowMin - b.msgMinuteStamp;
+        while (diff > 0) {
+            b.msgPerMin.shift();
+            b.msgPerMin.push(0);
+            b.msgMinuteStamp++;
+            diff--;
+        }
+        return b;
+    }
+    function recordMessage(roomId) {
+        const b = ensureBuffers(roomId);
+        // increment current minute bucket
+        b.msgPerMin[b.msgPerMin.length - 1]++;
+        if (roomId === currentRoomId)
+            scheduleRender();
+    }
+    function recordOnline(roomId, count) {
+        const b = ensureBuffers(roomId);
+        const now = Date.now();
+        b.online.push({ ts: now, count: Math.max(0, Number(count) || 0) });
+        if (b.online.length > MAX_ONLINE_POINTS)
+            b.online.shift();
+        if (roomId === currentRoomId)
+            scheduleRender();
+    }
+    // ================= Panel & Rendering =================
+    function ensureStatsPanel() {
+        const side = document.getElementById("room-panel");
+        if (!side)
+            return null;
+        let section = document.getElementById("stats-sidebar-panel");
+        if (!section) {
+            section = document.createElement("div");
+            section.id = "stats-sidebar-panel";
+            section.className = "room-section-card";
+            section.style.marginTop = "12px";
+            section.innerHTML = `
+        <button type="button" class="room-section-header" disabled style="cursor: default">
+          📈 Stats en temps réel (client)
+        </button>
+        <div style="padding:8px 10px;">
+          <div style="font-size:12px;color:#666;margin-bottom:6px;" id="stats-room-label">Aucune room sélectionnée</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div>
+              <div style="font-size:12px;color:#888;margin-bottom:4px">Messages par minute (60 dernières minutes)</div>
+              <canvas id="stats-mpm" width="320" height="70" style="width:100%;max-width:100%"></canvas>
+            </div>
+            <div>
+              <div style="font-size:12px;color:#888;margin-bottom:4px">Utilisateurs en ligne (derniers évènements)</div>
+              <canvas id="stats-online" width="320" height="70" style="width:100%;max-width:100%"></canvas>
+            </div>
+          </div>
+        </div>
+      `;
+            const roomListSection = document.getElementById("room-list-section");
+            if (roomListSection === null || roomListSection === void 0 ? void 0 : roomListSection.parentElement) {
+                roomListSection.parentElement.appendChild(section);
+            }
+            else {
+                side.appendChild(section);
+            }
+        }
+        return section;
+    }
+    function scheduleRender() {
+        if (renderTimer != null)
+            return;
+        renderTimer = window.setTimeout(() => {
+            renderTimer = null;
+            try {
+                render();
+            }
+            catch { }
+        }, 150);
+    }
+    function drawSparkline(canvas, points, color) {
+        const ctx = canvas.getContext("2d");
+        if (!ctx)
+            return;
+        const W = canvas.width, H = canvas.height;
+        ctx.clearRect(0, 0, W, H);
+        if (!points || points.length === 0)
+            return;
+        const max = Math.max(1, ...points);
+        const stepX = W / Math.max(1, points.length - 1);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        points.forEach((v, i) => {
+            const x = i * stepX;
+            const y = H - (v / max) * (H - 4) - 2;
+            if (i === 0)
+                ctx.moveTo(x, y);
+            else
+                ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+        // baseline
+        ctx.strokeStyle = "#e6e6e6";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, H - 1);
+        ctx.lineTo(W, H - 1);
+        ctx.stroke();
+    }
+    function render() {
+        ensureStatsPanel();
+        const label = document.getElementById("stats-room-label");
+        const c1 = document.getElementById("stats-mpm");
+        const c2 = document.getElementById("stats-online");
+        if (!label || !c1 || !c2)
+            return;
+        const rid = currentRoomId;
+        if (!rid) {
+            label.textContent = "Aucune room sélectionnée";
+            drawSparkline(c1, [], "#7f5af0");
+            drawSparkline(c2, [], "#06d6a0");
+            return;
+        }
+        const b = ensureBuffers(rid);
+        label.textContent = `Room sélectionnée: ${rid}`;
+        drawSparkline(c1, b.msgPerMin.slice(), "#7f5af0");
+        drawSparkline(c2, b.online.map(o => o.count), "#06d6a0");
+    }
+    // ================= Wiring =================
+    function onSelectRoom(room) {
+        const rid = (room === null || room === void 0 ? void 0 : room.id) ? String(room.id) : null;
+        currentRoomId = rid;
+        ensureStatsPanel();
+        scheduleRender();
+    }
+    // Wrap joinRoom to detect selection changes
+    try {
+        const originalJoin = w.joinRoom;
+        if (typeof originalJoin === "function") {
+            w.joinRoom = function wrappedJoin(room) {
+                originalJoin(room);
+                try {
+                    onSelectRoom(room);
+                }
+                catch { }
+            };
+        }
+    }
+    catch { }
+    // Expose hooks for other modules
+    try {
+        w.statsOnMessage = (roomId) => recordMessage(roomId);
+        w.statsOnOnline = (roomId, count) => recordOnline(roomId, count);
+    }
+    catch { }
+    // Initial mount
+    try {
+        ensureStatsPanel();
+        render();
+    }
+    catch { }
+})();
