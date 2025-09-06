@@ -135,8 +135,8 @@ class AppServer {
 
   public start(): void {
     // Connect Redis (non-blocking) and handle graceful shutdown
-    const redis = RedisService.getInstance();
-    redis
+    const redisService = RedisService.getInstance();
+    redisService
       .connect()
       .then(() => Logger.info("Redis connected"))
       .catch((err) => Logger.warn(`Redis connect failed: ${String(err)}`));
@@ -144,7 +144,7 @@ class AppServer {
     const shutdown = async (signal: string) => {
       try {
         Logger.info(`Received ${signal}, shutting down...`);
-        await redis.disconnect().catch(() => undefined);
+        await redisService.disconnect().catch(() => undefined);
         this.server.close(() => {
           Logger.info("HTTP server closed");
           process.exit(0);
