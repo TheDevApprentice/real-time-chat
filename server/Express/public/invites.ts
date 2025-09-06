@@ -56,6 +56,7 @@
       const shareUrl = `${location.origin}/api/chat/invite/${encodeURIComponent(String(data.token))}`;
       try { navigator.clipboard?.writeText(shareUrl); } catch {}
       try { (window as any).showToast?.("Lien d'invitation copié dans le presse-papiers"); } catch { alert('Lien d\'invitation (URL) copié dans le presse-papiers.'); }
+      try { showSharePanel(shareUrl); } catch {}
     } catch {
       alert('Erreur réseau');
     }
@@ -120,6 +121,56 @@
       btnConsume.onclick = () => consumeInviteToken();
       inp?.addEventListener('input', syncDisabled);
       syncDisabled();
+    }
+  }
+
+  // --- Share panel (URL + Copy) ---
+  function ensureSharePanel(): HTMLElement | null {
+    let panel = document.getElementById('invite-share-panel') as HTMLElement | null;
+    if (panel) return panel;
+    const parent = document.body;
+    panel = document.createElement('div');
+    panel.id = 'invite-share-panel';
+    panel.style.position = 'fixed';
+    panel.style.right = '16px';
+    panel.style.top = '84px';
+    panel.style.background = '#fff';
+    panel.style.border = '1px solid #ddd';
+    panel.style.borderRadius = '8px';
+    panel.style.boxShadow = '0 8px 24px rgba(0,0,0,0.15)';
+    panel.style.padding = '10px';
+    panel.style.zIndex = '9998';
+    panel.style.minWidth = '320px';
+    panel.innerHTML = `
+      <div style="display:flex; align-items:center; gap:8px;">
+        <input id="share-url-input" type="text" readonly style="flex:1; padding:8px; border:1px solid #ccc; border-radius:6px;" />
+        <button id="btn-share-copy" class="auth-btn" type="button">Copier</button>
+        <button id="btn-share-close" class="icon-btn" type="button" title="Fermer">✕</button>
+      </div>
+    `;
+    parent.appendChild(panel);
+    const close = panel.querySelector('#btn-share-close') as HTMLButtonElement | null;
+    if (close) close.onclick = () => { try { panel!.style.display = 'none'; } catch {} };
+    const copy = panel.querySelector('#btn-share-copy') as HTMLButtonElement | null;
+    if (copy) copy.onclick = async () => {
+      try {
+        const inp = panel!.querySelector('#share-url-input') as HTMLInputElement | null;
+        const val = (inp?.value || '').trim();
+        if (val) await navigator.clipboard?.writeText(val);
+        (window as any).showToast?.('Lien copié');
+      } catch {}
+    };
+    return panel;
+  }
+
+  function showSharePanel(url: string) {
+    const panel = ensureSharePanel();
+    if (!panel) return;
+    panel.style.display = '';
+    const inp = panel.querySelector('#share-url-input') as HTMLInputElement | null;
+    if (inp) {
+      inp.value = url || '';
+      try { inp.select(); } catch {}
     }
   }
 
