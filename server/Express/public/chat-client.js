@@ -1,3 +1,4 @@
+var _a;
 // chat-client.ts
 // @ts-expect-error
 // Script extrait de index.html pour la logique front du chat en TypeScript
@@ -31,6 +32,46 @@ const authError = document.getElementById("auth-error");
 // Onglets Connexion/Inscription
 const tabLogin = document.getElementById("tab-login");
 const tabRegister = document.getElementById("tab-register");
+// Responsive helpers (Desktop-only test UI)
+function isMobileLayout() {
+    // For the server test UI, we target desktop only (no mobile/tablet behavior)
+    return false;
+}
+function showSidebar(show) {
+    try {
+        if (roomPanel)
+            roomPanel.style.display = show ? 'block' : 'none';
+    }
+    catch { }
+}
+function showChat(show) {
+    try {
+        if (chatCard)
+            chatCard.style.display = show ? 'block' : 'none';
+    }
+    catch { }
+}
+function syncLayoutVisibility() {
+    if (!roomPanel || !chatCard)
+        return;
+    // Hide entire grid if not authenticated
+    const authed = !!currentUser;
+    if (layoutContainer)
+        layoutContainer.style.display = authed ? '' : 'none';
+    // Desktop-only: always show sidebar; show chat only when a room is selected
+    showSidebar(true);
+    showChat(!!selectedRoom);
+    // Expand sidebar to full width when no chat is selected
+    if (layoutContainer) {
+        try {
+            if (!selectedRoom)
+                layoutContainer.classList.add('no-chat');
+            else
+                layoutContainer.classList.remove('no-chat');
+        }
+        catch { }
+    }
+}
 function showAuthTab(tab) {
     if (tab === "login") {
         loginForm.style.display = "flex";
@@ -131,7 +172,19 @@ const chatWindow = document.getElementById("chat-window");
 const chatForm = document.getElementById("chat-form");
 const messageInput = document.getElementById("message");
 const backToRoomsBtn = document.getElementById("back-to-rooms");
+const closeChatBtn = document.getElementById("close-chat");
+const layoutContainer = document.querySelector('.chat-root.layout');
 const selectedRoomTitle = document.getElementById("selected-room-title");
+// Dynamic UI: typing banner just under the title
+const typingBanner = document.createElement('div');
+typingBanner.id = 'typing-banner';
+typingBanner.style.fontSize = '12px';
+typingBanner.style.color = '#888';
+typingBanner.style.margin = '4px 0 8px 0';
+try {
+    (_a = selectedRoomTitle === null || selectedRoomTitle === void 0 ? void 0 : selectedRoomTitle.parentElement) === null || _a === void 0 ? void 0 : _a.insertBefore(typingBanner, selectedRoomTitle.nextSibling);
+}
+catch { }
 // New UI elements
 const userSearchForm = document.getElementById("user-search-form");
 const userSearchInput = document.getElementById("user-search-input");
@@ -167,6 +220,22 @@ if (createRoomPrivate) {
         }
     });
 }
+// Receive typing events for the current room
+socket.on('typing', (payload) => {
+    try {
+        if (!payload || !selectedRoom || payload.roomId !== selectedRoom.id)
+            return;
+        const uid = String(payload.userId || '');
+        if (!uid || (currentUser && uid === currentUser.id))
+            return; // ignore self
+        if (payload.typing)
+            typingUsers.add(uid);
+        else
+            typingUsers.delete(uid);
+        renderTypingBanner();
+    }
+    catch { }
+});
 // State
 let currentUser = null;
 let selectedRoom = null;
@@ -177,6 +246,12 @@ let invitedUserIds = [];
 let pendingDmTargetId = null;
 // Unread counters by roomId
 let unreadCounts = {};
+// Typing state for current room
+let typingUsers = new Set();
+let typingStopTimer = null;
+let lastTypingEmit = 0;
+// Presence refresh timer for DM
+let dmPresenceInterval = null;
 // Persisted unread counts from server (after auth/getRooms)
 socket.on("unreadCounts", (payload) => {
     try {
@@ -332,9 +407,11 @@ function joinRoom(room) {
         return;
     selectedRoom = room;
     selectedRoomTitle.textContent = `💬 Room : ${room.name}`;
-    // UI : afficher la chatbox, masquer la liste des rooms
-    roomPanel.style.display = "none";
-    chatCard.style.display = "block";
+    // Reset typing banner and state
+    typingUsers.clear();
+    setTypingBanner("");
+    // UI: responsive visibility
+    syncLayoutVisibility();
     chatWindow.innerHTML = "";
     if (roomParticipants)
         roomParticipants.textContent = "";
@@ -345,13 +422,38 @@ function joinRoom(room) {
         renderRoomList();
     }
     catch { }
+    // If this is a DM, show presence of the other user and refresh periodically
+    try {
+        setupDmPresence(room);
+    }
+    catch { }
 }
 backToRoomsBtn.addEventListener("click", function () {
     selectedRoom = null;
-    chatCard.style.display = "none";
-    roomPanel.style.display = "block";
     chatWindow.innerHTML = "";
+    setTypingBanner("");
+    if (dmPresenceInterval) {
+        window.clearInterval(dmPresenceInterval);
+        dmPresenceInterval = null;
+    }
+    syncLayoutVisibility();
 });
+// Close chat (desktop/mobile)
+if (closeChatBtn) {
+    closeChatBtn.addEventListener('click', () => {
+        try {
+            selectedRoom = null;
+            chatWindow.innerHTML = "";
+            setTypingBanner("");
+            if (dmPresenceInterval) {
+                window.clearInterval(dmPresenceInterval);
+                dmPresenceInterval = null;
+            }
+            syncLayoutVisibility();
+        }
+        catch { }
+    });
+}
 // Gestion logout (WebSocket uniquement)
 if (logoutBtn) {
     logoutBtn.onclick = function () {
@@ -526,6 +628,36 @@ chatForm.addEventListener("submit", function (e) {
     });
     messageInput.value = "";
 });
+// Emit typingStart/typingStop based on input activity
+messageInput.addEventListener('input', () => {
+    if (!selectedRoom || !currentUser)
+        return;
+    const now = Date.now();
+    if (now - lastTypingEmit > 3000) {
+        try {
+            socket.emit('typingStart', { roomId: selectedRoom.id });
+        }
+        catch { }
+        lastTypingEmit = now;
+    }
+    if (typingStopTimer)
+        window.clearTimeout(typingStopTimer);
+    typingStopTimer = window.setTimeout(() => {
+        try {
+            socket.emit('typingStop', { roomId: selectedRoom.id });
+        }
+        catch { }
+        typingStopTimer = null;
+    }, 1500);
+});
+messageInput.addEventListener('blur', () => {
+    if (!selectedRoom || !currentUser)
+        return;
+    try {
+        socket.emit('typingStop', { roomId: selectedRoom.id });
+    }
+    catch { }
+});
 // Update status UI when server notifies
 socket.on("messageStatusUpdated", (evt) => {
     try {
@@ -553,13 +685,122 @@ socket.on("messageStatusUpdated", (evt) => {
 // Affiche ou masque les panneaux selon l'état d'authentification
 function showAuthPanel(show) {
     authPanel.style.display = show ? "block" : "none";
-    roomPanel.style.display = show ? "none" : "block";
-    chatCard.style.display = "none";
+    // Defer panel visibility to responsive logic
+    if (show) {
+        showSidebar(false);
+        showChat(false);
+        if (layoutContainer)
+            layoutContainer.style.display = 'none';
+    }
+    else {
+        syncLayoutVisibility();
+    }
     createRoomForm.style.display = show ? "none" : "flex";
     chatForm.style.display = show ? "none" : "flex";
     // Affiche les boutons logout uniquement si connecté
     if (userActions)
         userActions.style.display = show ? "none" : "block";
+}
+// --- Typing helpers ---
+function renderTypingBanner() {
+    try {
+        const count = typingUsers.size;
+        if (count <= 0) {
+            setTypingBanner("");
+            return;
+        }
+        const text = count === 1 ? "Quelqu'un est en train d'écrire…" : "Plusieurs personnes écrivent…";
+        setTypingBanner(text);
+    }
+    catch { }
+}
+function setTypingBanner(text) {
+    try {
+        typingBanner.textContent = text || "";
+    }
+    catch { }
+}
+// --- Presence helpers (DM only) ---
+async function fetchPresence(userId) {
+    var _a;
+    try {
+        const res = await fetch(`/api/user/presence/${encodeURIComponent(userId)}`, { credentials: 'include' });
+        if (!res.ok)
+            return null;
+        const data = await res.json();
+        return { status: (data === null || data === void 0 ? void 0 : data.status) || 'offline', lastSeen: (_a = data === null || data === void 0 ? void 0 : data.lastSeen) !== null && _a !== void 0 ? _a : null };
+    }
+    catch {
+        return null;
+    }
+}
+function formatRelative(ts) {
+    const diff = Date.now() - ts;
+    const s = Math.floor(diff / 1000);
+    if (s < 60)
+        return `il y a ${s}s`;
+    const m = Math.floor(s / 60);
+    if (m < 60)
+        return `il y a ${m}m`;
+    const h = Math.floor(m / 60);
+    if (h < 24)
+        return `il y a ${h}h`;
+    const d = Math.floor(h / 24);
+    return `il y a ${d}j`;
+}
+async function setupDmPresence(room) {
+    try {
+        if (!room || room.type !== 'user' || !currentUser) {
+            updatePresenceLabel("");
+            if (dmPresenceInterval) {
+                window.clearInterval(dmPresenceInterval);
+                dmPresenceInterval = null;
+            }
+            return;
+        }
+        const members = Array.isArray(room.users) ? room.users : [];
+        const other = members.find((u) => u && u.id !== currentUser.id);
+        if (!other) {
+            updatePresenceLabel("");
+            return;
+        }
+        const renderOnce = async () => {
+            const pr = await fetchPresence(other.id);
+            if (!pr) {
+                updatePresenceLabel("");
+                return;
+            }
+            if (pr.status === 'online')
+                updatePresenceLabel('• en ligne');
+            else if (pr.lastSeen)
+                updatePresenceLabel(`• vu ${formatRelative(pr.lastSeen)}`);
+            else
+                updatePresenceLabel('• hors ligne');
+        };
+        await renderOnce();
+        if (dmPresenceInterval)
+            window.clearInterval(dmPresenceInterval);
+        dmPresenceInterval = window.setInterval(renderOnce, 30000);
+    }
+    catch { }
+}
+function updatePresenceLabel(text) {
+    try {
+        if (!selectedRoomTitle)
+            return;
+        const id = 'presence-label';
+        let span = document.getElementById(id);
+        if (!span) {
+            span = document.createElement('span');
+            span.id = id;
+            span.style.marginLeft = '8px';
+            span.style.fontSize = '12px';
+            span.style.color = '#888';
+            selectedRoomTitle.appendChild(span);
+        }
+        span.textContent = text || '';
+    }
+    catch { }
 }
 // --- Auth automatique via cookie/sessionToken ---
 function getCookie(name) {
@@ -574,6 +815,7 @@ if (sessionToken) {
             showAuthPanel(false);
             socket.emit("getRooms");
             requestFriendList();
+            syncLayoutVisibility();
         }
         else {
             // Token invalide, afficher login
@@ -608,6 +850,7 @@ loginForm.addEventListener("submit", function (e) {
         showAuthPanel(false);
         socket.emit("getRooms");
         requestFriendList();
+        syncLayoutVisibility();
     });
 });
 // Auth: register via REST
@@ -741,6 +984,16 @@ if (userSearchForm && userSearchInput) {
     }, 300);
     userSearchInput.addEventListener('input', runSearch);
 }
+// Keep UI in sync on resize
+try {
+    window.addEventListener('resize', () => syncLayoutVisibility());
+}
+catch { }
+// Initial layout sync
+try {
+    syncLayoutVisibility();
+}
+catch { }
 // --- Friends via WebSocket ---
 function renderFriends(items) {
     lastFriendItems = items || [];

@@ -13,10 +13,19 @@
     </style>
   </head>
   <body id="app">
-    <div id="user-actions" style="display:none;text-align:right;margin-bottom:10px;">
-      <button id="logout-btn" class="auth-btn" type="button">Déconnexion</button>
-      <button id="logout-all-btn" class="auth-btn" type="button">Déconnexion tous les appareils</button>
-    </div>
+    <!-- App header -->
+    <header class="app-header">
+      <div class="app-header__inner">
+        <div class="brand">
+          <span class="brand-logo">💬</span>
+          <span class="brand-name">Realtime Chat</span>
+        </div>
+        <div id="user-actions" class="app-actions" style="display:none;">
+          <button id="logout-btn" class="auth-btn" type="button">Déconnexion</button>
+          <button id="logout-all-btn" class="auth-btn" type="button">Déconnexion tous les appareils</button>
+        </div>
+      </div>
+    </header>
     <!-- Auth panel -->
     <div id="auth-panel" class="auth-card">
   <div class="auth-card-header">
@@ -55,8 +64,9 @@
   </form>
   <div class="auth-error" id="auth-error"></div>
 </div>
-    <div class="chat-root"> <!-- Room selection panel -->
-      <div id="room-panel" class="chat-card">
+    <div class="chat-root layout"> <!-- Responsive sidebar + main chat -->
+      <!-- Sidebar: room selection & friends -->
+      <aside id="room-panel" class="chat-card sidebar">
         <div id="user-search-section" class="section-card">
           <form id="user-search-form" class="chat-input-bar" autocomplete="off">
             <input type="text" id="user-search-input" class="chat-input-message" placeholder="Tapez un pseudo..." maxlength="50" />
@@ -111,10 +121,13 @@
             </div>
           </div>
         </div>
-      </div>
-      <!-- Chatbox for selected room (hidden by default) -->
-      <div id="chat-card" class="chat-card" style="display:none;">
-        <button id="back-to-rooms" style="margin-bottom:12px;float:right;">← Retour aux rooms</button>
+      </aside>
+      <!-- Main chat area -->
+      <main id="chat-card" class="chat-card chat-main" style="display:none;">
+        <div class="chat-toolbar">
+          <button id="back-to-rooms">← Retour aux rooms</button>
+          <button id="close-chat" aria-label="Fermer la conversation">✕</button>
+        </div>
         <div id="selected-room-title" class="chat-title" style="font-size:1.25rem;margin-bottom:0.4em;"></div>
         <div id="room-participants" style="font-size:0.9rem;color:#666;margin-bottom:8px;"></div>
         <div id="chat-window" class="chat-window"></div>
@@ -130,7 +143,7 @@
           />
           <button type="submit" class="chat-send-btn">Envoyer</button>
         </form>
-      </div>
+      </main>
     </div>
     <script src="/socket.io/socket.io.js"></script>
     <script src="./chat-client.js"></script>
