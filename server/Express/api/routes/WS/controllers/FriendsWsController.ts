@@ -1,4 +1,5 @@
 import { WsContext } from "../router/WsContext";
+import { K } from "../../../cache/cacheKeys";
 
 export class FriendsWsController {
   async friendRequest(ctx: WsContext<{ targetUserId: string }>) {
@@ -71,7 +72,10 @@ export class FriendsWsController {
       const cached = await redisService?.get?.(key);
       if (cached) {
         const items = JSON.parse(cached);
+        try { await redisService.incrBy(K.statsHit('friendsList')); } catch {}
         return { success: true, items };
+      } else {
+        try { await redisService.incrBy(K.statsMiss('friendsList')); } catch {}
       }
     } catch {}
     const list = await friendService.listFriendsAndRequests(userId);

@@ -73,3 +73,10 @@ export const SearchUsersQuerySchema = z.object({
   q: z.string().min(1).max(50),
   limit: z.coerce.number().int().min(1).max(50).optional(),
 });
+
+// Invites (REST) schemas
+export const InviteCreateBodySchema = z.object({
+  roomId: z.string().min(1),
+  invitedUserId: z.string().min(1).optional(),
+  role: z.string().min(1).max(50).optional(),
+});

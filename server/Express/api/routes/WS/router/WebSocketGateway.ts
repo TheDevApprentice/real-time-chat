@@ -21,6 +21,7 @@ import { requireAuth } from "../middlewares/requireAuth";
 import { bruteForce } from "../middlewares/bruteForce";
 import type { z } from "zod";
 import { getServices } from "../../../di/container";
+import { K, TTL } from "../../../cache/cacheKeys";
 
 export class WebSocketGateway {
   private io: SocketServer;
@@ -58,6 +59,46 @@ export class WebSocketGateway {
       "authenticate",
       validate(WsAuthenticateSchema),
       async (ctx: WsContext<z.infer<typeof WsAuthenticateSchema>>) => this.authCtrl.authenticate(ctx)
+    );
+
+    // History pagination
+    this.router.register(
+      "loadRoomHistory",
+      requireAuth(),
+      rateLimitPerSocket("chat:loadHistory", 120, 60_000),
+      async (ctx: WsContext<{ roomId: string; cursor?: number; size?: number }>) => this.roomsCtrl.loadRoomHistory(ctx)
+    );
+
+    // Aggregations: top active rooms
+    this.router.register(
+      "getTopActiveRooms",
+      requireAuth(),
+      rateLimitPerSocket("chat:topActive", 60, 60_000),
+      async (ctx: WsContext<{ limit?: number }>) => this.roomsCtrl.getTopActiveRooms(ctx)
+    );
+
+    // Aggregations: last message for a room
+    this.router.register(
+      "getRoomLastMessage",
+      requireAuth(),
+      rateLimitPerSocket("chat:lastMessage", 240, 60_000),
+      async (ctx: WsContext<{ roomId: string }>) => this.roomsCtrl.getRoomLastMessage(ctx)
+    );
+
+    // Leaderboard: active users top
+    this.router.register(
+      "getActiveUsersTop",
+      requireAuth(),
+      rateLimitPerSocket("chat:activeUsersTop", 60, 60_000),
+      async (ctx: WsContext<{ limit?: number }>) => this.roomsCtrl.getActiveUsersTop(ctx)
+    );
+
+    // Aggregation: room message counts
+    this.router.register(
+      "getRoomMessageCounts",
+      requireAuth(),
+      rateLimitPerSocket("chat:roomMsgCounts", 120, 60_000),
+      async (ctx: WsContext<{ roomId: string; range?: 'hour' | 'day'; from?: number; to?: number }>) => this.roomsCtrl.getRoomMessageCounts(ctx)
     );
     this.router.register(
       "login",
@@ -218,6 +259,13 @@ export class WebSocketGateway {
       };
 
       await setupPresence();
+      // Track this socket under the user's sockets set for cross-node routing
+      try {
+        const uid = (socket.data as any)?.userId as string | undefined;
+        if (uid) {
+          await redisService.sAdd(K.userSockets(uid), socket.id);
+        }
+      } catch {}
 
       socket.on("disconnect", async () => {
         this.socketRates.delete(socket.id);
@@ -227,9 +275,22 @@ export class WebSocketGateway {
           try {
             await redisService.set(`lastseen:user:${uid}`, String(Date.now()));
             await redisService.del(`socket:user:${socket.id}`);
+            try { await redisService.sRem(K.userSockets(uid), socket.id); } catch {}
             // presence key will expire by itself shortly
           } catch {}
         }
+        // Decrement room online counters for all joined rooms (except the private room with the socket id)
+        try {
+          const joined = Array.from(socket.rooms || []);
+          for (const rid of joined) {
+            if (!rid || rid === socket.id) continue;
+            try {
+              const newCount = await redisService.incrBy(K.roomOnline(rid), -1);
+              try { await redisService.expire(K.roomOnline(rid), TTL.roomOnlineExpire); } catch {}
+              this.io.to(rid).emit("roomOnline", { roomId: rid, count: Math.max(0, newCount) });
+            } catch {}
+          }
+        } catch {}
       });
 
       // ---------------- WS ROUTER ATTACHMENT ----------------

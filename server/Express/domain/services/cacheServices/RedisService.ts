@@ -12,6 +12,66 @@ export class RedisService implements IRedisService {
     return this.instance;
   }
 
+  // Sets helpers (for tracking user sockets, etc.)
+  async sAdd(key: string, member: string): Promise<number> {
+    return await (this.ensure() as any).sAdd(key, member);
+  }
+
+  async sRem(key: string, member: string): Promise<number> {
+    return await (this.ensure() as any).sRem(key, member);
+  }
+
+  // Sorted sets helpers
+  async zAdd(key: string, score: number, member: string): Promise<number> {
+    return await (this.ensure() as any).zAdd(key, [{ score, value: member }]);
+  }
+
+  async zIncrBy(key: string, increment: number, member: string): Promise<number> {
+    return await (this.ensure() as any).zIncrBy(key, increment, member);
+  }
+
+  async zRange(
+    key: string,
+    start: number,
+    stop: number,
+    opts?: { REV?: boolean; WITHSCORES?: boolean }
+  ): Promise<string[] | Array<{ value: string; score: number }>> {
+    const client: any = this.ensure();
+    if (opts?.WITHSCORES) {
+      // node-redis v4 returns { value, score } objects when using zRange with options
+      return await client.zRange(key, start, stop, {
+        REV: !!opts?.REV,
+        BY: 'SCORE',
+        WITHSCORES: true,
+      });
+    }
+    return await client.zRange(key, start, stop, { REV: !!opts?.REV });
+  }
+
+  // Hash helpers
+  async hSet(key: string, field: string, value: string): Promise<number> {
+    return await (this.ensure() as any).hSet(key, field, value);
+  }
+
+  async hIncrBy(key: string, field: string, by: number): Promise<number> {
+    return await (this.ensure() as any).hIncrBy(key, field, by);
+  }
+
+  async hGetAll(key: string): Promise<Record<string, string>> {
+    return await (this.ensure() as any).hGetAll(key);
+  }
+
+  // Simple atomic lock: SET NX EX
+  async setNxExpire(key: string, value: string, exSeconds: number): Promise<boolean> {
+    const res = await (this.ensure() as any).set(key, value, { NX: true, EX: exSeconds });
+    return res === 'OK';
+  }
+
+  // Get and delete atomically
+  async getDel(key: string): Promise<string | null> {
+    return await (this.ensure() as any).getDel(key);
+  }
+
   async connect(): Promise<void> {
     if (this.client) return; // already connected or connecting
     const url = process.env.REDIS_URL || this.buildUrlFromEnv();
