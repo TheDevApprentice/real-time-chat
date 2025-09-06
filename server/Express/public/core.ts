@@ -28,6 +28,11 @@ function getCookie(name: string): string | null {
   return match ? match[2] : null;
 }
 
+// Token helper built on top of getCookie
+function getToken(name: string | null = "session_token"): string | null {
+  return getCookie(name);
+}
+
 // Relative time formatter used in presence labels
 function formatRelative(ts: number): string {
   const diff = Date.now() - ts;

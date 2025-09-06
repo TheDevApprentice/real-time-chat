@@ -24,6 +24,10 @@ function getCookie(name) {
     const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
     return match ? match[2] : null;
 }
+// Token helper built on top of getCookie
+function getToken(name = "session_token") {
+    return getCookie(name);
+}
 // Relative time formatter used in presence labels
 function formatRelative(ts) {
     const diff = Date.now() - ts;
@@ -1249,7 +1253,10 @@ if (closeChatBtn) {
 // Gestion logout (WebSocket uniquement)
 if (logoutBtn) {
     logoutBtn.onclick = function () {
-        socket.emit("logout", {}, (res) => {
+        console.log("Logout requested");
+        console.log("token", getToken("session_token"));
+        socket.emit("logout", { token: getToken("session_token") }, (res) => {
+            console.log("Logout response", res);
             // Peu importe la réponse, on réinitialise l'état
             currentUser = null;
             document.cookie =

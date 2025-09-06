@@ -105,7 +105,7 @@ export class AuthWsController {
 
   async logout(ctx: WsContext<{ token: string }>) {
     Logger.info("Logout requested");
-    Logger.infoObj("token", ctx.payload.token);
+    // Logger.infoObj("token", ctx.payload?.token);
     const { authService } = ctx.services;
     const { token } = ctx.payload!;
     await authService.deleteUserSession(token);
@@ -145,7 +145,6 @@ export class AuthWsController {
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     await authService.deleteAllUserSessionsByUserId(userId);
-
     const sockets = await ctx.io.fetchSockets();
     for (const s of sockets) {
       if ((s.data as any)?.userId === userId) {

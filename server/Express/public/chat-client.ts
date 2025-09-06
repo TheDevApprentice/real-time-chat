@@ -277,7 +277,10 @@ if (closeChatBtn) {
 // Gestion logout (WebSocket uniquement)
 if (logoutBtn) {
   logoutBtn.onclick = function () {
-    socket.emit("logout", {}, (res: any) => {
+    console.log("Logout requested");
+    console.log("token", getToken("session_token"));
+    socket.emit("logout", { token: getToken("session_token") }, (res: any) => {
+      console.log("Logout response", res);
       // Peu importe la réponse, on réinitialise l'état
       currentUser = null;
       document.cookie =
