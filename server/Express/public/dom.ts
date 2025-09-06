@@ -5,6 +5,9 @@ function getLayoutContainer(): HTMLElement | null {
   return document.querySelector(".chat-root.layout") as HTMLElement | null;
 }
 
+// Expose helpers on window for cross-file usage
+try { (window as any).showToast = showToast; } catch {}
+
 // Presence/online small label next to the title
 function updatePresenceLabel(text: string) {
   try {
@@ -106,5 +109,38 @@ function renderTypingBanner() {
         ? "Quelqu'un est en train d'écrire…"
         : "Plusieurs personnes écrivent…";
     setTypingBanner(text);
+  } catch {}
+}
+
+// Simple toast helper (global) for success/info messages
+function showToast(message: string, durationMs: number = 2200) {
+  try {
+    let host = document.getElementById("toast-host") as HTMLDivElement | null;
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "toast-host";
+      host.style.position = "fixed";
+      host.style.right = "16px";
+      host.style.bottom = "16px";
+      host.style.display = "flex";
+      host.style.flexDirection = "column";
+      host.style.gap = "8px";
+      host.style.zIndex = "9999";
+      document.body.appendChild(host);
+    }
+    const el = document.createElement("div");
+    el.textContent = message || "";
+    el.style.background = "linear-gradient(45deg, #7f5af0, #9b5de5)";
+    el.style.color = "#fff";
+    el.style.padding = "10px 14px";
+    el.style.borderRadius = "8px";
+    el.style.boxShadow = "0 6px 18px rgba(0,0,0,0.18)";
+    el.style.fontSize = "13px";
+    el.style.maxWidth = "340px";
+    el.style.pointerEvents = "none";
+    host.appendChild(el);
+    window.setTimeout(() => {
+      try { host?.removeChild(el); } catch {}
+    }, Math.max(800, durationMs));
   } catch {}
 }

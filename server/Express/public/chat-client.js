@@ -48,6 +48,11 @@ function formatRelative(ts) {
 function getLayoutContainer() {
     return document.querySelector(".chat-root.layout");
 }
+// Expose helpers on window for cross-file usage
+try {
+    window.showToast = showToast;
+}
+catch { }
 // Presence/online small label next to the title
 function updatePresenceLabel(text) {
     try {
@@ -150,6 +155,42 @@ function renderTypingBanner() {
             ? "Quelqu'un est en train d'écrire…"
             : "Plusieurs personnes écrivent…";
         setTypingBanner(text);
+    }
+    catch { }
+}
+// Simple toast helper (global) for success/info messages
+function showToast(message, durationMs = 2200) {
+    try {
+        let host = document.getElementById("toast-host");
+        if (!host) {
+            host = document.createElement("div");
+            host.id = "toast-host";
+            host.style.position = "fixed";
+            host.style.right = "16px";
+            host.style.bottom = "16px";
+            host.style.display = "flex";
+            host.style.flexDirection = "column";
+            host.style.gap = "8px";
+            host.style.zIndex = "9999";
+            document.body.appendChild(host);
+        }
+        const el = document.createElement("div");
+        el.textContent = message || "";
+        el.style.background = "linear-gradient(45deg, #7f5af0, #9b5de5)";
+        el.style.color = "#fff";
+        el.style.padding = "10px 14px";
+        el.style.borderRadius = "8px";
+        el.style.boxShadow = "0 6px 18px rgba(0,0,0,0.18)";
+        el.style.fontSize = "13px";
+        el.style.maxWidth = "340px";
+        el.style.pointerEvents = "none";
+        host.appendChild(el);
+        window.setTimeout(() => {
+            try {
+                host === null || host === void 0 ? void 0 : host.removeChild(el);
+            }
+            catch { }
+        }, Math.max(800, durationMs));
     }
     catch { }
 }
@@ -919,7 +960,7 @@ function renderSearchResults(users) {
         return bar;
     }
     async function createInviteForCurrentRoom() {
-        var _a;
+        var _a, _b, _c;
         const selectedRoom = w.selectedRoom;
         const currentUser = w.currentUser;
         if (!selectedRoom || !currentUser) {
@@ -952,18 +993,32 @@ function renderSearchResults(users) {
                 (_a = navigator.clipboard) === null || _a === void 0 ? void 0 : _a.writeText(shareUrl);
             }
             catch { }
-            alert('Lien d\'invitation (URL) copié dans le presse-papiers.');
+            try {
+                (_c = (_b = window).showToast) === null || _c === void 0 ? void 0 : _c.call(_b, "Lien d'invitation copié dans le presse-papiers");
+            }
+            catch {
+                alert('Lien d\'invitation (URL) copié dans le presse-papiers.');
+            }
         }
         catch {
             alert('Erreur réseau');
         }
     }
     async function consumeInviteToken() {
-        var _a;
+        var _a, _b, _c;
         const inp = document.getElementById('invite-token-input');
+        const btn = document.getElementById('btn-consume-invite');
         const raw = ((inp === null || inp === void 0 ? void 0 : inp.value) || '').trim();
         if (!raw)
             return;
+        if (btn) {
+            btn.disabled = true;
+            try {
+                btn.style.opacity = '0.6';
+                btn.style.cursor = 'not-allowed';
+            }
+            catch { }
+        }
         // Accept either full URL or bare token; support signed tokens with dots/underscores
         let token = raw;
         try {
@@ -986,6 +1041,10 @@ function renderSearchResults(users) {
             const roomId = data.payload.roomId;
             // Try to join immediately; UI will update via sockets
             w.socket.emit('joinRoom', { roomId });
+            try {
+                (_c = (_b = window).showToast) === null || _c === void 0 ? void 0 : _c.call(_b, 'Rejoint avec succès');
+            }
+            catch { }
             // Optionally, if room already in list, open it
             try {
                 const r = (w.rooms || []).find((x) => x && x.id === roomId);
@@ -999,13 +1058,37 @@ function renderSearchResults(users) {
         catch {
             alert('Erreur lors de la consommation du token');
         }
+        finally {
+            if (btn) {
+                btn.disabled = false;
+                try {
+                    btn.style.opacity = '';
+                    btn.style.cursor = '';
+                }
+                catch { }
+            }
+        }
     }
     function wireToolbar() {
         const bar = ensureToolbar();
         if (!bar)
             return;
         const btnConsume = document.getElementById('btn-consume-invite');
-        btnConsume && (btnConsume.onclick = () => consumeInviteToken());
+        if (btnConsume) {
+            const inp = document.getElementById('invite-token-input');
+            const syncDisabled = () => {
+                const v = ((inp === null || inp === void 0 ? void 0 : inp.value) || '').trim();
+                btnConsume.disabled = !v;
+                try {
+                    btnConsume.style.opacity = btnConsume.disabled ? '0.6' : '';
+                    btnConsume.style.cursor = btnConsume.disabled ? 'not-allowed' : '';
+                }
+                catch { }
+            };
+            btnConsume.onclick = () => consumeInviteToken();
+            inp === null || inp === void 0 ? void 0 : inp.addEventListener('input', syncDisabled);
+            syncDisabled();
+        }
     }
     // Wire on load
     try {

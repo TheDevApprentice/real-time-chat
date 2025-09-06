@@ -55,7 +55,7 @@
       // Copy a full shareable URL (so the recipient hits the same backend)
       const shareUrl = `${location.origin}/api/chat/invite/${encodeURIComponent(String(data.token))}`;
       try { navigator.clipboard?.writeText(shareUrl); } catch {}
-      alert('Lien d\'invitation (URL) copié dans le presse-papiers.');
+      try { (window as any).showToast?.("Lien d'invitation copié dans le presse-papiers"); } catch { alert('Lien d\'invitation (URL) copié dans le presse-papiers.'); }
     } catch {
       alert('Erreur réseau');
     }
@@ -63,8 +63,13 @@
 
   async function consumeInviteToken() {
     const inp = document.getElementById('invite-token-input') as HTMLInputElement | null;
+    const btn = document.getElementById('btn-consume-invite') as HTMLButtonElement | null;
     const raw = (inp?.value || '').trim();
     if (!raw) return;
+    if (btn) {
+      btn.disabled = true;
+      try { btn.style.opacity = '0.6'; btn.style.cursor = 'not-allowed'; } catch {}
+    }
     // Accept either full URL or bare token; support signed tokens with dots/underscores
     let token = raw;
     try {
@@ -84,6 +89,7 @@
       const roomId = data.payload.roomId as string;
       // Try to join immediately; UI will update via sockets
       w.socket.emit('joinRoom', { roomId });
+      try { (window as any).showToast?.('Rejoint avec succès'); } catch {}
       // Optionally, if room already in list, open it
       try {
         const r = (w.rooms || []).find((x: any) => x && x.id === roomId);
@@ -92,6 +98,11 @@
       } catch {}
     } catch {
       alert('Erreur lors de la consommation du token');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        try { btn.style.opacity = ''; btn.style.cursor = ''; } catch {}
+      }
     }
   }
 
@@ -99,7 +110,17 @@
     const bar = ensureToolbar();
     if (!bar) return;
     const btnConsume = document.getElementById('btn-consume-invite') as HTMLButtonElement | null;
-    btnConsume && (btnConsume.onclick = () => consumeInviteToken());
+    if (btnConsume) {
+      const inp = document.getElementById('invite-token-input') as HTMLInputElement | null;
+      const syncDisabled = () => {
+        const v = (inp?.value || '').trim();
+        btnConsume.disabled = !v;
+        try { btnConsume.style.opacity = btnConsume.disabled ? '0.6' : ''; btnConsume.style.cursor = btnConsume.disabled ? 'not-allowed' : ''; } catch {}
+      };
+      btnConsume.onclick = () => consumeInviteToken();
+      inp?.addEventListener('input', syncDisabled);
+      syncDisabled();
+    }
   }
 
   // Wire on load
