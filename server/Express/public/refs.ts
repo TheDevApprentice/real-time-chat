@@ -13,5 +13,7 @@
 /// <reference path="./rooms.ts" />
 /// <reference path="./messaging.ts" />
 /// <reference path="./room_creation.ts" />
+/// <reference path="./invites.ts" />
 /// <reference path="./sockets.ts" />
+/// <reference path="./analytics.ts" />
 /// <reference path="./chat-client.ts" />

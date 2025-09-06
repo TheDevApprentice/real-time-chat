@@ -5,6 +5,27 @@ function getLayoutContainer(): HTMLElement | null {
   return document.querySelector(".chat-root.layout") as HTMLElement | null;
 }
 
+// Presence/online small label next to the title
+function updatePresenceLabel(text: string) {
+  try {
+    const selectedRoomTitle = document.getElementById(
+      "selected-room-title"
+    ) as HTMLElement | null;
+    if (!selectedRoomTitle) return;
+    const id = "presence-label";
+    let span = document.getElementById(id) as HTMLSpanElement | null;
+    if (!span) {
+      span = document.createElement("span");
+      span.id = id;
+      span.style.marginLeft = "8px";
+      span.style.fontSize = "12px";
+      span.style.color = "#888";
+      selectedRoomTitle.appendChild(span);
+    }
+    span.textContent = text || "";
+  } catch {}
+}
+
 function showSidebar(show: boolean) {
   try {
     const roomPanel = document.getElementById(

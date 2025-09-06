@@ -38,9 +38,13 @@
       if (noRoomMsgAll)
         noRoomMsgAll.style.display = visibleRooms.length ? "none" : "block";
 
+      // simple cache { [roomId]: { text: string, ts: number } }
+      w.roomLastMsgCache = w.roomLastMsgCache || {};
+
       visibleRooms.forEach((room) => {
         const li = document.createElement("li");
         li.className = "room-list-item";
+        try { if (room && room.id) (li as any).dataset.roomId = String(room.id); } catch {}
         let label = room.name || (room.type === "user" ? "DM" : "Room");
         if (room.type === "user") {
           try {
@@ -60,6 +64,7 @@
         <div class="room-avatar" aria-hidden="true">${initial}</div>
         <span class="room-type-icon" aria-hidden="true">${typeIcon}</span>
         <span class="room-name">${label}</span>
+        <span class="room-lastmsg-inline" style="color:#888;font-size:12px;margin-left:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40%;display:inline-block;vertical-align:middle;"></span>
         <span class="room-badge" hidden></span>
       `;
         li.style.cursor = "pointer";
@@ -77,7 +82,56 @@
           }
         }
         roomListAll && roomListAll.appendChild(li);
+
+        // Fill last message preview inline (cached 15s)
+        try {
+          const previewEl = li.querySelector('.room-lastmsg-inline') as HTMLElement | null;
+          if (previewEl) {
+            const cacheKey = String(room.id || '');
+            const now = Date.now();
+            const cache = w.roomLastMsgCache[cacheKey];
+            if (cache && now - cache.ts < 15000) {
+              previewEl.textContent = cache.text ? ` – ${cache.text}` : '';
+            } else if (typeof w.getRoomLastMessage === 'function') {
+              w.getRoomLastMessage(cacheKey).then((res: any) => {
+                try {
+                  const text = res && res.success && res.message ? String(res.message.content || '').slice(0, 80) : '';
+                  previewEl.textContent = text ? ` – ${text}` : '';
+                  w.roomLastMsgCache[cacheKey] = { text, ts: Date.now() };
+                } catch {}
+              }).catch(() => undefined);
+            }
+          }
+        } catch {}
       });
+    };
+
+  // Real-time update helper for last message preview
+  if (!w.updateRoomLastMsgPreview)
+    w.updateRoomLastMsgPreview = function updateRoomLastMsgPreview(
+      roomId: string,
+      text: string
+    ) {
+      try {
+        if (!roomId) return;
+        w.roomLastMsgCache = w.roomLastMsgCache || {};
+        const preview = (text || '').slice(0, 80);
+        // Cache with fresh ts
+        w.roomLastMsgCache[String(roomId)] = { text: preview, ts: Date.now() };
+        // Update DOM if present
+        const roomListAll = document.getElementById(
+          "room-list-all"
+        ) as HTMLElement | null;
+        if (roomListAll) {
+          const li = roomListAll.querySelector(
+            `li.room-list-item[data-room-id="${CSS.escape(String(roomId))}"]`
+          ) as HTMLElement | null;
+          const el = li?.querySelector(
+            ".room-lastmsg-inline"
+          ) as HTMLElement | null;
+          if (el) el.textContent = preview ? ` – ${preview}` : '';
+        }
+      } catch {}
     };
 
   if (!w.renderParticipants)

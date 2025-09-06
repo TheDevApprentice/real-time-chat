@@ -66,6 +66,16 @@
   // Send form
   const chatForm = getChatForm();
   const messageInput = getMessageInput();
+  function genClientMsgId(): string {
+    try {
+      if ((window as any).crypto?.randomUUID) return (window as any).crypto.randomUUID();
+    } catch {}
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
   if (chatForm) {
     chatForm.addEventListener("submit", (e) => {
       e.preventDefault();
@@ -78,7 +88,13 @@
         roomId: selectedRoom.id,
         content,
         timestamp: Date.now(),
+        clientMsgId: genClientMsgId(),
       });
+      // Optimistic: update last message preview inline in room list
+      try {
+        if (typeof w.updateRoomLastMsgPreview === "function")
+          w.updateRoomLastMsgPreview(String(selectedRoom.id), content);
+      } catch {}
       if (messageInput) messageInput.value = "";
     });
   }

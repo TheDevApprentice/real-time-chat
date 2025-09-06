@@ -274,6 +274,11 @@ if (closeChatBtn) {
   });
 }
 
+// Aggregated typing count for current room
+// typingCount handled in sockets.ts
+
+// roomOnline handled in sockets.ts
+
 // Gestion logout (WebSocket uniquement)
 if (logoutBtn) {
   logoutBtn.onclick = function () {
@@ -439,22 +444,7 @@ async function setupDmPresence(room: any) {
   } catch {}
 }
 
-function updatePresenceLabel(text: string) {
-  try {
-    if (!selectedRoomTitle) return;
-    const id = "presence-label";
-    let span = document.getElementById(id) as HTMLSpanElement | null;
-    if (!span) {
-      span = document.createElement("span");
-      span.id = id;
-      span.style.marginLeft = "8px";
-      span.style.fontSize = "12px";
-      span.style.color = "#888";
-      selectedRoomTitle.appendChild(span);
-    }
-    span.textContent = text || "";
-  } catch {}
-}
+// updatePresenceLabel is defined in dom.ts and used here
 
 // Auth: login
 loginForm.addEventListener("submit", function (e) {

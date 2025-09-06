@@ -91,6 +91,16 @@ export class RoomsWsController {
     if (!roomsJson) {
       const rooms = await roomService.getVisibleRoomsForUser(userId);
       roomsJson = rooms.map((r: Room) => r.toJSON());
+      // Extra safety: enforce private visibility server-side
+      try {
+        roomsJson = (roomsJson || []).filter((r: any) => {
+          if (!r) return false;
+          if (r.isPublic) return true;
+          if (r.creatorId === userId) return true;
+          const users = Array.isArray(r.users) ? r.users : [];
+          return users.some((u: any) => u && u.id === userId);
+        });
+      } catch {}
       try {
         await redisService?.set?.(cacheKey, JSON.stringify(roomsJson), { EX: 60 });
       } catch {}

@@ -38,6 +38,68 @@ var socket: any = (window as any).socket || io();
           if (typeof showAuthPanel === "function") showAuthPanel(true);
         }
       });
+
+  // --- AGGREGATED TYPING COUNT ---
+  socket.on("typingCount", (payload: any) => {
+    try {
+      if (!payload || !w.selectedRoom || payload.roomId !== w.selectedRoom.id)
+        return;
+      const count = Number(payload.count || 0);
+      if (typeof setTypingBanner === "function") {
+        if (count <= 0) setTypingBanner("");
+        else if (count === 1) setTypingBanner("Quelqu'un est en train d'écrire…");
+        else setTypingBanner(`${count} personnes écrivent…`);
+      }
+    } catch {}
+  });
+
+  // --- ROOM ONLINE COUNT ---
+  socket.on("roomOnline", (payload: any) => {
+    try {
+      if (!payload || !w.selectedRoom || payload.roomId !== w.selectedRoom.id)
+        return;
+      // For DM, presence label is handled by setupDmPresence; for groups show online count
+      if (w.selectedRoom && w.selectedRoom.type !== "user") {
+        const n = Number(payload.count || 0);
+        if (typeof updatePresenceLabel === "function")
+          updatePresenceLabel(`• ${n} en ligne`);
+      }
+    } catch {}
+  });
+
+  // --- EXPOSE WS AGGREGATION HELPERS ---
+  w.getTopActiveRooms = function getTopActiveRooms(limit = 10): Promise<any> {
+    return new Promise((resolve) => {
+      try {
+        socket.emit("getTopActiveRooms", { limit }, (res: any) => resolve(res));
+      } catch {
+        resolve({ success: false });
+      }
+    });
+  };
+  w.getRoomLastMessage = function getRoomLastMessage(roomId: string): Promise<any> {
+    return new Promise((resolve) => {
+      try {
+        socket.emit("getRoomLastMessage", { roomId }, (res: any) => resolve(res));
+      } catch {
+        resolve({ success: false });
+      }
+    });
+  };
+  w.getRoomMessageCounts = function getRoomMessageCounts(
+    roomId: string,
+    range: 'hour' | 'day' = 'hour',
+    from?: number,
+    to?: number
+  ): Promise<any> {
+    return new Promise((resolve) => {
+      try {
+        socket.emit("getRoomMessageCounts", { roomId, range, from, to }, (res: any) => resolve(res));
+      } catch {
+        resolve({ success: false });
+      }
+    });
+  };
     } else {
       if (typeof showAuthPanel === "function") showAuthPanel(true);
     }
@@ -146,6 +208,11 @@ var socket: any = (window as any).socket || io();
   socket.on("message", (data: any) => {
     if (w.selectedRoom && data.roomId === w.selectedRoom.id) {
       if (typeof w.renderMsg === "function") w.renderMsg(data.message);
+      // Update inline last message preview for this room
+      try {
+        if (typeof w.updateRoomLastMsgPreview === 'function')
+          w.updateRoomLastMsgPreview(String(data.roomId || ''), String(data?.message?.content || ''));
+      } catch {}
       // Acknowledge delivery/read for messages from others in active room
       try {
         const m = data.message;
@@ -172,6 +239,11 @@ var socket: any = (window as any).socket || io();
     try {
       const authorName = data?.message?.author?.name;
       if (!w.currentUser || authorName === w.currentUser.name) return;
+      // Update list last message preview for the room
+      try {
+        if (typeof w.updateRoomLastMsgPreview === 'function')
+          w.updateRoomLastMsgPreview(String(data.roomId || ''), String(data?.message?.content || ''));
+      } catch {}
       // Mark as delivered when message arrives for a room that's not active
       try {
         const mid = parseInt(String(data?.message?.id ?? ""), 10);

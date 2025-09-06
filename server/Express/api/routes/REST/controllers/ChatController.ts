@@ -12,6 +12,7 @@ import { getServices } from "../../../di/container";
 import { K, TTL, incrWithTtl } from "../../../cache/cacheKeys";
 import { Message, User } from "../../../../domain/entities";
 import { randomUUID } from "crypto";
+// Note: invites use Redis-only tokens (no cross-instance signing)
 
 const router = Router();
 
@@ -102,7 +103,7 @@ router.get(
   })
 );
 
-// --- Invites ---
+// --- Invites (Redis-only) ---
 // Create an invite token with minimal payload stored in Redis (EX 600s)
 router.post(
   "/invite",
@@ -136,17 +137,25 @@ router.get(
   "/invite/:token",
   rateLimit("chat:consumeInvite", 120),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const { redisService } = getServices() as any;
+    const { redisService, roomService } = getServices() as any;
     const token = String(req.params.token || "");
     if (!token) return res.status(400).json({ error: "Missing token" });
+    const me = (req as any).user as { id: string } | undefined;
+    if (!me?.id) return res.status(401).json({ error: "Not authenticated" });
+    // 1) Try legacy Redis-based token first (backward compatibility)
     try {
       const raw = await redisService.getDel(K.invite(token));
-      if (!raw) return res.status(404).json({ error: "Invalid or expired invite" });
-      const payload = JSON.parse(raw);
-      return res.json({ token, payload });
-    } catch {
-      return res.status(404).json({ error: "Invalid or expired invite" });
-    }
+      if (raw) {
+        const payload = JSON.parse(raw);
+        const roomId = String(payload?.roomId || "");
+        if (!roomId) return res.status(404).json({ error: "Invalid or expired invite" });
+        try { await roomService.addUserToRoom(me.id, roomId); } catch {}
+        try { await redisService.del(K.roomsVisible(me.id)); } catch {}
+        return res.json({ token, payload: { roomId } });
+      }
+    } catch {}
+      // No portable token: if not found in Redis, we consider it invalid/expired
+    return res.status(404).json({ error: "Invalid or expired invite" });
   })
 );
 
