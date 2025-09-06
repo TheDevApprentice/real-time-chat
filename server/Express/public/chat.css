@@ -57,6 +57,78 @@
 .sidebar { min-height: 70vh; }
 .chat-main { min-height: 70vh; }
 
+/* Sidebar toolbar */
+.sidebar-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.icon-btn {
+  appearance: none;
+  border: 1px solid color-mix(in oklch, var(--page-accent-color), black 20%);
+  background: color-mix(in oklch, var(--page-accent-color), transparent 80%);
+  color: var(--page-text-color);
+  padding: 6px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.16s, box-shadow 0.16s, transform 0.06s;
+}
+.icon-btn:hover { background: color-mix(in oklch, var(--page-accent-color), transparent 65%); box-shadow: 0 6px 16px rgba(24,119,242,0.22); }
+.badge {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--page-accent-color);
+}
+
+/* Dropdowns */
+.dropdown {
+  background: var(--page-bg-card);
+  border: 1px solid var(--ev-c-gray-1);
+  border-radius: 10px;
+  box-shadow: var(--page-card-shadow);
+  padding: 8px;
+  margin-bottom: 10px;
+}
+.dropdown .room-list { gap: 6px; }
+
+/* Unified room list icons */
+.room-list-item .room-type-icon { margin-right: 6px; opacity: .85; }
+
+/* Left drawer for room creation */
+.room-drawer {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.25);
+  display: none;
+  z-index: 1000;
+}
+.room-drawer[aria-hidden="false"] { display: block; }
+.room-drawer__panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 420px;
+  max-width: 90vw;
+  background: var(--page-bg-card);
+  border-right: 1px solid var(--ev-c-gray-1);
+  box-shadow: var(--page-card-shadow-hover);
+  padding: 16px;
+  transform: translateX(-105%);
+  transition: transform .22s ease-out;
+}
+.room-drawer[aria-hidden="false"] .room-drawer__panel { transform: translateX(0); }
+.room-drawer__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+
 
 /* Carte du chat */
 .chat-card {

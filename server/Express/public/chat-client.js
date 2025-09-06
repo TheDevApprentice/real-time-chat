@@ -96,10 +96,9 @@ if (tabLogin && tabRegister && loginForm && registerForm) {
     showAuthTab("login");
 }
 const roomPanel = document.getElementById("room-panel");
-const roomListRooms = document.getElementById("room-list-rooms");
-const roomListDms = document.getElementById("room-list-dms");
-const noRoomMsgRooms = document.getElementById("no-room-msg-rooms");
-const noRoomMsgDms = document.getElementById("no-room-msg-dms");
+// Unified room list
+const roomListAll = document.getElementById("room-list-all");
+const noRoomMsgAll = document.getElementById("no-room-msg-all");
 const createRoomForm = document.getElementById("create-room-form");
 const createRoomName = document.getElementById("create-room-name");
 // Private room UI
@@ -171,7 +170,6 @@ const chatCard = document.getElementById("chat-card");
 const chatWindow = document.getElementById("chat-window");
 const chatForm = document.getElementById("chat-form");
 const messageInput = document.getElementById("message");
-const backToRoomsBtn = document.getElementById("back-to-rooms");
 const closeChatBtn = document.getElementById("close-chat");
 const layoutContainer = document.querySelector('.chat-root.layout');
 const selectedRoomTitle = document.getElementById("selected-room-title");
@@ -189,6 +187,16 @@ catch { }
 const userSearchForm = document.getElementById("user-search-form");
 const userSearchInput = document.getElementById("user-search-input");
 const userSearchResults = document.getElementById("user-search-results");
+// New toolbar elements
+const btnFriends = document.getElementById('btn-friends');
+const btnRequests = document.getElementById('btn-requests');
+const requestsBadge = document.getElementById('requests-badge');
+const friendsDropdown = document.getElementById('friends-dropdown');
+const requestsDropdown = document.getElementById('requests-dropdown');
+const btnOpenRoomDrawer = document.getElementById('btn-open-room-drawer');
+const btnCloseRoomDrawer = document.getElementById('btn-close-room-drawer');
+const roomDrawer = document.getElementById('room-drawer');
+// Deprecated in new UI but kept for compatibility
 const friendsList = document.getElementById("friends-list");
 const refreshFriendsBtn = document.getElementById("refresh-friends");
 const roomParticipants = document.getElementById("room-participants");
@@ -272,10 +280,8 @@ socket.on("forceLogout", function (data) {
 });
 // --- ROOM LIST LOGIC ---
 function renderRoomList() {
-    if (roomListRooms)
-        roomListRooms.innerHTML = "";
-    if (roomListDms)
-        roomListDms.innerHTML = "";
+    if (roomListAll)
+        roomListAll.innerHTML = "";
     // Visibility: show public rooms, and private rooms if current user is a member or creator
     const visibleRooms = rooms.filter((room) => {
         if (room.isPublic === false) {
@@ -289,69 +295,37 @@ function renderRoomList() {
         }
         return true; // public
     });
-    const groupRooms = visibleRooms.filter((r) => r.type !== 'user');
-    const dmRooms = visibleRooms.filter((r) => r.type === 'user');
-    // Empty states
-    if (noRoomMsgRooms)
-        noRoomMsgRooms.style.display = groupRooms.length ? 'none' : 'block';
-    if (noRoomMsgDms)
-        noRoomMsgDms.style.display = dmRooms.length ? 'none' : 'block';
-    // Render groups
-    groupRooms.forEach((room) => {
-        const li = document.createElement("li");
-        li.className = "room-list-item";
-        const displayName = room.name || 'Room';
-        const initial = (displayName || '?').trim().charAt(0).toUpperCase();
-        li.innerHTML = `
-      <div class="room-avatar" aria-hidden="true">${initial}</div>
-      <span class="room-name">${displayName}</span>
-      <span class="room-badge" hidden></span>
-    `;
-        li.style.cursor = "pointer";
-        li.onclick = () => joinRoom(room);
-        // Active state
-        if (selectedRoom && selectedRoom.id === room.id)
-            li.classList.add('active');
-        // Unread badge
-        const badge = li.querySelector('.room-badge');
-        const count = unreadCounts[room.id] || 0;
-        if (badge) {
-            if (count > 0) {
-                badge.textContent = String(count);
-                badge.hidden = false;
+    // Empty state
+    if (noRoomMsgAll)
+        noRoomMsgAll.style.display = visibleRooms.length ? 'none' : 'block';
+    // Render unified list
+    visibleRooms.forEach((room) => {
+        const li = document.createElement('li');
+        li.className = 'room-list-item';
+        // Label & type icon
+        let label = room.name || (room.type === 'user' ? 'DM' : 'Room');
+        if (room.type === 'user') {
+            try {
+                const meId = currentUser === null || currentUser === void 0 ? void 0 : currentUser.id;
+                const members = Array.isArray(room.users) ? room.users : [];
+                const other = meId ? members.find((u) => u && u.id !== meId) : null;
+                if (other && other.name)
+                    label = other.name;
             }
-            else {
-                badge.hidden = true;
-            }
+            catch { }
         }
-        roomListRooms && roomListRooms.appendChild(li);
-    });
-    // Render DMs
-    dmRooms.forEach((room) => {
-        const li = document.createElement("li");
-        li.className = "room-list-item";
-        // Prefer showing other participant name if available
-        let label = room.name || 'DM';
-        try {
-            const meId = currentUser === null || currentUser === void 0 ? void 0 : currentUser.id;
-            const members = Array.isArray(room.users) ? room.users : [];
-            const other = meId ? members.find((u) => u && u.id !== meId) : null;
-            if (other && other.name)
-                label = other.name;
-        }
-        catch { }
+        const typeIcon = room.type === 'user' ? '👤' : '📁';
         const initial = (label || '?').trim().charAt(0).toUpperCase();
         li.innerHTML = `
       <div class="room-avatar" aria-hidden="true">${initial}</div>
+      <span class="room-type-icon" aria-hidden="true">${typeIcon}</span>
       <span class="room-name">${label}</span>
       <span class="room-badge" hidden></span>
     `;
-        li.style.cursor = "pointer";
+        li.style.cursor = 'pointer';
         li.onclick = () => joinRoom(room);
-        // Active state
         if (selectedRoom && selectedRoom.id === room.id)
             li.classList.add('active');
-        // Unread badge
         const badge = li.querySelector('.room-badge');
         const count = unreadCounts[room.id] || 0;
         if (badge) {
@@ -363,7 +337,7 @@ function renderRoomList() {
                 badge.hidden = true;
             }
         }
-        roomListDms && roomListDms.appendChild(li);
+        roomListAll && roomListAll.appendChild(li);
     });
 }
 socket.on("rooms", (serverRooms) => {
@@ -428,16 +402,6 @@ function joinRoom(room) {
     }
     catch { }
 }
-backToRoomsBtn.addEventListener("click", function () {
-    selectedRoom = null;
-    chatWindow.innerHTML = "";
-    setTypingBanner("");
-    if (dmPresenceInterval) {
-        window.clearInterval(dmPresenceInterval);
-        dmPresenceInterval = null;
-    }
-    syncLayoutVisibility();
-});
 // Close chat (desktop/mobile)
 if (closeChatBtn) {
     closeChatBtn.addEventListener('click', () => {
@@ -997,81 +961,132 @@ catch { }
 // --- Friends via WebSocket ---
 function renderFriends(items) {
     lastFriendItems = items || [];
-    if (!friendsList)
-        return;
-    friendsList.innerHTML = '';
-    // Layout container: two columns (left friends, right requests)
-    const row = document.createElement('div');
-    row.className = 'friend-sections';
-    const colFriends = document.createElement('div');
-    colFriends.className = 'friend-column';
-    const hFriends = document.createElement('div');
-    hFriends.textContent = 'Amis';
-    hFriends.className = 'friend-column-title';
-    const ulFriends = document.createElement('ul');
-    ulFriends.className = 'friend-list';
-    const colRequests = document.createElement('div');
-    colRequests.className = 'friend-column';
-    const hRequests = document.createElement('div');
-    hRequests.textContent = 'Demandes';
-    hRequests.className = 'friend-column-title';
-    const ulRequests = document.createElement('ul');
-    ulRequests.className = 'friend-list';
-    // Separate accepted friends and incoming pending requests
-    const accepted = lastFriendItems.filter((it) => it && it.status === 'accepted');
-    const incoming = lastFriendItems.filter((it) => it && it.status === 'pending' && !it.isRequester);
-    // Friends (accepted): name + Message button, no status label
-    accepted.forEach((it) => {
-        const otherName = it.name || 'inconnu';
-        const li = document.createElement('li');
-        li.className = 'room-list-item friend-item';
-        const label = document.createElement('span');
-        label.textContent = otherName;
-        label.className = 'friend-item-name';
-        const actions = document.createElement('span');
-        actions.className = 'friend-actions';
-        const msgBtn = document.createElement('button');
-        msgBtn.textContent = 'Message';
-        msgBtn.className = 'chat-send-btn';
-        msgBtn.onclick = () => startDM(it.userId || it.id, otherName);
-        actions.appendChild(msgBtn);
-        li.appendChild(label);
-        li.appendChild(actions);
-        ulFriends.appendChild(li);
-    });
-    // Requests (incoming pending): name + Accept/Reject
-    incoming.forEach((it) => {
-        const otherName = it.name || 'inconnu';
-        const li = document.createElement('li');
-        li.className = 'room-list-item friend-item';
-        const label = document.createElement('span');
-        label.textContent = otherName;
-        label.className = 'friend-item-name';
-        const actions = document.createElement('span');
-        actions.className = 'friend-actions';
-        const acceptBtn = document.createElement('button');
-        acceptBtn.textContent = 'Accepter';
-        acceptBtn.className = 'chat-send-btn';
-        acceptBtn.onclick = () => socket.emit('friendRespond', { otherUserId: it.userId, action: 'accept' }, () => requestFriendList());
-        const declineBtn = document.createElement('button');
-        declineBtn.textContent = 'Refuser';
-        declineBtn.className = 'auth-btn';
-        declineBtn.onclick = () => socket.emit('friendRespond', { otherUserId: it.userId, action: 'reject' }, () => requestFriendList());
-        actions.appendChild(acceptBtn);
-        actions.appendChild(declineBtn);
-        li.appendChild(label);
-        li.appendChild(actions);
-        ulRequests.appendChild(li);
-    });
-    // Assemble columns
-    colFriends.appendChild(hFriends);
-    colFriends.appendChild(ulFriends);
-    colRequests.appendChild(hRequests);
-    colRequests.appendChild(ulRequests);
-    row.appendChild(colFriends);
-    row.appendChild(colRequests);
-    friendsList.appendChild(row);
+    const accepted = items.filter((it) => it && it.status === 'accepted');
+    const pending = items.filter((it) => it && (it.status === 'pending' || it.status === 'received'));
+    // Update requests badge
+    if (requestsBadge) {
+        const n = pending.length;
+        if (n > 0) {
+            requestsBadge.textContent = String(n);
+            requestsBadge.hidden = false;
+        }
+        else {
+            requestsBadge.hidden = true;
+        }
+    }
+    // If there are no pending requests, ensure the dropdown is closed
+    if (pending.length === 0) {
+        hideDropdown(requestsDropdown);
+        btnRequests === null || btnRequests === void 0 ? void 0 : btnRequests.setAttribute('aria-expanded', 'false');
+    }
+    if (friendsDropdown) {
+        friendsDropdown.innerHTML = '';
+        const ul = document.createElement('ul');
+        ul.className = 'room-list';
+        accepted.forEach((it) => {
+            const li = document.createElement('li');
+            li.className = 'room-list-item';
+            const name = it.name || 'inconnu';
+            li.innerHTML = `<span>${name}</span>`;
+            const msgBtn = document.createElement('button');
+            msgBtn.textContent = 'Message';
+            msgBtn.className = 'chat-send-btn';
+            msgBtn.style.float = 'right';
+            msgBtn.onclick = () => startDM(it.userId || it.id, name);
+            li.appendChild(msgBtn);
+            ul.appendChild(li);
+        });
+        friendsDropdown.appendChild(ul);
+    }
+    if (requestsDropdown) {
+        requestsDropdown.innerHTML = '';
+        const ul = document.createElement('ul');
+        ul.className = 'room-list';
+        pending.forEach((it) => {
+            const li = document.createElement('li');
+            li.className = 'room-list-item';
+            const name = it.name || 'inconnu';
+            const label = document.createElement('span');
+            label.textContent = name;
+            const actions = document.createElement('span');
+            actions.style.float = 'right';
+            const acceptBtn = document.createElement('button');
+            acceptBtn.textContent = 'Accepter';
+            acceptBtn.className = 'chat-send-btn';
+            acceptBtn.onclick = () => socket.emit('friendRespond', { otherUserId: it.userId, action: 'accept' }, () => requestFriendList());
+            const declineBtn = document.createElement('button');
+            declineBtn.textContent = 'Refuser';
+            declineBtn.className = 'auth-btn';
+            declineBtn.onclick = () => socket.emit('friendRespond', { otherUserId: it.userId, action: 'reject' }, () => requestFriendList());
+            actions.appendChild(acceptBtn);
+            actions.appendChild(declineBtn);
+            li.appendChild(label);
+            li.appendChild(actions);
+            ul.appendChild(li);
+        });
+        requestsDropdown.appendChild(ul);
+    }
 }
+// Toolbar toggles
+function hideDropdown(el) { if (el)
+    el.hidden = true; }
+function showDropdown(el) { if (el)
+    el.hidden = false; }
+if (btnFriends) {
+    btnFriends.addEventListener('click', () => {
+        const expanded = btnFriends.getAttribute('aria-expanded') === 'true';
+        btnFriends.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+        if (expanded)
+            hideDropdown(friendsDropdown);
+        else {
+            showDropdown(friendsDropdown);
+            hideDropdown(requestsDropdown);
+            btnRequests === null || btnRequests === void 0 ? void 0 : btnRequests.setAttribute('aria-expanded', 'false');
+        }
+    });
+}
+if (btnRequests) {
+    btnRequests.addEventListener('click', () => {
+        // Only open if there are pending requests
+        const hasPending = Array.isArray(lastFriendItems) && lastFriendItems.some((it) => it && (it.status === 'pending' || it.status === 'received'));
+        const expanded = btnRequests.getAttribute('aria-expanded') === 'true';
+        if (!expanded) {
+            if (!hasPending)
+                return; // do nothing when none pending
+            btnRequests.setAttribute('aria-expanded', 'true');
+            showDropdown(requestsDropdown);
+            hideDropdown(friendsDropdown);
+            btnFriends === null || btnFriends === void 0 ? void 0 : btnFriends.setAttribute('aria-expanded', 'false');
+        }
+        else {
+            btnRequests.setAttribute('aria-expanded', 'false');
+            hideDropdown(requestsDropdown);
+        }
+    });
+}
+// Close dropdowns when clicking outside
+document.addEventListener('click', (e) => {
+    const t = e.target;
+    const inFriends = (friendsDropdown === null || friendsDropdown === void 0 ? void 0 : friendsDropdown.contains(t)) || (btnFriends === null || btnFriends === void 0 ? void 0 : btnFriends.contains(t));
+    const inRequests = (requestsDropdown === null || requestsDropdown === void 0 ? void 0 : requestsDropdown.contains(t)) || (btnRequests === null || btnRequests === void 0 ? void 0 : btnRequests.contains(t));
+    if (!inFriends) {
+        hideDropdown(friendsDropdown);
+        btnFriends === null || btnFriends === void 0 ? void 0 : btnFriends.setAttribute('aria-expanded', 'false');
+    }
+    if (!inRequests) {
+        hideDropdown(requestsDropdown);
+        btnRequests === null || btnRequests === void 0 ? void 0 : btnRequests.setAttribute('aria-expanded', 'false');
+    }
+});
+// Drawer open/close
+function openRoomDrawer() { if (roomDrawer)
+    roomDrawer.setAttribute('aria-hidden', 'false'); }
+function closeRoomDrawer() { if (roomDrawer)
+    roomDrawer.setAttribute('aria-hidden', 'true'); }
+btnOpenRoomDrawer === null || btnOpenRoomDrawer === void 0 ? void 0 : btnOpenRoomDrawer.addEventListener('click', openRoomDrawer);
+btnCloseRoomDrawer === null || btnCloseRoomDrawer === void 0 ? void 0 : btnCloseRoomDrawer.addEventListener('click', closeRoomDrawer);
+roomDrawer === null || roomDrawer === void 0 ? void 0 : roomDrawer.addEventListener('click', (e) => { if (e.target === roomDrawer)
+    closeRoomDrawer(); });
 function requestFriendList() {
     if (!currentUser)
         return;
