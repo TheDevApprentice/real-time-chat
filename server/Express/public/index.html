@@ -20,76 +20,163 @@
           <span class="brand-logo">💬</span>
           <span class="brand-name">Realtime Chat</span>
         </div>
-        <div id="user-actions" class="app-actions" style="display:none;">
-          <button id="logout-btn" class="auth-btn" type="button">Déconnexion</button>
-          <button id="logout-all-btn" class="auth-btn" type="button">Déconnexion tous les appareils</button>
+        <div id="user-actions" class="app-actions" style="display: none">
+          <button id="logout-btn" class="auth-btn" type="button">
+            Déconnexion
+          </button>
+          <button id="logout-all-btn" class="auth-btn" type="button">
+            Déconnexion tous les appareils
+          </button>
         </div>
       </div>
     </header>
     <!-- Auth panel -->
     <div id="auth-panel" class="auth-card">
-  <div class="auth-card-header">
-    <span class="auth-card-icon">🔐</span>
-    <span class="auth-card-title">Connexion / Inscription</span>
-  </div>
-  <div class="auth-tabs">
-    <button class="auth-tab active" id="tab-login" type="button">Connexion</button>
-    <button class="auth-tab" id="tab-register" type="button">Créer un compte</button>
-  </div>
-  <form id="login-form" class="auth-form" autocomplete="off">
-    <div class="auth-field">
-      <label for="login-username">Pseudo</label>
-      <input type="text" id="login-username" maxlength="20" required autocomplete="username" />
+      <div class="auth-card-header">
+        <span class="auth-card-icon">🔐</span>
+        <span class="auth-card-title">Connexion / Inscription</span>
+      </div>
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-login" type="button">
+          Connexion
+        </button>
+        <button class="auth-tab" id="tab-register" type="button">
+          Créer un compte
+        </button>
+      </div>
+      <form id="login-form" class="auth-form" autocomplete="off">
+        <div class="auth-field">
+          <label for="login-username">Pseudo</label>
+          <input
+            type="text"
+            id="login-username"
+            maxlength="20"
+            required
+            autocomplete="username"
+          />
+        </div>
+        <div class="auth-field">
+          <label for="login-password">Mot de passe</label>
+          <input
+            type="password"
+            id="login-password"
+            maxlength="40"
+            required
+            autocomplete="current-password"
+          />
+        </div>
+        <button type="submit" class="auth-btn">Connexion</button>
+      </form>
+      <form id="register-form" class="auth-form" autocomplete="off">
+        <div class="auth-field">
+          <label for="register-username">Pseudo</label>
+          <input
+            type="text"
+            id="register-username"
+            maxlength="20"
+            required
+            autocomplete="username"
+          />
+        </div>
+        <div class="auth-field">
+          <label for="register-password">Mot de passe</label>
+          <input
+            type="password"
+            id="register-password"
+            maxlength="40"
+            required
+            autocomplete="new-password"
+          />
+        </div>
+        <div class="auth-field">
+          <label for="register-confirm">Confirmez le mot de passe</label>
+          <input
+            type="password"
+            id="register-confirm"
+            maxlength="40"
+            required
+            autocomplete="new-password"
+          />
+        </div>
+        <button type="submit" class="auth-btn">Créer un compte</button>
+      </form>
+      <div class="auth-error" id="auth-error"></div>
     </div>
-    <div class="auth-field">
-      <label for="login-password">Mot de passe</label>
-      <input type="password" id="login-password" maxlength="40" required autocomplete="current-password" />
-    </div>
-    <button type="submit" class="auth-btn">Connexion</button>
-  </form>
-  <form id="register-form" class="auth-form" autocomplete="off">
-    <div class="auth-field">
-      <label for="register-username">Pseudo</label>
-      <input type="text" id="register-username" maxlength="20" required autocomplete="username" />
-    </div>
-    <div class="auth-field">
-      <label for="register-password">Mot de passe</label>
-      <input type="password" id="register-password" maxlength="40" required autocomplete="new-password" />
-    </div>
-    <div class="auth-field">
-      <label for="register-confirm">Confirmez le mot de passe</label>
-      <input type="password" id="register-confirm" maxlength="40" required autocomplete="new-password" />
-    </div>
-    <button type="submit" class="auth-btn">Créer un compte</button>
-  </form>
-  <div class="auth-error" id="auth-error"></div>
-</div>
-    <div class="chat-root layout"> <!-- Responsive sidebar + main chat -->
+    <div class="chat-root layout">
+      <!-- Responsive sidebar + main chat -->
       <!-- Sidebar: room selection & friends -->
       <aside id="room-panel" class="chat-card sidebar">
         <!-- Toolbar: friends toggle, requests toggle, create room drawer trigger -->
         <div class="sidebar-toolbar" role="toolbar" aria-label="Actions">
-          <button id="btn-friends" class="icon-btn" title="Mes amis" aria-expanded="false" aria-controls="friends-dropdown" type="button">👥</button>
-          <button id="btn-requests" class="icon-btn" title="Demandes d'amis" aria-expanded="false" aria-controls="requests-dropdown" type="button">
+          <button
+            id="btn-friends"
+            class="icon-btn"
+            title="Mes amis"
+            aria-expanded="false"
+            aria-controls="friends-dropdown"
+            type="button"
+          >
+            👥
+          </button>
+          <button
+            id="btn-requests"
+            class="icon-btn"
+            title="Demandes d'amis"
+            aria-expanded="false"
+            aria-controls="requests-dropdown"
+            type="button"
+          >
             🤝<span id="requests-badge" class="badge" hidden>0</span>
           </button>
-          <button id="btn-open-room-drawer" class="icon-btn" title="Créer une room" type="button"># +</button>
+          <button
+            id="btn-open-room-drawer"
+            class="icon-btn"
+            title="Créer une room"
+            type="button"
+          >
+            # +
+          </button>
         </div>
         <!-- Dropdowns -->
-        <div id="friends-dropdown" class="dropdown" hidden aria-label="Liste d'amis"></div>
-        <div id="requests-dropdown" class="dropdown" hidden aria-label="Demandes d'amis"></div>
+        <div
+          id="friends-dropdown"
+          class="dropdown"
+          hidden
+          aria-label="Liste d'amis"
+        ></div>
+        <div
+          id="requests-dropdown"
+          class="dropdown"
+          hidden
+          aria-label="Demandes d'amis"
+        ></div>
         <div id="user-search-section" class="section-card">
           <form id="user-search-form" class="chat-input-bar" autocomplete="off">
-            <input type="text" id="user-search-input" class="chat-input-message" placeholder="Tapez un pseudo..." maxlength="50" />
+            <input
+              type="text"
+              id="user-search-input"
+              class="chat-input-message"
+              placeholder="Tapez un pseudo..."
+              maxlength="50"
+            />
             <button type="submit" class="chat-send-btn">Rechercher</button>
           </form>
           <ul id="user-search-results" class="room-list"></ul>
         </div>
         <div id="room-list-section">
           <div class="room-section-card" aria-expanded="true">
-            <button type="button" class="room-section-header" disabled style="cursor:default;">💬 Conversations & Rooms</button>
+            <button
+              type="button"
+              class="room-section-header"
+              disabled
+              style="cursor: default"
+            >
+              💬 Conversations & Rooms
+            </button>
             <ul id="room-list-all" class="room-list"></ul>
-            <div id="no-room-msg-all" class="room-empty" style="display:none;">Aucune conversation.</div>
+            <div id="no-room-msg-all" class="room-empty" style="display: none">
+              Aucune conversation.
+            </div>
           </div>
         </div>
       </aside>
@@ -98,41 +185,81 @@
         <div class="room-drawer__panel">
           <div class="room-drawer__header">
             <h3>Créer une room</h3>
-            <button id="btn-close-room-drawer" class="icon-btn" type="button" aria-label="Fermer">✕</button>
+            <button
+              id="btn-close-room-drawer"
+              class="icon-btn"
+              type="button"
+              aria-label="Fermer"
+            >
+              ✕
+            </button>
           </div>
           <form id="create-room-form" class="chat-input-bar" autocomplete="off">
-            <input type="text" id="create-room-name" class="chat-input-message" placeholder="Nom de la room" maxlength="32" required />
+            <input
+              type="text"
+              id="create-room-name"
+              class="chat-input-message"
+              placeholder="Nom de la room"
+              maxlength="32"
+              required
+            />
             <button type="submit" class="chat-send-btn">Créer</button>
           </form>
           <div id="create-room-options" class="create-room-options">
             <label class="switch" for="create-room-private">
               <input type="checkbox" id="create-room-private" />
               <span class="switch-slider" aria-hidden="true"></span>
-              <span class="switch-text">Room privée (visible uniquement par les membres)</span>
+              <span class="switch-text"
+                >Room privée (visible uniquement par les membres)</span
+              >
             </label>
-            <div id="private-room-invite" style="display:none;margin-top:10px;">
-              <div style="font-weight:600;margin-bottom:6px;">Inviter des amis</div>
-              <form id="invite-friends-form" class="chat-input-bar" autocomplete="off" style="margin-bottom:6px;">
-                <input type="text" id="invite-friend-input" class="chat-input-message" placeholder="Rechercher parmi vos amis..." maxlength="50" />
+            <div
+              id="private-room-invite"
+              style="display: none; margin-top: 10px"
+            >
+              <div style="font-weight: 600; margin-bottom: 6px">
+                Inviter des amis
+              </div>
+              <form
+                id="invite-friends-form"
+                class="chat-input-bar"
+                autocomplete="off"
+                style="margin-bottom: 6px"
+              >
+                <input
+                  type="text"
+                  id="invite-friend-input"
+                  class="chat-input-message"
+                  placeholder="Rechercher parmi vos amis..."
+                  maxlength="50"
+                />
                 <button type="submit" class="chat-send-btn">Ajouter</button>
               </form>
               <ul id="invite-friend-results" class="room-list"></ul>
-              <div style="margin-top:6px;color:#666;font-size:0.9rem;">Invités:</div>
+              <div style="margin-top: 6px; color: #666; font-size: 0.9rem">
+                Invités:
+              </div>
               <ul id="invited-users" class="room-list"></ul>
             </div>
           </div>
         </div>
       </div>
       <!-- Main chat area -->
-      <main id="chat-card" class="chat-card chat-main" style="display:none;">
+      <main id="chat-card" class="chat-card chat-main" style="display: none">
         <div class="chat-toolbar">
           <button id="close-chat" aria-label="Fermer la conversation">✕</button>
         </div>
-        <div id="selected-room-title" class="chat-title" style="font-size:1.25rem;margin-bottom:0.4em;"></div>
-        <div id="room-participants" style="font-size:0.9rem;color:#666;margin-bottom:8px;"></div>
+        <div
+          id="selected-room-title"
+          class="chat-title"
+          style="font-size: 1.25rem; margin-bottom: 0.4em"
+        ></div>
+        <div
+          id="room-participants"
+          style="font-size: 0.9rem; color: #666; margin-bottom: 8px"
+        ></div>
         <div id="chat-window" class="chat-window"></div>
         <form class="chat-input-bar" id="chat-form" autocomplete="off">
-          
           <input
             type="text"
             id="message"

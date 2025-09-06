@@ -154,6 +154,9 @@ For any questions or contributions, please open an issue or submit a pull reques
 compile ts file: 
 npx tsc chat-client.ts --target ES2019 --module none  --skipLibCheck
 
+npx tsc --target ES2019 --module none --outFile chat-client.js refs.ts
+
+npx tsc -p tsconfig.json
 ---
 
 # Server Updates: Database Drivers, Factory, Docker, and Redis

@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2019",
+    "module": "none",
+    "outFile": "chat-client.js",
+    "moduleResolution": "classic",
+    "skipLibCheck": true,
+    "lib": ["DOM", "ES2019"],
+    "types": [],
+    "strict": false,
+    "noEmitOnError": false
+  },
+  "include": [
+    "refs.ts",
+    "*.ts"
+  ]
+}
