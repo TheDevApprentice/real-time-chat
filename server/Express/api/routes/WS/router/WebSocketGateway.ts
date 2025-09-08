@@ -11,6 +11,7 @@ import {
   WsMessageEditSchema,
   WsMessageDeleteSchema,
   WsMessageUndoSchema,
+  WsUndoTtlSchema,
 } from "../../../middleware/validation";
 import { WsRouter } from "./WsRouter";
 import { AuthWsController } from "../controllers/AuthWsController";
@@ -186,6 +187,13 @@ export class WebSocketGateway {
       rateLimitPerSocket("chat:messageUndo", 60, 10_000),
       validate(WsMessageUndoSchema),
       async (ctx: WsContext<z.infer<typeof WsMessageUndoSchema>>) => this.messagesCtrl.messageUndo(ctx)
+    );
+    this.router.register(
+      "getUndoTTL",
+      requireAuth(),
+      rateLimitPerSocket("chat:getUndoTTL", 240, 10_000),
+      validate(WsUndoTtlSchema),
+      async (ctx: WsContext<z.infer<typeof WsUndoTtlSchema>>) => this.messagesCtrl.getUndoTTL(ctx)
     );
     this.router.register(
       "messageDelivered",

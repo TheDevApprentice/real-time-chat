@@ -705,6 +705,28 @@ function renderSearchResults(users) {
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;');
     }
+    // Persisted edited-flag helpers (client-side hint)
+    const EDITED_LS_PREFIX = 'edited:'; // edited:{messageId} => 1
+    function setEditedFlag(messageId) {
+        try {
+            localStorage.setItem(EDITED_LS_PREFIX + String(messageId), '1');
+        }
+        catch { }
+    }
+    function clearEditedFlag(messageId) {
+        try {
+            localStorage.removeItem(EDITED_LS_PREFIX + String(messageId));
+        }
+        catch { }
+    }
+    function isEditedFlag(messageId) {
+        try {
+            return localStorage.getItem(EDITED_LS_PREFIX + String(messageId)) === '1';
+        }
+        catch {
+            return false;
+        }
+    }
     // --- Undo eligibility tracking (client-side hint) ---
     // Track which messages this user just edited/deleted so the Undo button shows
     // locally for up to 10 minutes. Server remains the source of truth.
@@ -845,6 +867,19 @@ function renderSearchResults(users) {
         meta.className = 'msg-meta-row';
         meta.innerHTML = `<span class="msg-author">${authorName}</span><span class="msg-time">${time}</span>`;
         div.appendChild(meta);
+        // If message was edited (client-side persisted), append tag
+        try {
+            if (msg && msg.id != null && isEditedFlag(String(msg.id))) {
+                const edited = document.createElement('span');
+                edited.className = 'edited-flag';
+                edited.style.marginLeft = '6px';
+                edited.style.fontSize = '11px';
+                edited.style.color = '#6b7280';
+                edited.textContent = '(edited)';
+                meta.appendChild(edited);
+            }
+        }
+        catch { }
         div.appendChild(contentContainer);
         if (isMine) {
             const st = document.createElement('span');
@@ -890,6 +925,11 @@ function renderSearchResults(users) {
                             renderContentInto(contentContainer, newContent);
                             // Mark Undo available locally for this message
                             setUndoEligible(msg.id);
+                            // Persistent snackbar synced to server TTL
+                            try {
+                                startPersistentUndo(String(room.id), Number(msg.id));
+                            }
+                            catch { }
                         }
                         else if (res && res.error) {
                             (_b = (_a = window).showToast) === null || _b === void 0 ? void 0 : _b.call(_a, String(res.error));
@@ -915,6 +955,11 @@ function renderSearchResults(users) {
                         markMessageDeleted(msg.id);
                         // Mark Undo available locally for this message
                         setUndoEligible(msg.id);
+                        // Persistent snackbar synced to server TTL
+                        try {
+                            startPersistentUndo(String(room.id), Number(msg.id));
+                        }
+                        catch { }
                     }
                     else if (res && res.error) {
                         (_b = (_a = window).showToast) === null || _b === void 0 ? void 0 : _b.call(_a, String(res.error));
@@ -1486,6 +1531,15 @@ function renderSearchResults(users) {
                     if (res && res.success) {
                         (_b = (_a = window).showToast) === null || _b === void 0 ? void 0 : _b.call(_a, 'Modification reverted');
                         clearUndoEligible(messageId);
+                        // Clear persistent snackbar state
+                        try {
+                            clearUndoPersist(String((w.currentUser || {}).id || ''), String(messageId));
+                        }
+                        catch { }
+                        try {
+                            hideUndoSnackbar(String(messageId));
+                        }
+                        catch { }
                     }
                     else if (res && res.error) {
                         (_d = (_c = window).showToast) === null || _d === void 0 ? void 0 : _d.call(_c, String(res.error));
@@ -1494,6 +1548,209 @@ function renderSearchResults(users) {
             }
             catch { }
         };
+    // --- Persistent Undo snackbar (localStorage + WS TTL sync) ---
+    const UNDO_LS_PREFIX = 'undo:'; // undo:{userId}:{messageId} => { roomId, messageId, expiresAt }
+    const CLIENT_ID_KEY = 'rtc:clientId';
+    function getClientId() {
+        try {
+            let id = localStorage.getItem(CLIENT_ID_KEY);
+            if (!id) {
+                id = genClientMsgId();
+                localStorage.setItem(CLIENT_ID_KEY, id);
+            }
+            return id;
+        }
+        catch {
+            return 'client';
+        }
+    }
+    function lsKey(userId, messageId) { return `${UNDO_LS_PREFIX}${userId}:${messageId}`; }
+    function saveUndoPersist(userId, roomId, messageId, expiresAt) {
+        try {
+            localStorage.setItem(lsKey(userId, messageId), JSON.stringify({ roomId, messageId, expiresAt, clientId: getClientId() }));
+        }
+        catch { }
+    }
+    function loadUndoPersist(userId, messageId) {
+        try {
+            const raw = localStorage.getItem(lsKey(userId, messageId));
+            return raw ? JSON.parse(raw) : null;
+        }
+        catch {
+            return null;
+        }
+    }
+    function clearUndoPersist(userId, messageId) {
+        try {
+            localStorage.removeItem(lsKey(userId, messageId));
+        }
+        catch { }
+    }
+    function ensureUndoSnackbar() {
+        let sb = document.getElementById('undo-snackbar');
+        if (!sb) {
+            sb = document.createElement('div');
+            sb.id = 'undo-snackbar';
+            sb.style.position = 'fixed';
+            sb.style.left = '50%';
+            sb.style.transform = 'translateX(-50%)';
+            sb.style.bottom = '20px';
+            sb.style.background = '#1f2937';
+            sb.style.color = 'white';
+            sb.style.padding = '10px 14px';
+            sb.style.borderRadius = '8px';
+            sb.style.boxShadow = '0 6px 20px rgba(0,0,0,0.25)';
+            sb.style.display = 'none';
+            sb.style.zIndex = '10000';
+            sb.innerHTML = '<button class="undo-close" style="position:absolute;right:6px;top:4px;background:transparent;color:#fff;border:none;font-weight:bold;cursor:pointer">×</button><span class="undo-text"></span> <button class="undo-btn" style="margin-left:12px;background:#ef4444;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer">Annuler</button>';
+            document.body.appendChild(sb);
+        }
+        return sb;
+    }
+    const undoTimers = {};
+    function showUndoSnackbar(roomId, messageId, ttlSeconds) {
+        const currentUser = w.currentUser || {};
+        const uid = String(currentUser.id || '');
+        const mid = String(messageId);
+        const sb = ensureUndoSnackbar();
+        const txt = sb.querySelector('.undo-text');
+        const btn = sb.querySelector('.undo-btn');
+        const close = sb.querySelector('.undo-close');
+        let remaining = Math.max(0, Math.floor(ttlSeconds));
+        const updateText = () => { txt.textContent = `Vous pouvez annuler cette modification pendant ${remaining}s`; };
+        updateText();
+        sb.style.display = '';
+        try {
+            if (undoTimers[mid])
+                window.clearInterval(undoTimers[mid]);
+        }
+        catch { }
+        undoTimers[mid] = window.setInterval(() => {
+            remaining -= 1;
+            if (remaining <= 0) {
+                hideUndoSnackbar(mid);
+                clearUndoPersist(uid, mid);
+            }
+            else
+                updateText();
+        }, 1000);
+        btn.onclick = () => { try {
+            w.requestUndo(mid);
+        }
+        catch { } };
+        if (close)
+            close.onclick = () => { hideUndoSnackbar(mid); try {
+                clearUndoPersist(uid, mid);
+            }
+            catch { } };
+    }
+    function hideUndoSnackbar(messageId) {
+        const sb = document.getElementById('undo-snackbar');
+        if (sb)
+            sb.style.display = 'none';
+        try {
+            if (undoTimers[messageId]) {
+                window.clearInterval(undoTimers[messageId]);
+                delete undoTimers[messageId];
+            }
+        }
+        catch { }
+    }
+    async function startPersistentUndo(roomId, messageId) {
+        try {
+            const mid = Number(messageId);
+            const uid = String((w.currentUser || {}).id || '');
+            if (!uid)
+                return; // do not persist for anonymous/unknown user
+            const res = await new Promise((resolve) => {
+                try {
+                    w.socket.emit('getUndoTTL', { roomId, messageId: mid }, (r) => resolve(r));
+                }
+                catch {
+                    resolve(null);
+                }
+            });
+            const ttl = (res && res.success && typeof res.ttlSeconds === 'number') ? res.ttlSeconds : 0;
+            if (ttl > 0) {
+                const expiresAt = Date.now() + ttl * 1000;
+                saveUndoPersist(uid, String(roomId), String(messageId), expiresAt);
+                showUndoSnackbar(String(roomId), String(messageId), ttl);
+            }
+        }
+        catch { }
+    }
+    // Restore snackbar on load if present
+    (function restoreUndoSnackbar() {
+        try {
+            const uid = String((w.currentUser || {}).id || '');
+            if (!uid)
+                return;
+            // Find any stored undo key for this user (iterate localStorage keys)
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (!k || !k.startsWith(UNDO_LS_PREFIX + uid + ':'))
+                    continue;
+                try {
+                    const val = localStorage.getItem(k);
+                    const obj = val ? JSON.parse(val) : null;
+                    if (!obj || typeof obj.expiresAt !== 'number')
+                        continue;
+                    // Only show if this browser initiated the change
+                    if (obj.clientId && obj.clientId !== getClientId())
+                        continue;
+                    const remainMs = obj.expiresAt - Date.now();
+                    if (remainMs > 1000) {
+                        showUndoSnackbar(String(obj.roomId), String(obj.messageId), Math.floor(remainMs / 1000));
+                        // Ensure inline Undo button is visible again
+                        try {
+                            setUndoEligible(String(obj.messageId), remainMs);
+                        }
+                        catch { }
+                    }
+                    else {
+                        clearUndoPersist(uid, String(obj.messageId));
+                    }
+                }
+                catch { }
+            }
+        }
+        catch { }
+    })();
+    // Also expose a callable restore in case currentUser/socket becomes available later
+    function restoreUndoSnackbarNow() {
+        try {
+            const uid = String((w.currentUser || {}).id || '');
+            if (!uid)
+                return;
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (!k || !k.startsWith(UNDO_LS_PREFIX + uid + ':'))
+                    continue;
+                try {
+                    const val = localStorage.getItem(k);
+                    const obj = val ? JSON.parse(val) : null;
+                    if (!obj || typeof obj.expiresAt !== 'number')
+                        continue;
+                    if (obj.clientId && obj.clientId !== getClientId())
+                        continue;
+                    const remainMs = obj.expiresAt - Date.now();
+                    if (remainMs > 1000) {
+                        showUndoSnackbar(String(obj.roomId), String(obj.messageId), Math.floor(remainMs / 1000));
+                        // Also ensure inline Undo button is visible again
+                        try {
+                            setUndoEligible(String(obj.messageId), remainMs);
+                        }
+                        catch { }
+                    }
+                    else {
+                        clearUndoPersist(uid, String(obj.messageId));
+                    }
+                }
+                catch { }
+            }
+        }
+        catch { }
+    }
     // Register WS listeners once (even if socket is created later)
     function attachWsHandlers() {
         try {
@@ -1509,6 +1766,41 @@ function renderSearchResults(users) {
                     // Update inline preview
                     try {
                         typeof w.updateRoomLastMsgPreview === 'function' && w.updateRoomLastMsgPreview(String(payload.roomId), payload.content || '');
+                    }
+                    catch { }
+                    // Add '(edited)' tag in meta row
+                    try {
+                        const midStr = String(payload.messageId);
+                        // Only set edited badge if not a restoration from delete
+                        if (!payload.restored)
+                            setEditedFlag(midStr);
+                        const bubble = document.querySelector(`div.message[data-message-id="${CSS.escape(midStr)}"]`);
+                        if (bubble) {
+                            let meta = bubble.querySelector('.msg-meta-row');
+                            if (meta) {
+                                let edited = meta.querySelector('.edited-flag');
+                                if (!payload.restored && !edited) {
+                                    edited = document.createElement('span');
+                                    edited.className = 'edited-flag';
+                                    edited.style.marginLeft = '6px';
+                                    edited.style.fontSize = '11px';
+                                    edited.style.color = '#6b7280';
+                                    edited.textContent = '(edited)';
+                                    meta.appendChild(edited);
+                                }
+                                else if (payload.restored && edited) {
+                                    // If restored, remove the edited badge if present
+                                    try {
+                                        edited.remove();
+                                    }
+                                    catch { }
+                                    try {
+                                        clearEditedFlag(midStr);
+                                    }
+                                    catch { }
+                                }
+                            }
+                        }
                     }
                     catch { }
                 }
@@ -1527,9 +1819,17 @@ function renderSearchResults(users) {
                 }
                 catch { }
             });
-            // Re-attach after reconnect if needed
+            // After handlers attach, attempt to restore any pending Undo snackbar
             try {
-                w.socket.on('connect', () => { w.__msg_edit_delete_handlers__ = false; attachWsHandlers(); });
+                restoreUndoSnackbarNow();
+            }
+            catch { }
+            // Re-attach after reconnect if needed and restore snackbar
+            try {
+                w.socket.on('connect', () => { w.__msg_edit_delete_handlers__ = false; attachWsHandlers(); try {
+                    restoreUndoSnackbarNow();
+                }
+                catch { } });
             }
             catch { }
         }

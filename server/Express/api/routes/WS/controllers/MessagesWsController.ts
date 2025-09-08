@@ -338,7 +338,25 @@ export class MessagesWsController {
     const clean = sanitizeText(String(snap.prevContent || '').slice(0, 2000));
     await messageService.updateMessageContent(messageId, clean);
     try { await redisService.del(K.msgUndo(userId, messageId)); } catch {}
-    try { ctx.io.to(roomId).emit('messageEdited', { roomId, messageId, content: clean }); } catch {}
+    // Emit with restored flag so clients can avoid '(edited)' tag for delete undo
+    try { ctx.io.to(roomId).emit('messageEdited', { roomId, messageId, content: clean, restored: true }); } catch {}
     return { success: true };
+  }
+
+  async getUndoTTL(
+    ctx: WsContext<{ roomId: string; messageId: number }>
+  ) {
+    const { redisService } = ctx.services as any;
+    const userId = (ctx.socket.data as any)?.userId as string | undefined;
+    if (!userId) return { success: false, error: "Not authenticated." };
+    const { roomId, messageId } = (ctx.payload || {}) as any;
+    if (!roomId || typeof messageId !== 'number') return { success: false, error: 'Missing fields' };
+    try {
+      const ttl = await redisService.ttl?.(K.msgUndo(userId, messageId));
+      const ttlSeconds = typeof ttl === 'number' && ttl > 0 ? ttl : 0;
+      return { success: true, ttlSeconds };
+    } catch {
+      return { success: true, ttlSeconds: 0 };
+    }
   }
 }

@@ -96,6 +96,11 @@ export const WsMessageUndoSchema = z.object({
   messageId: z.number().int().positive(),
 });
 
+export const WsUndoTtlSchema = z.object({
+  roomId: z.string().min(1),
+  messageId: z.number().int().positive(),
+});
+
 // REST params/bodies
 export const MessageIdParamsSchema = z.object({
   messageId: z.coerce.number().int().positive(),
