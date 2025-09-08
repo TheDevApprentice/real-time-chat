@@ -4,7 +4,6 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { authMiddleware, AuthenticatedRequest } from "../../../middleware/auth";
 import { bruteForceGuard } from "../../../middleware/BruteForceGuard";
-import { S3Service } from "../../../../domain/services/storageServices/S3Service";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { getServices } from "../../../di/container";
 
@@ -48,7 +47,7 @@ router.post(
     const rand = randomUUID();
     const key = `uploads/${userId}/${datePrefix}/${rand}${ext}`;
 
-    const s3 = S3Service.getInstance();
+    const s3 = getServices().s3Service;
     const { url } = await s3.uploadBuffer(
       file.buffer,
       key,
