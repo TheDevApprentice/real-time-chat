@@ -126,6 +126,14 @@ export class WebSocketGateway {
       async (ctx: WsContext<z.infer<typeof WsCallIceSchema>>) => this.callsCtrl.callIceCandidate(ctx)
     );
 
+    // TURN/STUN config for clients
+    this.router.register(
+      "getTurnConfig",
+      requireAuth(),
+      rateLimitPerSocket("call:getTurnConfig", 60, 60_000),
+      async (ctx: WsContext) => this.callsCtrl.getTurnConfig(ctx)
+    );
+
     // History pagination
     this.router.register(
       "loadRoomHistory",

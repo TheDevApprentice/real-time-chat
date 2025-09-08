@@ -2794,6 +2794,11 @@ window.socket = socket;
 // calls.ts - Basic signaling UI for Phase 1 (ringing only)
 (function () {
     const w = window;
+    let currentCallId = null;
+    let pc = null;
+    let localStream = null;
+    let remoteAudio = null;
+    let iceServers = null;
     // UI elements
     function ensureCallsPanel() {
         let panel = document.getElementById('calls-panel');
@@ -2817,12 +2822,72 @@ window.socket = socket;
           <button class="accept" style="margin-left:10px;padding:4px 8px;border:none;border-radius:6px;background:#10b981;color:#fff;cursor:pointer;">Accepter</button>
           <button class="decline" style="margin-left:6px;padding:4px 8px;border:none;border-radius:6px;background:#ef4444;color:#fff;cursor:pointer;">Refuser</button>
         </div>
+        <div id="active-call" style="display:none;margin-top:8px;padding:8px;border-radius:6px;background:#f3f4f6;color:#111;">
+          <span class="status">Call active</span>
+          <button class="mute" style="margin-left:10px;padding:4px 8px;border:none;border-radius:6px;background:#6b7280;color:#fff;cursor:pointer;">Mute</button>
+          <button class="hangup" style="margin-left:6px;padding:4px 8px;border:none;border-radius:6px;background:#ef4444;color:#fff;cursor:pointer;">Hang up</button>
+        </div>
         <ul id="call-log" style="list-style:disc;margin:8px 0 0 16px;"></ul>
       `;
             const chat = document.getElementById('chat') || document.body;
             chat.appendChild(panel);
         }
         return panel;
+    }
+    function ensureCallsButton() {
+        let btn = document.getElementById('calls-fab');
+        if (!btn) {
+            btn = document.createElement('button');
+            btn.id = 'calls-fab';
+            btn.textContent = 'Appels';
+            btn.style.position = 'fixed';
+            btn.style.right = '16px';
+            btn.style.bottom = '16px';
+            btn.style.padding = '10px 14px';
+            btn.style.border = 'none';
+            btn.style.borderRadius = '9999px';
+            btn.style.background = '#8b5cf6';
+            btn.style.color = '#fff';
+            btn.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
+            btn.style.cursor = 'pointer';
+            btn.onclick = () => {
+                const panel = ensureCallsPanel();
+                panel.style.display = panel.style.display === 'none' ? '' : (panel.style.display || '') === '' ? 'none' : '';
+            };
+            document.body.appendChild(btn);
+        }
+        return btn;
+    }
+    function ensureIncomingOverlay() {
+        let overlay = document.getElementById('incoming-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'incoming-overlay';
+            overlay.style.position = 'fixed';
+            overlay.style.inset = '0';
+            overlay.style.background = 'rgba(0,0,0,0.55)';
+            overlay.style.display = 'none';
+            overlay.style.alignItems = 'center';
+            overlay.style.justifyContent = 'center';
+            overlay.style.zIndex = '10000';
+            const card = document.createElement('div');
+            card.style.background = '#ffffff';
+            card.style.borderRadius = '12px';
+            card.style.padding = '16px';
+            card.style.minWidth = '280px';
+            card.style.textAlign = 'center';
+            card.innerHTML = `
+        <div style="font-weight:600;margin-bottom:6px;">Appel entrant</div>
+        <div class="txt" style="margin-bottom:12px;color:#374151"></div>
+        <div>
+          <button class="accept" style="padding:6px 12px;border:none;border-radius:8px;background:#10b981;color:#fff;cursor:pointer;margin-right:8px;">Accepter</button>
+          <button class="decline" style="padding:6px 12px;border:none;border-radius:8px;background:#ef4444;color:#fff;cursor:pointer;">Refuser</button>
+        </div>
+      `;
+            overlay.appendChild(card);
+            document.body.appendChild(overlay);
+        }
+        return overlay;
     }
     function log(msg) {
         const ul = document.getElementById('call-log');
@@ -2834,6 +2899,8 @@ window.socket = socket;
     }
     function init() {
         ensureCallsPanel();
+        ensureCallsButton();
+        ensureIncomingOverlay();
         const input = document.getElementById('call-target');
         const btnA = document.getElementById('call-audio');
         const btnV = document.getElementById('call-video');
@@ -2841,6 +2908,74 @@ window.socket = socket;
         const txt = incoming === null || incoming === void 0 ? void 0 : incoming.querySelector('.txt');
         const acceptBtn = incoming === null || incoming === void 0 ? void 0 : incoming.querySelector('.accept');
         const declineBtn = incoming === null || incoming === void 0 ? void 0 : incoming.querySelector('.decline');
+        const overlay = ensureIncomingOverlay();
+        const oTxt = overlay.querySelector('.txt');
+        const oAccept = overlay.querySelector('.accept');
+        const oDecline = overlay.querySelector('.decline');
+        const active = document.getElementById('active-call');
+        const muteBtn = active === null || active === void 0 ? void 0 : active.querySelector('.mute');
+        const hangBtn = active === null || active === void 0 ? void 0 : active.querySelector('.hangup');
+        // prepare remote audio tag
+        remoteAudio = document.getElementById('webrtc-remote');
+        if (!remoteAudio) {
+            remoteAudio = document.createElement('audio');
+            remoteAudio.id = 'webrtc-remote';
+            remoteAudio.autoplay = true;
+            try {
+                remoteAudio.setAttribute('playsinline', 'true');
+            }
+            catch { }
+            document.body.appendChild(remoteAudio);
+        }
+        const ensureIce = async () => {
+            if (iceServers)
+                return iceServers;
+            try {
+                const cfg = await new Promise((resolve) => {
+                    w.socket.emit('getTurnConfig', {}, (res) => resolve(res));
+                });
+                if ((cfg === null || cfg === void 0 ? void 0 : cfg.success) && Array.isArray(cfg.iceServers))
+                    iceServers = cfg.iceServers;
+                else
+                    iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+            }
+            catch {
+                iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+            }
+            return iceServers;
+        };
+        async function ensurePc() {
+            if (pc)
+                return pc;
+            const servers = await ensureIce();
+            pc = new RTCPeerConnection({ iceServers: servers });
+            pc.onicecandidate = (ev) => {
+                if (ev.candidate && currentCallId) {
+                    try {
+                        w.socket.emit('callIceCandidate', { callId: currentCallId, candidate: JSON.stringify(ev.candidate) });
+                    }
+                    catch { }
+                }
+            };
+            pc.ontrack = (ev) => {
+                try {
+                    const [stream] = ev.streams;
+                    if (remoteAudio && stream)
+                        remoteAudio.srcObject = stream;
+                }
+                catch { }
+            };
+            pc.onconnectionstatechange = () => log(`pc state: ${pc === null || pc === void 0 ? void 0 : pc.connectionState}`);
+            return pc;
+        }
+        async function getMic() {
+            if (localStream)
+                return localStream;
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            return localStream;
+        }
+        function showActive(show) { if (active)
+            active.style.display = show ? '' : 'none'; }
         btnA && (btnA.onclick = () => {
             const target = input === null || input === void 0 ? void 0 : input.value.trim();
             if (!target) {
@@ -2848,9 +2983,15 @@ window.socket = socket;
                 return;
             }
             try {
-                w.socket.emit('callRequest', { targetUserId: target, media: 'audio' }, (res) => {
-                    if (res === null || res === void 0 ? void 0 : res.success)
-                        log(`Outgoing call (audio) -> callId=${res.callId}`);
+                w.socket.emit('callRequest', { targetUserId: target, media: 'audio' }, async (res) => {
+                    if (res === null || res === void 0 ? void 0 : res.success) {
+                        currentCallId = String(res.callId);
+                        log(`Outgoing call (audio) -> callId=${currentCallId}`);
+                        // prepare local mic and pc, wait for acceptance to create offer
+                        await getMic();
+                        await ensurePc();
+                        localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+                    }
                     else
                         log(`callRequest failed: ${(res === null || res === void 0 ? void 0 : res.error) || 'error'}`);
                 });
@@ -2876,19 +3017,27 @@ window.socket = socket;
         // Incoming ring
         try {
             w.socket.on('callIncoming', (p) => {
-                var _a, _b, _c, _d;
+                var _a, _b, _c, _d, _e, _f;
                 log(`Incoming call from ${((_a = p === null || p === void 0 ? void 0 : p.fromUser) === null || _a === void 0 ? void 0 : _a.name) || ((_b = p === null || p === void 0 ? void 0 : p.fromUser) === null || _b === void 0 ? void 0 : _b.id) || '?'} (media=${p === null || p === void 0 ? void 0 : p.media}) callId=${p === null || p === void 0 ? void 0 : p.callId}`);
+                // Inline banner
                 if (incoming && txt) {
                     txt.textContent = `Appel entrant de ${((_c = p === null || p === void 0 ? void 0 : p.fromUser) === null || _c === void 0 ? void 0 : _c.name) || ((_d = p === null || p === void 0 ? void 0 : p.fromUser) === null || _d === void 0 ? void 0 : _d.id) || '?'} (${p === null || p === void 0 ? void 0 : p.media})`;
                     incoming.style.display = '';
                     acceptBtn && (acceptBtn.onclick = () => {
                         try {
-                            w.socket.emit('callAccept', { callId: p.callId }, (res) => {
-                                if (res === null || res === void 0 ? void 0 : res.success)
-                                    log(`Accepted callId=${p.callId}`);
+                            w.socket.emit('callAccept', { callId: p.callId }, async (res) => {
+                                if (res === null || res === void 0 ? void 0 : res.success) {
+                                    currentCallId = String(p.callId);
+                                    log(`Accepted callId=${currentCallId}`);
+                                    incoming.style.display = 'none';
+                                    // Callee prepares mic + pc and waits for offer
+                                    await getMic();
+                                    await ensurePc();
+                                    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+                                    showActive(true);
+                                }
                                 else
                                     log(`callAccept failed: ${(res === null || res === void 0 ? void 0 : res.error) || 'error'}`);
-                                incoming.style.display = 'none';
                             });
                         }
                         catch { }
@@ -2906,24 +3055,104 @@ window.socket = socket;
                         catch { }
                     });
                 }
+                // Overlay (centered)
+                if (overlay && oTxt && oAccept && oDecline) {
+                    oTxt.textContent = `Appel entrant de ${((_e = p === null || p === void 0 ? void 0 : p.fromUser) === null || _e === void 0 ? void 0 : _e.name) || ((_f = p === null || p === void 0 ? void 0 : p.fromUser) === null || _f === void 0 ? void 0 : _f.id) || '?'} (${p === null || p === void 0 ? void 0 : p.media})`;
+                    overlay.style.display = 'flex';
+                    oAccept.onclick = () => {
+                        try {
+                            w.socket.emit('callAccept', { callId: p.callId }, async (res) => {
+                                if (res === null || res === void 0 ? void 0 : res.success) {
+                                    currentCallId = String(p.callId);
+                                    log(`Accepted callId=${currentCallId}`);
+                                    overlay.style.display = 'none';
+                                    await getMic();
+                                    await ensurePc();
+                                    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+                                    showActive(true);
+                                }
+                                else
+                                    log(`callAccept failed: ${(res === null || res === void 0 ? void 0 : res.error) || 'error'}`);
+                            });
+                        }
+                        catch { }
+                    };
+                    oDecline.onclick = () => {
+                        try {
+                            w.socket.emit('callDecline', { callId: p.callId, reason: 'declined' }, (res) => {
+                                if (res === null || res === void 0 ? void 0 : res.success)
+                                    log(`Declined callId=${p.callId}`);
+                                else
+                                    log(`callDecline failed: ${(res === null || res === void 0 ? void 0 : res.error) || 'error'}`);
+                                overlay.style.display = 'none';
+                            });
+                        }
+                        catch { }
+                    };
+                }
             });
         }
         catch { }
         // Other events
         try {
-            w.socket.on('callAccepted', (p) => { log(`callAccepted callId=${p === null || p === void 0 ? void 0 : p.callId}`); });
+            w.socket.on('callAccepted', async (p) => {
+                log(`callAccepted callId=${p === null || p === void 0 ? void 0 : p.callId}`);
+                if (!currentCallId)
+                    currentCallId = String((p === null || p === void 0 ? void 0 : p.callId) || '');
+                // Caller creates offer and sends
+                try {
+                    await ensurePc();
+                    if (localStream)
+                        localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+                    const offer = await pc.createOffer();
+                    await pc.setLocalDescription(offer);
+                    w.socket.emit('callOffer', { callId: currentCallId, sdp: JSON.stringify(offer) });
+                    showActive(true);
+                }
+                catch (e) {
+                    log('offer error');
+                }
+            });
         }
         catch { }
         try {
-            w.socket.on('callDeclined', (p) => { log(`callDeclined callId=${p === null || p === void 0 ? void 0 : p.callId} reason=${(p === null || p === void 0 ? void 0 : p.reason) || ''}`); });
+            w.socket.on('callOffer', async (p) => {
+                log(`callOffer ${p === null || p === void 0 ? void 0 : p.callId}`);
+                if (!pc)
+                    await ensurePc();
+                try {
+                    const desc = JSON.parse((p === null || p === void 0 ? void 0 : p.sdp) || '{}');
+                    await pc.setRemoteDescription(desc);
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    w.socket.emit('callAnswer', { callId: currentCallId || String((p === null || p === void 0 ? void 0 : p.callId) || ''), sdp: JSON.stringify(answer) });
+                }
+                catch (e) {
+                    log('answer error');
+                }
+            });
         }
         catch { }
         try {
-            w.socket.on('callCanceled', (p) => { log(`callCanceled callId=${p === null || p === void 0 ? void 0 : p.callId}`); });
+            w.socket.on('callAnswer', async (p) => {
+                log(`callAnswer ${p === null || p === void 0 ? void 0 : p.callId}`);
+                try {
+                    const desc = JSON.parse((p === null || p === void 0 ? void 0 : p.sdp) || '{}');
+                    await (pc === null || pc === void 0 ? void 0 : pc.setRemoteDescription(desc));
+                }
+                catch { }
+            });
         }
         catch { }
         try {
-            w.socket.on('callBusy', (p) => { log(`callBusy targetUserId=${p === null || p === void 0 ? void 0 : p.targetUserId}`); });
+            w.socket.on('callIceCandidate', async (p) => {
+                log(`callIceCandidate ${p === null || p === void 0 ? void 0 : p.callId}`);
+                try {
+                    const cand = JSON.parse((p === null || p === void 0 ? void 0 : p.candidate) || '{}');
+                    await (pc === null || pc === void 0 ? void 0 : pc.addIceCandidate(cand));
+                }
+                catch { }
+            });
         }
         catch { }
     }
@@ -2934,6 +3163,47 @@ window.socket = socket;
         }
         catch { }
     };
+    function endCall() {
+        try {
+            if (pc) {
+                pc.onicecandidate = null;
+                pc.ontrack = null;
+                pc.close();
+            }
+        }
+        catch { }
+        pc = null;
+        try {
+            localStream === null || localStream === void 0 ? void 0 : localStream.getTracks().forEach(t => t.stop());
+        }
+        catch { }
+        localStream = null;
+        if (remoteAudio)
+            remoteAudio.srcObject = null;
+        currentCallId = null;
+        const active = document.getElementById('active-call');
+        if (active)
+            active.style.display = 'none';
+    }
+    // UI controls
+    (function wireControls() {
+        const active = document.getElementById('active-call');
+        const muteBtn = active === null || active === void 0 ? void 0 : active.querySelector('.mute');
+        const hangBtn = active === null || active === void 0 ? void 0 : active.querySelector('.hangup');
+        if (muteBtn)
+            muteBtn.onclick = () => {
+                var _a;
+                try {
+                    const enabled = !!((_a = localStream === null || localStream === void 0 ? void 0 : localStream.getAudioTracks()[0]) === null || _a === void 0 ? void 0 : _a.enabled);
+                    if (localStream === null || localStream === void 0 ? void 0 : localStream.getAudioTracks()[0])
+                        localStream.getAudioTracks()[0].enabled = !enabled;
+                    muteBtn.textContent = enabled ? 'Unmute' : 'Mute';
+                }
+                catch { }
+            };
+        if (hangBtn)
+            hangBtn.onclick = () => { endCall(); };
+    })();
     // Initialize on load (after socket availability)
     function waitSocket(attempt = 0) {
         if (window.socket) {

@@ -17,6 +17,9 @@ export interface IRedisService {
   ttl(key: string): Promise<number>;
   incrBy(key: string, by?: number): Promise<number>;
 
+  // sets
+  sMembers(key: string): Promise<string[]>;
+
   // pub/sub
   publish(channel: string, message: string): Promise<number>;
   /** Subscribe to a channel. Returns an unsubscribe function. */

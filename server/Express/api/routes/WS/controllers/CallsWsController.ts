@@ -217,4 +217,31 @@ export class CallsWsController {
     } catch {}
     return { success: true };
   }
+
+  async getTurnConfig(ctx: WsContext) {
+    const stunRaw = process.env.WEBRTC_STUN || '';
+    const turnUrlsRaw = process.env.WEBRTC_TURN_URLS || '';
+    const turnUsername = process.env.WEBRTC_TURN_USERNAME || '';
+    const turnCredential = process.env.WEBRTC_TURN_CREDENTIAL || '';
+
+    const iceServers: Array<{ urls: string | string[]; username?: string; credential?: string }> = [];
+    // STUN: comma-separated list like "stun:stun.l.google.com:19302,stun:global.stun.twilio.com:3478"
+    if (stunRaw) {
+      const urls = stunRaw.split(',').map(s => s.trim()).filter(Boolean);
+      if (urls.length === 1) iceServers.push({ urls: urls[0] });
+      else if (urls.length > 1) iceServers.push({ urls });
+    }
+    // TURN: comma-separated; if username/credential provided, attach them
+    if (turnUrlsRaw) {
+      const urls = turnUrlsRaw.split(',').map(s => s.trim()).filter(Boolean);
+      for (const u of urls) {
+        iceServers.push(turnUsername || turnCredential ? { urls: u, username: turnUsername, credential: turnCredential } : { urls: u });
+      }
+    }
+    // Fallback public STUN if none specified (dev only)
+    if (iceServers.length === 0) {
+      iceServers.push({ urls: 'stun:stun.l.google.com:19302' });
+    }
+    return { success: true, iceServers };
+  }
 }
