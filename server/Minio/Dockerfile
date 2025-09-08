@@ -1,14 +1,12 @@
-# Custom MinIO image with built-in bucket initialization
+# Stage 1: get mc binary from official image (fast and reliable)
+FROM minio/mc:latest AS mc
+
+# Stage 2: final MinIO image with built-in bucket initialization
 FROM minio/minio:latest
 
-# Install MinIO client (mc)
-# Alpine-based image: use apk to install curl then fetch mc
-RUN /bin/sh -c "\
-    if command -v apk >/dev/null 2>&1; then \
-      apk add --no-cache curl; \
-    fi; \
-    curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc && \
-    chmod +x /usr/local/bin/mc"
+# Copy the mc client from the mc image to avoid network downloads at build time
+COPY --from=mc /usr/bin/mc /usr/local/bin/mc
+RUN chmod +x /usr/local/bin/mc
 
 # Copy entrypoint script
 COPY init.sh /usr/local/bin/minio-entrypoint.sh
