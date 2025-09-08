@@ -21,6 +21,10 @@ A Node.js-based real-time chat server using Express, Socket.IO, SQLite, and stri
 - REST API for fetching users and messages
 - Centralized logging utility
 - Environment-based configuration
+- Message edit/delete with per-user Undo (10-minute window)
+  - Soft-delete by default (content becomes "[deleted]")
+  - Undo for delete restores original content
+  - Server exposes TTL of the undo snapshot
 
 ---
 
@@ -67,6 +71,13 @@ Both are validated at startup. The server will not start if either is missing.
 
 For an end-to-end UI/WS/REST flow, see `ARCHITECTURE.md` (delivery, domain, infra) and `public/README.md` (UI responsibilities and build).
 
+### Real-time edit/delete/undo (server side)
+- On edit: server validates and updates message content, then broadcasts `messageEdited { roomId, messageId, content }` to the room.
+- On delete: server performs a soft delete (content -> "[deleted]") and broadcasts `messageDeleted { roomId, messageId }`.
+- On undo: server restores the previous content from a per-user snapshot in Redis and broadcasts
+  `messageEdited { roomId, messageId, content, restored: true }` so clients can avoid marking the message as edited.
+- TTL: a per-user snapshot key is stored in Redis for 10 minutes; a helper route `getUndoTTL` returns remaining seconds.
+
 ---
 
 ## Detailed Docs
@@ -75,6 +86,25 @@ For an end-to-end UI/WS/REST flow, see `ARCHITECTURE.md` (delivery, domain, infr
 - Code standards (SOLID, Clean, security, testing): `CODE_STANDARDS.md`
 - Redis usage & conventions: `REDIS.md`
 - Test UI (public/) structure and build: `public/README.md`
+
+---
+
+## WebSocket Routes (server)
+
+These route names are used by the test UI and should remain stable:
+
+- Auth and rooms: see `router/WebSocketGateway.ts` and `controllers/*`.
+- Messaging:
+  - `sendMessageToRoom { roomId, content, timestamp, clientMsgId, attachments? }`
+  - `messageEdit { roomId, messageId, newContent }`
+  - `messageDelete { roomId, messageId }`
+  - `messageUndo { roomId, messageId }`
+  - `getUndoTTL { roomId, messageId }` → ack `{ success, ttlSeconds }`
+
+Server broadcasts (to `roomId`):
+- `message { … }` for new messages
+- `messageEdited { roomId, messageId, content, restored? }`
+- `messageDeleted { roomId, messageId }`
 
 ---
 
@@ -171,6 +201,9 @@ REDIS_URL=redis://redis:6379
 
 - Redis not found
   - Ensure `redis` service is running or point `REDIS_URL` to a reachable instance. See `REDIS.md`.
+
+- Undo window not available
+  - The per-user undo snapshot is stored in Redis with a 10-minute TTL. If `getUndoTTL` returns 0, the key expired or the action was not initiated by this user.
 
 - Wrong driver selected
   - `DATABASE_DRIVER` must be one of `sqlite`, `postgres`, `mysql`.

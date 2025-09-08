@@ -84,6 +84,12 @@ This emits a single `chat-client.js` file used by the UI.
     - `renderMsg(message)` – renders a single message with status tick for own messages.
     - Send-form submit handler – emits `sendMessageToRoom`.
     - Typing start/stop + blur – emits `typingStart/typingStop` to server.
+  - Real‑time edit/delete/undo:
+    - Inline owner actions: Edit, Delete, Undo (Undo button shown only within a 10‑minute window).
+    - Edited badge: adds a small “(edited)” indicator on edited messages and persists it across reload via `localStorage`.
+    - Delete behavior: shows message as `[deleted]`. Undo of a delete restores content without the “(edited)” badge.
+    - Persistent Undo snackbar: fixed‑bottom banner with countdown and “Annuler” button. Survives page reload and only appears on the browser that initiated the change.
+    - Robust WS wiring: listeners attach even if `window.socket` is created after load, and re‑attach on reconnect.
 
 - `room_creation.ts`
   - Room creation drawer & invites (globals):
@@ -173,6 +179,17 @@ Below is the high-level sequence focusing on the UI code paths and the files res
   - If another room, increments unread for that room and re-renders the list.
 - `sockets.ts` handles `messageStatusUpdated` and updates ticks in the open room.
 
+7) Edit / Delete / Undo
+- Owner actions rendered in `messaging.ts` (Edit, Delete, Undo).
+- On Save (edit) or Delete:
+  - UI updates optimistically and requests server acks.
+  - If ack succeeds, shows a persistent Undo snackbar with a countdown (10 minutes) and enables the inline Undo button.
+- Undo snackbar persists in `localStorage` and is restored after reload only for the initiating browser.
+- Server broadcasts:
+  - `messageEdited { roomId, messageId, content, restored? }`
+  - `messageDeleted { roomId, messageId }`
+  - If `restored: true`, the client restores content and removes any “(edited)” badge.
+
 7) Typing indicators
 - `messaging.ts` listens to the message input:
   - Emits `typingStart` if typing starts, `typingStop` on inactivity or blur.
@@ -205,3 +222,32 @@ Below is the high-level sequence focusing on the UI code paths and the files res
 - If you add a new concern, create `xyz.ts` and add it to `refs.ts` before `chat-client.ts`.
 - Always compile with `npx tsc -p tsconfig.json` to generate a single `chat-client.js`.
 - If UI doesn’t reflect changes, hard refresh (Ctrl+F5) or rebuild the Docker `server` service.
+
+---
+
+## WebSocket Events Reference (UI)
+
+- Outgoing (client → server):
+  - `sendMessageToRoom { roomId, content, timestamp, clientMsgId, attachments? }`
+  - `typingStart { roomId }`, `typingStop { roomId }`
+  - `messageEdit { roomId, messageId, newContent }`
+  - `messageDelete { roomId, messageId }`
+  - `messageUndo { roomId, messageId }`
+  - `getUndoTTL { roomId, messageId }` → ack `{ success, ttlSeconds }`
+
+- Incoming (server → client):
+  - `roomHistory`, `message`, `messageStatusUpdated`, `typing`, etc. (see `sockets.ts`).
+  - `messageEdited { roomId, messageId, content, restored? }`
+  - `messageDeleted { roomId, messageId }`
+
+---
+
+## Troubleshooting
+
+- Undo snackbar doesn’t persist after reload:
+  - Ensure `chat-client.js` is fresh (rebuild or hard refresh).
+  - Check `localStorage` keys `undo:{userId}:{messageId}` exist and include a valid `expiresAt` and `clientId`.
+  - The snackbar only shows on the browser that initiated the change (guarded by `rtc:clientId`).
+
+- Inline Undo button missing after reload:
+  - The UI restores local undo‑eligibility from persisted TTL and toggles the inline button. If the button is hidden, check remaining TTL and that the message bubble has rendered.
