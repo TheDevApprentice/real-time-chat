@@ -163,4 +163,58 @@ export class CallsWsController {
 
     return { success: true };
   }
+
+  async callOffer(ctx: WsContext<{ callId: string; sdp: string }>) {
+    const { socket, io, services } = ctx;
+    const uid = (socket.data as any)?.userId as string | undefined;
+    if (!uid) return { success: false, error: "Not authenticated." };
+    const { callId, sdp } = (ctx.payload || {}) as any;
+    if (!callId || !sdp) return { success: false, error: "Missing fields." };
+    const { redisService } = services as any;
+    const sess = await jsonGet<CallSession>(redisService, K.callSession(callId));
+    if (!sess) return { success: false, error: "Call not found." };
+    if (uid !== sess.callerId && uid !== sess.calleeId) return { success: false, error: "Not part of this call." };
+    const other = uid === sess.callerId ? sess.calleeId : sess.callerId;
+    try {
+      const sockets = await redisService.sMembers(K.userSockets(other));
+      for (const sid of sockets || []) io.to(sid).emit('callOffer', { callId, sdp });
+    } catch {}
+    return { success: true };
+  }
+
+  async callAnswer(ctx: WsContext<{ callId: string; sdp: string }>) {
+    const { socket, io, services } = ctx;
+    const uid = (socket.data as any)?.userId as string | undefined;
+    if (!uid) return { success: false, error: "Not authenticated." };
+    const { callId, sdp } = (ctx.payload || {}) as any;
+    if (!callId || !sdp) return { success: false, error: "Missing fields." };
+    const { redisService } = services as any;
+    const sess = await jsonGet<CallSession>(redisService, K.callSession(callId));
+    if (!sess) return { success: false, error: "Call not found." };
+    if (uid !== sess.callerId && uid !== sess.calleeId) return { success: false, error: "Not part of this call." };
+    const other = uid === sess.callerId ? sess.calleeId : sess.callerId;
+    try {
+      const sockets = await redisService.sMembers(K.userSockets(other));
+      for (const sid of sockets || []) io.to(sid).emit('callAnswer', { callId, sdp });
+    } catch {}
+    return { success: true };
+  }
+
+  async callIceCandidate(ctx: WsContext<{ callId: string; candidate: string }>) {
+    const { socket, io, services } = ctx;
+    const uid = (socket.data as any)?.userId as string | undefined;
+    if (!uid) return { success: false, error: "Not authenticated." };
+    const { callId, candidate } = (ctx.payload || {}) as any;
+    if (!callId || !candidate) return { success: false, error: "Missing fields." };
+    const { redisService } = services as any;
+    const sess = await jsonGet<CallSession>(redisService, K.callSession(callId));
+    if (!sess) return { success: false, error: "Call not found." };
+    if (uid !== sess.callerId && uid !== sess.calleeId) return { success: false, error: "Not part of this call." };
+    const other = uid === sess.callerId ? sess.calleeId : sess.callerId;
+    try {
+      const sockets = await redisService.sMembers(K.userSockets(other));
+      for (const sid of sockets || []) io.to(sid).emit('callIceCandidate', { callId, candidate });
+    } catch {}
+    return { success: true };
+  }
 }

@@ -35,4 +35,13 @@ export class FriendService implements IFriendsService {
   listFriendsAndRequests(userId: string) {
     return this.friendsRepo.listFriendsAndRequests(userId);
   }
+
+  async areFriends(userId: string, otherUserId: string): Promise<boolean> {
+    try {
+      const list = await this.friendsRepo.listFriendsAndRequests(userId);
+      return list.some((it) => it.status === "accepted" && it.userId === otherUserId);
+    } catch {
+      return false;
+    }
+  }
 }

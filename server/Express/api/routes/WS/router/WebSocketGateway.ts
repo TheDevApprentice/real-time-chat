@@ -16,6 +16,9 @@ import {
   WsCallAcceptSchema,
   WsCallDeclineSchema,
   WsCallCancelSchema,
+  WsCallOfferSchema,
+  WsCallAnswerSchema,
+  WsCallIceSchema,
 } from "../../../middleware/validation";
 import { WsRouter } from "./WsRouter";
 import { AuthWsController } from "../controllers/AuthWsController";
@@ -100,6 +103,27 @@ export class WebSocketGateway {
       rateLimitPerSocket("call:cancel", 60, 60_000),
       validate(WsCallCancelSchema),
       async (ctx: WsContext<z.infer<typeof WsCallCancelSchema>>) => this.callsCtrl.callCancel(ctx)
+    );
+    this.router.register(
+      "callOffer",
+      requireAuth(),
+      rateLimitPerSocket("call:offer", 120, 60_000),
+      validate(WsCallOfferSchema),
+      async (ctx: WsContext<z.infer<typeof WsCallOfferSchema>>) => this.callsCtrl.callOffer(ctx)
+    );
+    this.router.register(
+      "callAnswer",
+      requireAuth(),
+      rateLimitPerSocket("call:answer", 120, 60_000),
+      validate(WsCallAnswerSchema),
+      async (ctx: WsContext<z.infer<typeof WsCallAnswerSchema>>) => this.callsCtrl.callAnswer(ctx)
+    );
+    this.router.register(
+      "callIceCandidate",
+      requireAuth(),
+      rateLimitPerSocket("call:ice", 600, 10_000),
+      validate(WsCallIceSchema),
+      async (ctx: WsContext<z.infer<typeof WsCallIceSchema>>) => this.callsCtrl.callIceCandidate(ctx)
     );
 
     // History pagination
