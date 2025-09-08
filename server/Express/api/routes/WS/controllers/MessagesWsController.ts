@@ -2,18 +2,20 @@ import { WsContext } from "../router/WsContext";
 import { Message, User } from "../../../../domain/entities";
 import { sanitizeText } from "../../../middleware/text";
 import { K, TTL, incrWithTtl, Channels } from "../../../cache/cacheKeys";
+import path from "path";
+import { randomUUID } from "crypto";
 
 export class MessagesWsController {
   async sendMessageToRoom(
-    ctx: WsContext<{ roomId: string; content: string; timestamp?: number; clientMsgId?: string }>
+    ctx: WsContext<{ roomId: string; content?: string; timestamp?: number; clientMsgId?: string; attachments?: string[] }>
   ) {
     const { userService, messageService, roomService } = ctx.services;
-    const { redisService } = ctx.services as any;
+    const { redisService, s3Service } = ctx.services as any;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId)
       return { error: "Vous devez être connecté pour envoyer un message." };
-    const { roomId, content, timestamp, clientMsgId } = (ctx.payload || {}) as any;
-    if (!roomId || !content)
+    const { roomId, content, timestamp, clientMsgId, attachments } = (ctx.payload || {}) as any;
+    if (!roomId)
       return { error: "Not authenticated or missing data." };
 
     // Fine-grained rate limit per user+room (e.g., 30 msgs / 10s)
@@ -43,7 +45,72 @@ export class MessagesWsController {
     const user = await userService.getUserById(userId);
     if (!user) return { error: "User not found." };
 
-    const safeContent = sanitizeText(content);
+    let safeContent = sanitizeText(String(content || ""));
+    const attRaw: string[] = Array.isArray(attachments) ? attachments : [];
+    if (attRaw.length > 50) {
+      return { success: false, error: "Too many attachments (max 50)." };
+    }
+    // Finalize S3 temp attachments if provided
+    let normalizedKeys: string[] = [];
+    let copyFailed: string[] = [];
+    try {
+      // Normalize each attachment entry to a tmp key like 'uploads/tmp/{roomId}/{userId}/...'
+      const att: string[] = attRaw.map((raw) => {
+        try {
+          let v = String(raw || '');
+          // If it's a full URL, keep only the path after the bucket name
+          if (/^https?:\/\//i.test(v)) {
+            const u = new URL(v);
+            // path: /<bucket>/<key>
+            const parts = u.pathname.split('/').filter(Boolean);
+            if (parts.length >= 2) {
+              v = parts.slice(1).join('/'); // drop bucket
+            } else {
+              v = parts.join('/');
+            }
+          }
+          // Decode percent-encoding once (e.g., %2F)
+          try { v = decodeURIComponent(v); } catch {}
+          // Trim any leading '/'
+          v = v.replace(/^\/+/, '');
+          return v;
+        } catch { return String(raw || ''); }
+      });
+      normalizedKeys = att.slice();
+      if (att.length > 0 && s3Service) {
+        const now = new Date(typeof timestamp === 'number' ? timestamp : Date.now());
+        const datePrefix = `${now.getUTCFullYear()}/${String(now.getUTCMonth()+1).padStart(2,"0")}/${String(now.getUTCDate()).padStart(2,"0")}`;
+        const finalUrls: string[] = [];
+        const allowedExts = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".mp4", ".webm", ".ogg"]);
+        for (const tmpKey of att) {
+          if (typeof tmpKey !== 'string' || !tmpKey.startsWith('uploads/tmp/')) continue;
+          // uploads/tmp/[roomId]/[userId]/... is ideal, but don't hard-fail if segments differ
+          const parts = tmpKey.split('/').filter(Boolean);
+          if (parts.length < 3) continue; // must have at least uploads,tmp,<something>
+          const ext = (path.extname(tmpKey) || '').toLowerCase();
+          if (!allowedExts.has(ext)) continue;
+          const finalKey = `uploads/rooms/${roomId}/${datePrefix}/${randomUUID()}` + ext;
+          try {
+            await s3Service.copyObject(tmpKey, finalKey);
+            try { await s3Service.deleteObject(tmpKey); } catch {}
+            const url = s3Service.publicUrl(finalKey);
+            finalUrls.push(url);
+          } catch {
+            try { copyFailed.push(tmpKey); } catch {}
+          }
+        }
+        if (finalUrls.length > 0) {
+          safeContent = safeContent ? `${safeContent}\n${finalUrls.join('\n')}` : finalUrls.join('\n');
+        }
+      }
+    } catch {}
+    // If content is still empty and no attachments could be finalized, reject
+    if (!safeContent || !safeContent.trim()) {
+      const attArr = Array.isArray(attachments) ? attachments : [];
+      if (!attArr.length) {
+        return { error: "Message must contain text or attachments." };
+      }
+    }
     const ts = typeof timestamp === "number" ? timestamp : Date.now();
     const msgObj = new Message(user, safeContent, ts);
     await messageService.addMessageToRoom(msgObj, roomId);
@@ -94,7 +161,13 @@ export class MessagesWsController {
       ctx.io.to(roomId).emit("message", { roomId, message: msgObj.toJSON() });
     }
 
-    return { success: true };
+    return {
+      success: true,
+      finalUrls: (safeContent || '').split('\n').filter(u => /^https?:\/\//.test(u)),
+      message: msgObj.toJSON?.() ?? undefined,
+      normalizedKeys,
+      copyFailed,
+    };
   }
 
   async messageDelivered(

@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, CopyObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { IS3Service } from "../../interfaces/storageInterface/IS3Service";
 
 export class S3Service implements IS3Service {
@@ -58,6 +58,26 @@ export class S3Service implements IS3Service {
       : this.defaultPublicUrl(key);
 
     return { key, url };
+  }
+
+  public async copyObject(srcKey: string, dstKey: string): Promise<void> {
+    const cmd = new CopyObjectCommand({
+      Bucket: this.bucket,
+      CopySource: `/${this.bucket}/${srcKey}`,
+      Key: dstKey,
+    });
+    await this.client.send(cmd);
+  }
+
+  public async deleteObject(key: string): Promise<void> {
+    const cmd = new DeleteObjectCommand({ Bucket: this.bucket, Key: key });
+    await this.client.send(cmd);
+  }
+
+  public publicUrl(key: string): string {
+    return this.publicBase
+      ? `${this.publicBase.replace(/\/$/, "")}/${key}`
+      : this.defaultPublicUrl(key);
   }
 
   private defaultPublicUrl(key: string): string {

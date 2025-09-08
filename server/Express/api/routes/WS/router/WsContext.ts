@@ -1,6 +1,7 @@
 import { Server as SocketServer, Socket } from "socket.io";
 import { AuthService, FriendService, UserService, RoomService, MessageService } from "../../../../domain/services";
 import { IRedisService } from "../../../../domain/interfaces/cacheInterfaces/IRedisService";
+import { IS3Service } from "../../../../domain/interfaces/storageInterface/IS3Service";
 
 export interface WsEnv {
   FRONTEND_URL?: string;
@@ -14,6 +15,7 @@ export interface WsServices {
   roomService: RoomService;
   messageService: MessageService;
   redisService: IRedisService;
+  s3Service: IS3Service;
 }
 
 export interface WsContext<TPayload = any> {

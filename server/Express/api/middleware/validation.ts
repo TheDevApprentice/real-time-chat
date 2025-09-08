@@ -62,11 +62,22 @@ export const WsJoinRoomSchema = z.object({
   roomId: z.string().min(1),
 });
 
-export const WsSendMessageSchema = z.object({
-  roomId: z.string().min(1),
-  content: z.string().min(1).max(2000),
-  timestamp: z.number().int().positive().optional(),
-});
+export const WsSendMessageSchema = z
+  .object({
+    roomId: z.string().min(1),
+    content: z.string().max(2000).optional(),
+    attachments: z.array(z.string().min(1)).max(50).optional(),
+    timestamp: z.number().int().positive().optional(),
+  })
+  .passthrough()
+  .refine(
+    (v) => {
+      const hasText = typeof v.content === 'string' && v.content.trim().length > 0;
+      const hasAtt = Array.isArray(v.attachments) && v.attachments.length > 0;
+      return hasText || hasAtt;
+    },
+    { message: 'content or attachments required' }
+  );
 
 // User search (REST) schemas
 export const SearchUsersQuerySchema = z.object({
