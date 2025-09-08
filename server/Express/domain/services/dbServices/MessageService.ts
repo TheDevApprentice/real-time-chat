@@ -32,4 +32,16 @@ export class MessageService implements IMessageService {
   getUnreadCountsForUser(userId: string): Promise<Record<string, number>> {
     return this.messagesRepo.getUnreadCountsForUser(userId);
   }
+
+  getMessageById(messageId: number): Promise<Message | null> {
+    return this.messagesRepo.getMessageById(messageId);
+  }
+
+  updateMessageContent(messageId: number, newContent: string): Promise<void> {
+    return this.messagesRepo.updateMessageContent(messageId, newContent);
+  }
+
+  softDeleteMessage(messageId: number): Promise<void> {
+    return this.messagesRepo.softDeleteMessage(messageId);
+  }
 }

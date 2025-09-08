@@ -24,6 +24,8 @@ export const TTL = {
   invite: 600,
   // Avatars cache
   avatar: 600,
+  // Undo window for message edits/deletes (10 minutes)
+  undo: 600,
 } as const;
 
 // Key builders
@@ -64,6 +66,8 @@ export const K = {
   // Stats hit/miss
   statsHit: (prefix: string) => `stats:cache:hit:${prefix}`,
   statsMiss: (prefix: string) => `stats:cache:miss:${prefix}`,
+  // Undo snapshots per user+message
+  msgUndo: (userId: string, messageId: number | string) => `undo:msg:${userId}:${messageId}`,
 };
 
 // Small helpers

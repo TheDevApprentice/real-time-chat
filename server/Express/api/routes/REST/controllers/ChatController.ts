@@ -7,9 +7,9 @@ import {
 import { validateQuery, RequestWithValidated, validateBody } from "../middleware/validate";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { validateParams } from "../middleware/validate";
-import { RoomIdParamsSchema, InviteCreateBodySchema } from "../../../middleware/validation";
+import { RoomIdParamsSchema, InviteCreateBodySchema, MessageIdParamsSchema, MessageEditBodySchema, MessageDeleteBodySchema, MessageUndoBodySchema } from "../../../middleware/validation";
 import { getServices } from "../../../di/container";
-import { K, TTL, incrWithTtl } from "../../../cache/cacheKeys";
+import { K, TTL, incrWithTtl, jsonGet } from "../../../cache/cacheKeys";
 import { Message, User } from "../../../../domain/entities";
 import { randomUUID } from "crypto";
 // Note: invites use Redis-only tokens (no cross-instance signing)
@@ -22,6 +22,82 @@ const rateLimit = (routeKey: string, maxReq = 50, windowMs = 15 * 60 * 1000) =>
 
 // Require authentication for all chat routes
 router.use(authMiddleware);
+
+// Undo last edit/delete if a snapshot exists for this user (10 min window)
+router.post(
+  "/messages/:messageId/undo",
+  rateLimit("chat:undoMessage", 120),
+  validateParams(MessageIdParamsSchema),
+  validateBody(MessageUndoBodySchema),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const { messageService, redisService } = getServices() as any;
+    const me = (req as any).user as { id: string } | undefined;
+    if (!me?.id) return res.status(401).json({ error: "Not authenticated" });
+    const messageId = (req as any).validated.params.messageId as number;
+    const { roomId } = (req as any).validated.body as { roomId: string };
+    const snap = await jsonGet<{ roomId: string; messageId: number; prevContent: string }>(
+      redisService,
+      K.msgUndo(me.id, messageId)
+    );
+    if (!snap || snap.roomId !== roomId) return res.status(404).json({ error: "Nothing to undo" });
+    const prev = String(snap.prevContent || "").slice(0, 2000);
+    await messageService.updateMessageContent(messageId, prev);
+    try { await redisService.del(K.msgUndo(me.id, messageId)); } catch {}
+    try { req.app.get("io")?.to(roomId)?.emit("messageEdited", { roomId, messageId, content: prev }); } catch {}
+    res.json({ success: true });
+  })
+);
+
+// (rateLimit and authMiddleware defined above)
+
+// Edit a message (author only)
+router.patch(
+  "/messages/:messageId",
+  rateLimit("chat:editMessage", 100),
+  validateParams(MessageIdParamsSchema),
+  validateBody(MessageEditBodySchema),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const { messageService, roomService } = getServices() as any;
+    const me = (req as any).user as { id: string } | undefined;
+    if (!me?.id) return res.status(401).json({ error: "Not authenticated" });
+    const messageId = (req as any).validated.params.messageId as number;
+    const { roomId, content } = (req as any).validated.body as { roomId: string; content: string };
+    const orig = await messageService.getMessageById(messageId);
+    if (!orig) return res.status(404).json({ error: "Message not found" });
+    if (orig.author?.id !== me.id) return res.status(403).json({ error: "Only author can edit" });
+    const clean = content; // already validated & length-checked; server-side sanitization occurs in WS path; here keep simple
+    await messageService.updateMessageContent(messageId, clean);
+    try { req.app.get("io")?.to(roomId)?.emit("messageEdited", { roomId, messageId, content: clean }); } catch {}
+    res.json({ success: true });
+  })
+);
+
+// Delete a message (author or room owner)
+router.delete(
+  "/messages/:messageId",
+  rateLimit("chat:deleteMessage", 100),
+  validateParams(MessageIdParamsSchema),
+  validateBody(MessageDeleteBodySchema),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const { messageService, roomService } = getServices() as any;
+    const me = (req as any).user as { id: string } | undefined;
+    if (!me?.id) return res.status(401).json({ error: "Not authenticated" });
+    const messageId = (req as any).validated.params.messageId as number;
+    const { roomId } = (req as any).validated.body as { roomId: string };
+    const orig = await messageService.getMessageById(messageId);
+    if (!orig) return res.status(404).json({ error: "Message not found" });
+    let allowed = orig.author?.id === me.id;
+    if (!allowed) {
+      try { const room = await roomService.getRoomById(roomId); allowed = room && room.creatorId === me.id; } catch {}
+    }
+    if (!allowed) return res.status(403).json({ error: "Not allowed" });
+    await messageService.softDeleteMessage(messageId);
+    try { req.app.get("io")?.to(roomId)?.emit("messageDeleted", { roomId, messageId }); } catch {}
+    res.json({ success: true });
+  })
+);
+
+// (moved rateLimit and authMiddleware to top so they apply to all routes)
 
 // Get all rooms
 router.get(

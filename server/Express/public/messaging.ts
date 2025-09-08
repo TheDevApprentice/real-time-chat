@@ -36,6 +36,41 @@
       .replace(/>/g, '&gt;');
   }
 
+  // --- Undo eligibility tracking (client-side hint) ---
+  // Track which messages this user just edited/deleted so the Undo button shows
+  // locally for up to 10 minutes. Server remains the source of truth.
+  const UNDO_WINDOW_MS = 10 * 60 * 1000;
+  const undoEligible: Record<string, number> = {};
+  function isUndoEligible(messageId: string | number): boolean {
+    const mid = String(messageId);
+    const exp = undoEligible[mid];
+    return typeof exp === 'number' && exp > Date.now();
+  }
+  function toggleUndoButtonFor(messageId: string | number) {
+    try {
+      const chatWindow = getChatWindow();
+      if (!chatWindow) return;
+      const midStr = String(messageId);
+      const bubble = chatWindow.querySelector(`div.message[data-message-id="${CSS.escape(midStr)}"]`) as HTMLElement | null;
+      if (!bubble) return;
+      const btn = bubble.querySelector('.action-undo') as HTMLButtonElement | null;
+      if (!btn) return;
+      btn.style.display = isUndoEligible(midStr) ? '' : 'none';
+    } catch {}
+  }
+  function setUndoEligible(messageId: string | number, ttlMs: number = UNDO_WINDOW_MS) {
+    const mid = String(messageId);
+    undoEligible[mid] = Date.now() + Math.max(1000, ttlMs);
+    // Auto-expire locally (visual hint only)
+    window.setTimeout(() => { try { delete undoEligible[mid]; toggleUndoButtonFor(mid); } catch {} }, Math.max(1000, ttlMs));
+    toggleUndoButtonFor(mid);
+  }
+  function clearUndoEligible(messageId: string | number) {
+    const mid = String(messageId);
+    delete undoEligible[mid];
+    toggleUndoButtonFor(mid);
+  }
+
   // Expose renderer globally
   w.renderMsg = function renderMsg(msg: any) {
     const chatWindow = getChatWindow();
@@ -126,10 +161,82 @@
       st.setAttribute('aria-label','status');
       st.textContent = statusText;
       div.appendChild(st);
+      try { addOwnerActions(div, msg); } catch {}
     }
     chatWindow.appendChild(div);
     chatWindow.scrollTop = chatWindow.scrollHeight;
   };
+
+  function addOwnerActions(div: HTMLElement, msg: any) {
+    const editButton = document.createElement('button');
+    editButton.textContent = 'Edit';
+    editButton.onclick = () => {
+      // Enter edit mode
+      const contentContainer = div.querySelector('.msg-content');
+      const textarea = document.createElement('textarea');
+      textarea.value = msg.content;
+      contentContainer.innerHTML = '';
+      contentContainer.appendChild(textarea);
+      const saveButton = document.createElement('button');
+      saveButton.textContent = 'Save';
+      saveButton.onclick = () => {
+        // Send edit request via WS
+        const room = (window as any).selectedRoom;
+        if (!room) return;
+        const newContent = String(textarea.value || '');
+        try {
+          (window as any).socket.emit('messageEdit', {
+            roomId: room.id,
+            messageId: Number(msg.id),
+            newContent,
+          }, (res: any) => {
+            if (res && res.success) {
+              // Optimistic update; server will also broadcast messageEdited
+              renderContentInto(contentContainer as HTMLElement, newContent);
+              // Mark Undo available locally for this message
+              setUndoEligible(msg.id);
+            } else if (res && res.error) {
+              (window as any).showToast?.(String(res.error));
+            }
+          });
+        } catch {}
+      };
+      contentContainer.appendChild(saveButton);
+    };
+    const deleteButton = document.createElement('button');
+    deleteButton.textContent = 'Delete';
+    deleteButton.onclick = () => {
+      // Send delete request via WS
+      const room = (window as any).selectedRoom;
+      if (!room) return;
+      try {
+        (window as any).socket.emit('messageDelete', { roomId: room.id, messageId: Number(msg.id) }, (res: any) => {
+          if (res && res.success) {
+            // Optimistically mark as deleted; server will broadcast messageDeleted
+            markMessageDeleted(msg.id);
+            // Mark Undo available locally for this message
+            setUndoEligible(msg.id);
+          } else if (res && res.error) {
+            (window as any).showToast?.(String(res.error));
+          }
+        });
+      } catch {}
+    };
+    const undoButton = document.createElement('button');
+    undoButton.textContent = 'Undo';
+    undoButton.className = 'action-undo';
+    undoButton.onclick = () => {
+      // Send undo request
+      w.requestUndo(msg.id);
+    };
+    const actions = document.createElement('div');
+    actions.appendChild(editButton);
+    actions.appendChild(deleteButton);
+    actions.appendChild(undoButton);
+    div.appendChild(actions);
+    // Initial visibility based on local eligibility state
+    if (!isUndoEligible(msg.id)) undoButton.style.display = 'none';
+  }
 
   // Send form
   const chatForm = getChatForm();
@@ -556,4 +663,103 @@
       }
     });
   } catch {}
+
+  // --- Real-time updates: edit/delete/undo wiring ---
+  function renderContentInto(el: HTMLElement, content: string) {
+    try {
+      el.innerHTML = '';
+      const parts = String(content || '').split(/\r?\n/);
+      for (const p of parts) {
+        const line = document.createElement('div');
+        const urls = String(p || '').split(/\s+/).filter(Boolean);
+        if (urls.length === 1 && isMediaUrl(urls[0]).kind === 'image') {
+          const img = document.createElement('img');
+          img.src = urls[0];
+          img.alt = 'image';
+          img.style.maxWidth = '100%';
+          img.style.borderRadius = '6px';
+          line.appendChild(img);
+        } else if (urls.length === 1 && isMediaUrl(urls[0]).kind === 'video') {
+          const v = document.createElement('video');
+          v.src = urls[0];
+          v.controls = true;
+          v.preload = 'metadata';
+          v.style.maxWidth = '100%';
+          v.style.borderRadius = '6px';
+          line.appendChild(v);
+        } else {
+          line.textContent = p;
+        }
+        el.appendChild(line);
+      }
+    } catch {
+      el.textContent = String(content || '');
+    }
+  }
+
+  function updateMessageBubbleContent(messageId: string | number, content: string) {
+    const chatWindow = getChatWindow();
+    if (!chatWindow) return;
+    const midStr = String(messageId);
+    const bubble = chatWindow.querySelector(`div.message[data-message-id="${CSS.escape(midStr)}"]`) as HTMLElement | null;
+    if (!bubble) return;
+    const contentEl = bubble.querySelector('.msg-content') as HTMLElement | null;
+    if (!contentEl) return;
+    renderContentInto(contentEl, content);
+  }
+
+  function markMessageDeleted(messageId: string | number) {
+    updateMessageBubbleContent(messageId, '[deleted]');
+  }
+
+  // Expose a simple undo helper callable from UI
+  if (!w.requestUndo)
+    w.requestUndo = function requestUndo(messageId: string | number) {
+      const room = w.selectedRoom;
+      if (!room) return;
+      try {
+        w.socket.emit('messageUndo', { roomId: room.id, messageId: Number(messageId) }, (res: any) => {
+          if (res && res.success) {
+            (window as any).showToast?.('Modification reverted');
+            clearUndoEligible(messageId);
+          } else if (res && res.error) {
+            (window as any).showToast?.(String(res.error));
+          }
+        });
+      } catch {}
+    };
+
+  // Register WS listeners once (even if socket is created later)
+  function attachWsHandlers() {
+    try {
+      if (!w.socket || w.__msg_edit_delete_handlers__) return;
+      w.__msg_edit_delete_handlers__ = true;
+      w.socket.on('messageEdited', (payload: { roomId: string; messageId: number; content: string }) => {
+        try {
+          const selectedRoom = w.selectedRoom;
+          if (!selectedRoom || String(selectedRoom.id) !== String(payload.roomId)) return;
+          updateMessageBubbleContent(payload.messageId, payload.content);
+          // Update inline preview
+          try { typeof w.updateRoomLastMsgPreview === 'function' && w.updateRoomLastMsgPreview(String(payload.roomId), payload.content || ''); } catch {}
+        } catch {}
+      });
+      w.socket.on('messageDeleted', (payload: { roomId: string; messageId: number }) => {
+        try {
+          const selectedRoom = w.selectedRoom;
+          if (!selectedRoom || String(selectedRoom.id) !== String(payload.roomId)) return;
+          markMessageDeleted(payload.messageId);
+          try { typeof w.updateRoomLastMsgPreview === 'function' && w.updateRoomLastMsgPreview(String(payload.roomId), '[deleted]'); } catch {}
+        } catch {}
+      });
+      // Re-attach after reconnect if needed
+      try { w.socket.on('connect', () => { w.__msg_edit_delete_handlers__ = false; attachWsHandlers(); }); } catch {}
+    } catch {}
+  }
+  // Try immediately and then retry a few times if socket is not ready yet
+  attachWsHandlers();
+  (function retryAttach(attempt = 0) {
+    if (w.__msg_edit_delete_handlers__) return;
+    if (attempt > 20) return; // ~10s max (with 500ms intervals)
+    setTimeout(() => { attachWsHandlers(); retryAttach(attempt + 1); }, 500);
+  })();
 })();

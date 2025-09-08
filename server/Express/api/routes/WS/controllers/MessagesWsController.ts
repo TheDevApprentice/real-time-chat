@@ -1,7 +1,7 @@
 import { WsContext } from "../router/WsContext";
 import { Message, User } from "../../../../domain/entities";
 import { sanitizeText } from "../../../middleware/text";
-import { K, TTL, incrWithTtl, Channels } from "../../../cache/cacheKeys";
+import { K, TTL, incrWithTtl, Channels, jsonSet, jsonGet } from "../../../cache/cacheKeys";
 import path from "path";
 import { randomUUID } from "crypto";
 
@@ -260,6 +260,85 @@ export class MessagesWsController {
           readAt: timestamp ?? Date.now(),
         });
     }
+    return { success: true };
+  }
+
+  async messageEdit(
+    ctx: WsContext<{ roomId: string; messageId: number; newContent: string }>
+  ) {
+    const { messageService, roomService, redisService } = ctx.services as any;
+    const userId = (ctx.socket.data as any)?.userId as string | undefined;
+    if (!userId) return { success: false, error: "Not authenticated." };
+    const { roomId, messageId, newContent } = (ctx.payload || {}) as any;
+    if (!roomId || typeof messageId !== 'number' || !newContent) return { success: false, error: 'Missing fields' };
+    // Ownership
+    const orig = await messageService.getMessageById(messageId);
+    if (!orig) return { success: false, error: 'Message not found' };
+    if (orig.author?.id !== userId) return { success: false, error: 'Only author can edit' };
+    const clean = sanitizeText(String(newContent || '').slice(0, 2000));
+    // Snapshot for undo (per user)
+    try {
+      await jsonSet(redisService, K.msgUndo(userId, messageId), {
+        roomId,
+        messageId,
+        prevContent: orig.content,
+        at: Date.now(),
+      }, TTL.undo);
+    } catch {}
+    await messageService.updateMessageContent(messageId, clean);
+    // Broadcast update
+    try {
+      ctx.io.to(roomId).emit('messageEdited', { roomId, messageId, content: clean });
+    } catch {}
+    return { success: true };
+  }
+
+  async messageDelete(
+    ctx: WsContext<{ roomId: string; messageId: number }>
+  ) {
+    const { messageService, roomService, redisService } = ctx.services as any;
+    const userId = (ctx.socket.data as any)?.userId as string | undefined;
+    if (!userId) return { success: false, error: "Not authenticated." };
+    const { roomId, messageId } = (ctx.payload || {}) as any;
+    if (!roomId || typeof messageId !== 'number') return { success: false, error: 'Missing fields' };
+    const orig = await messageService.getMessageById(messageId);
+    if (!orig) return { success: false, error: 'Message not found' };
+    // Author or room owner can delete
+    let allowed = orig.author?.id === userId;
+    if (!allowed) {
+      try { const room = await roomService.getRoomById(roomId); allowed = room && room.creatorId === userId; } catch {}
+    }
+    if (!allowed) return { success: false, error: 'Not allowed' };
+    // Snapshot for undo (per user)
+    try {
+      await jsonSet(redisService, K.msgUndo(userId, messageId), {
+        roomId,
+        messageId,
+        prevContent: orig.content,
+        at: Date.now(),
+      }, TTL.undo);
+    } catch {}
+    await messageService.softDeleteMessage(messageId);
+    try {
+      ctx.io.to(roomId).emit('messageDeleted', { roomId, messageId });
+    } catch {}
+    return { success: true };
+  }
+
+  async messageUndo(
+    ctx: WsContext<{ roomId: string; messageId: number }>
+  ) {
+    const { messageService, redisService } = ctx.services as any;
+    const userId = (ctx.socket.data as any)?.userId as string | undefined;
+    if (!userId) return { success: false, error: "Not authenticated." };
+    const { roomId, messageId } = (ctx.payload || {}) as any;
+    if (!roomId || typeof messageId !== 'number') return { success: false, error: 'Missing fields' };
+    const snap = await jsonGet<{ roomId: string; messageId: number; prevContent: string }>(redisService, K.msgUndo(userId, messageId));
+    if (!snap || snap.roomId !== roomId) return { success: false, error: 'Nothing to undo' };
+    const clean = sanitizeText(String(snap.prevContent || '').slice(0, 2000));
+    await messageService.updateMessageContent(messageId, clean);
+    try { await redisService.del(K.msgUndo(userId, messageId)); } catch {}
+    try { ctx.io.to(roomId).emit('messageEdited', { roomId, messageId, content: clean }); } catch {}
     return { success: true };
   }
 }

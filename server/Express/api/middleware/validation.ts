@@ -79,6 +79,41 @@ export const WsSendMessageSchema = z
     { message: 'content or attachments required' }
   );
 
+// Message edit/delete (WS)
+export const WsMessageEditSchema = z.object({
+  roomId: z.string().min(1),
+  messageId: z.number().int().positive(),
+  newContent: z.string().min(1).max(2000),
+});
+
+export const WsMessageDeleteSchema = z.object({
+  roomId: z.string().min(1),
+  messageId: z.number().int().positive(),
+});
+
+export const WsMessageUndoSchema = z.object({
+  roomId: z.string().min(1),
+  messageId: z.number().int().positive(),
+});
+
+// REST params/bodies
+export const MessageIdParamsSchema = z.object({
+  messageId: z.coerce.number().int().positive(),
+});
+
+export const MessageEditBodySchema = z.object({
+  roomId: z.string().min(1),
+  content: z.string().min(1).max(2000),
+});
+
+export const MessageDeleteBodySchema = z.object({
+  roomId: z.string().min(1),
+});
+
+export const MessageUndoBodySchema = z.object({
+  roomId: z.string().min(1),
+});
+
 // User search (REST) schemas
 export const SearchUsersQuerySchema = z.object({
   q: z.string().min(1).max(50),

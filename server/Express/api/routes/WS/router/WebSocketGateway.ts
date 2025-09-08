@@ -8,6 +8,9 @@ import {
   WsCreateRoomSchema,
   WsJoinRoomSchema,
   WsSendMessageSchema,
+  WsMessageEditSchema,
+  WsMessageDeleteSchema,
+  WsMessageUndoSchema,
 } from "../../../middleware/validation";
 import { WsRouter } from "./WsRouter";
 import { AuthWsController } from "../controllers/AuthWsController";
@@ -162,6 +165,27 @@ export class WebSocketGateway {
       rateLimitPerSocket("chat:sendMessage", 60, 10_000),
       validate(WsSendMessageSchema),
       async (ctx: WsContext<z.infer<typeof WsSendMessageSchema>>) => this.messagesCtrl.sendMessageToRoom(ctx)
+    );
+    this.router.register(
+      "messageEdit",
+      requireAuth(),
+      rateLimitPerSocket("chat:messageEdit", 60, 10_000),
+      validate(WsMessageEditSchema),
+      async (ctx: WsContext<z.infer<typeof WsMessageEditSchema>>) => this.messagesCtrl.messageEdit(ctx)
+    );
+    this.router.register(
+      "messageDelete",
+      requireAuth(),
+      rateLimitPerSocket("chat:messageDelete", 60, 10_000),
+      validate(WsMessageDeleteSchema),
+      async (ctx: WsContext<z.infer<typeof WsMessageDeleteSchema>>) => this.messagesCtrl.messageDelete(ctx)
+    );
+    this.router.register(
+      "messageUndo",
+      requireAuth(),
+      rateLimitPerSocket("chat:messageUndo", 60, 10_000),
+      validate(WsMessageUndoSchema),
+      async (ctx: WsContext<z.infer<typeof WsMessageUndoSchema>>) => this.messagesCtrl.messageUndo(ctx)
     );
     this.router.register(
       "messageDelivered",

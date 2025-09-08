@@ -29,6 +29,51 @@ export class MessagesRepo implements IMessageRepo {
     });
   }
 
+  getMessageById(messageId: number): Promise<Message | null> {
+    return new Promise((resolve, reject) => {
+      this.db.get(
+        `SELECT id, authorId, authorName, content, timestamp, status, sentAt, deliveredAt, readAt
+         FROM messages WHERE id = ?`,
+        [messageId],
+        (err: Error | null, row?: any) => {
+          if (err) return reject(err);
+          if (!row) return resolve(null);
+          try {
+            resolve(Message.fromDbRow(row));
+          } catch (e) {
+            reject(e as any);
+          }
+        }
+      );
+    });
+  }
+
+  updateMessageContent(messageId: number, newContent: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        `UPDATE messages SET content = ? WHERE id = ?`,
+        [newContent, messageId],
+        (err) => {
+          if (err) return reject(err);
+          resolve();
+        }
+      );
+    });
+  }
+
+  softDeleteMessage(messageId: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        `UPDATE messages SET content = '[deleted]' WHERE id = ?`,
+        [messageId],
+        (err) => {
+          if (err) return reject(err);
+          resolve();
+        }
+      );
+    });
+  }
+
   getMessagesForRoom(roomId: string): Promise<Message[]> {
     return new Promise((resolve, reject) => {
       this.db.all(
