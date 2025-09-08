@@ -1,0 +1,166 @@
+import type { WsContext } from "../router/WsContext";
+import { K, TTL, jsonGet, jsonSet, delMany } from "../../../cache/cacheKeys";
+
+function genId(): string {
+  // Lightweight UUID-ish id (not for crypto) e.g. ab12cd34-... length ~ 24
+  return (Date.now().toString(36) + Math.random().toString(36).slice(2, 10)).slice(0, 24);
+}
+
+interface CallSession {
+  callId: string;
+  callerId: string;
+  calleeId: string;
+  media: "audio" | "video";
+  status: "ringing" | "accepted" | "ended";
+  createdAt: number;
+}
+
+export class CallsWsController {
+  async callRequest(
+    ctx: WsContext<{ targetUserId: string; media: "audio" | "video"; roomId?: string }>
+  ) {
+    const { socket, io, services } = ctx;
+    const callerId = (socket.data as any)?.userId as string | undefined;
+    if (!callerId) return { success: false, error: "Not authenticated." };
+
+    const { targetUserId, media } = (ctx.payload || {}) as any;
+    if (!targetUserId || (media !== "audio" && media !== "video")) {
+      return { success: false, error: "Invalid payload." };
+    }
+    if (targetUserId === callerId) return { success: false, error: "Cannot call yourself." };
+
+    const { friendService, roomService, redisService, userService } = services as any;
+
+    // Permission: accepted friends OR share at least one room
+    let allowed = false;
+    try {
+      const isFriend = await friendService.areFriends(callerId, targetUserId);
+      if (isFriend) allowed = true;
+      if (!allowed) {
+        const shared = await roomService.haveSharedRoom(callerId, targetUserId);
+        if (shared) allowed = true;
+      }
+    } catch {}
+    if (!allowed) return { success: false, error: "Not allowed to call this user." };
+
+    // Busy check
+    try {
+      const calleeBusy = await redisService.get(K.userCall(targetUserId));
+      if (calleeBusy) {
+        try { socket.emit("callBusy", { targetUserId }); } catch {}
+        return { success: false, error: "User is busy." };
+      }
+    } catch {}
+
+    // Create call session
+    const callId = genId();
+    const sess: CallSession = {
+      callId,
+      callerId,
+      calleeId: targetUserId,
+      media,
+      status: "ringing",
+      createdAt: Date.now(),
+    };
+    await jsonSet(redisService, K.callSession(callId), sess, TTL.callRinging);
+    try { await redisService.set(K.userCall(callerId), callId, { EX: TTL.callRinging }); } catch {}
+    try { await redisService.set(K.userCall(targetUserId), callId, { EX: TTL.callRinging }); } catch {}
+
+    // Load basic user info for UI
+    let caller: any = null;
+    try { caller = await userService.getUserById(callerId); } catch {}
+    const fromUser = caller ? { id: caller.id, name: caller.name, avatar: caller.avatarUrl || undefined } : { id: callerId };
+
+    // Notify callee on all devices
+    try {
+      const sockets = await redisService.sMembers(K.userSockets(targetUserId));
+      for (const sid of sockets || []) {
+        try { io.to(sid).emit("callIncoming", { callId, fromUser, media }); } catch {}
+      }
+    } catch {}
+
+    return { success: true, callId };
+  }
+
+  async callAccept(ctx: WsContext<{ callId: string }>) {
+    const { socket, io, services } = ctx;
+    const uid = (socket.data as any)?.userId as string | undefined;
+    if (!uid) return { success: false, error: "Not authenticated." };
+    const { callId } = (ctx.payload || {}) as any;
+    if (!callId) return { success: false, error: "Missing callId." };
+
+    const { redisService } = services as any;
+    const sess = await jsonGet<CallSession>(redisService, K.callSession(callId));
+    if (!sess) return { success: false, error: "Call not found." };
+    if (sess.status !== "ringing") return { success: false, error: "Call not in ringing state." };
+    if (sess.calleeId !== uid) return { success: false, error: "Only callee can accept." };
+
+    sess.status = "accepted";
+    await jsonSet(redisService, K.callSession(callId), sess, TTL.callActive);
+    try { await redisService.set(K.userCall(sess.callerId), callId, { EX: TTL.callActive }); } catch {}
+    try { await redisService.set(K.userCall(sess.calleeId), callId, { EX: TTL.callActive }); } catch {}
+
+    // Notify caller devices
+    try {
+      const sockets = await redisService.sMembers(K.userSockets(sess.callerId));
+      for (const sid of sockets || []) io.to(sid).emit("callAccepted", { callId });
+    } catch {}
+
+    return { success: true };
+  }
+
+  async callDecline(ctx: WsContext<{ callId: string; reason?: string }>) {
+    const { socket, io, services } = ctx;
+    const uid = (socket.data as any)?.userId as string | undefined;
+    if (!uid) return { success: false, error: "Not authenticated." };
+    const { callId, reason } = (ctx.payload || {}) as any;
+    if (!callId) return { success: false, error: "Missing callId." };
+
+    const { redisService } = services as any;
+    const sess = await jsonGet<CallSession>(redisService, K.callSession(callId));
+    if (!sess) return { success: false, error: "Call not found." };
+    if (sess.status === "ended") return { success: true };
+    if (uid !== sess.calleeId && uid !== sess.callerId) return { success: false, error: "Not part of this call." };
+
+    sess.status = "ended";
+    await jsonSet(redisService, K.callSession(callId), sess, 10);
+
+    // Notify the opposite party
+    const other = uid === sess.callerId ? sess.calleeId : sess.callerId;
+    try {
+      const sockets = await redisService.sMembers(K.userSockets(other));
+      for (const sid of sockets || []) io.to(sid).emit("callDeclined", { callId, reason });
+    } catch {}
+
+    try { await delMany(redisService, [K.userCall(sess.callerId), K.userCall(sess.calleeId), K.callSession(callId)]); } catch {}
+
+    return { success: true };
+  }
+
+  async callCancel(ctx: WsContext<{ callId: string }>) {
+    const { socket, io, services } = ctx;
+    const uid = (socket.data as any)?.userId as string | undefined;
+    if (!uid) return { success: false, error: "Not authenticated." };
+    const { callId } = (ctx.payload || {}) as any;
+    if (!callId) return { success: false, error: "Missing callId." };
+
+    const { redisService } = services as any;
+    const sess = await jsonGet<CallSession>(redisService, K.callSession(callId));
+    if (!sess) return { success: false, error: "Call not found." };
+    if (sess.callerId !== uid) return { success: false, error: "Only caller can cancel ringing." };
+    if (sess.status !== "ringing") return { success: false, error: "Call is not ringing." };
+
+    sess.status = "ended";
+    await jsonSet(redisService, K.callSession(callId), sess, 10);
+
+    // Notify callee devices
+    try {
+      const sockets = await (services as any).redisService.sMembers(K.userSockets(sess.calleeId));
+      for (const sid of sockets || []) io.to(sid).emit("callCanceled", { callId });
+    } catch {}
+
+    try { await delMany(redisService, [K.userCall(sess.callerId), K.userCall(sess.calleeId), K.callSession(callId)]); } catch {}
+
+    return { success: true };
+  }
+}

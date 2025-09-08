@@ -26,6 +26,9 @@ export const TTL = {
   avatar: 600,
   // Undo window for message edits/deletes (10 minutes)
   undo: 600,
+  // Calls
+  callRinging: 60,      // seconds to wait for accept before auto-decline
+  callActive: 2 * 3600, // safety TTL for active calls (2h)
 } as const;
 
 // Key builders
@@ -68,6 +71,9 @@ export const K = {
   statsMiss: (prefix: string) => `stats:cache:miss:${prefix}`,
   // Undo snapshots per user+message
   msgUndo: (userId: string, messageId: number | string) => `undo:msg:${userId}:${messageId}`,
+  // Calls
+  callSession: (callId: string) => `call:${callId}`,
+  userCall: (userId: string) => `user:call:${userId}`,
 };
 
 // Small helpers

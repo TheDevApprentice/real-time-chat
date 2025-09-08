@@ -12,12 +12,17 @@ import {
   WsMessageDeleteSchema,
   WsMessageUndoSchema,
   WsUndoTtlSchema,
+  WsCallRequestSchema,
+  WsCallAcceptSchema,
+  WsCallDeclineSchema,
+  WsCallCancelSchema,
 } from "../../../middleware/validation";
 import { WsRouter } from "./WsRouter";
 import { AuthWsController } from "../controllers/AuthWsController";
 import { RoomsWsController } from "../controllers/RoomsWsController";
 import { MessagesWsController } from "../controllers/MessagesWsController";
 import { FriendsWsController } from "../controllers/FriendsWsController";
+import { CallsWsController } from "../controllers/CallsWsController";
 import { WsContext } from "./WsContext";
 import { validate } from "../middlewares/validate";
 import { rateLimitPerSocket } from "../middlewares/rateLimit";
@@ -40,6 +45,7 @@ export class WebSocketGateway {
   private roomsCtrl: RoomsWsController;
   private messagesCtrl: MessagesWsController;
   private friendsCtrl: FriendsWsController;
+  private callsCtrl: CallsWsController;
   private routerInitialized = false;
 
   constructor(httpServer: HttpServer) {
@@ -51,6 +57,7 @@ export class WebSocketGateway {
     this.roomsCtrl = new RoomsWsController();
     this.messagesCtrl = new MessagesWsController();
     this.friendsCtrl = new FriendsWsController();
+    this.callsCtrl = new CallsWsController();
     this.registerRoutes();
     this.handleConnections();
   }
@@ -63,6 +70,36 @@ export class WebSocketGateway {
       "authenticate",
       validate(WsAuthenticateSchema),
       async (ctx: WsContext<z.infer<typeof WsAuthenticateSchema>>) => this.authCtrl.authenticate(ctx)
+    );
+
+    // Calls (Phase 1: signaling scaffolding)
+    this.router.register(
+      "callRequest",
+      requireAuth(),
+      rateLimitPerSocket("call:request", 20, 60_000),
+      validate(WsCallRequestSchema),
+      async (ctx: WsContext<z.infer<typeof WsCallRequestSchema>>) => this.callsCtrl.callRequest(ctx)
+    );
+    this.router.register(
+      "callAccept",
+      requireAuth(),
+      rateLimitPerSocket("call:accept", 60, 60_000),
+      validate(WsCallAcceptSchema),
+      async (ctx: WsContext<z.infer<typeof WsCallAcceptSchema>>) => this.callsCtrl.callAccept(ctx)
+    );
+    this.router.register(
+      "callDecline",
+      requireAuth(),
+      rateLimitPerSocket("call:decline", 60, 60_000),
+      validate(WsCallDeclineSchema),
+      async (ctx: WsContext<z.infer<typeof WsCallDeclineSchema>>) => this.callsCtrl.callDecline(ctx)
+    );
+    this.router.register(
+      "callCancel",
+      requireAuth(),
+      rateLimitPerSocket("call:cancel", 60, 60_000),
+      validate(WsCallCancelSchema),
+      async (ctx: WsContext<z.infer<typeof WsCallCancelSchema>>) => this.callsCtrl.callCancel(ctx)
     );
 
     // History pagination

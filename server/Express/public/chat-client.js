@@ -2791,6 +2791,161 @@ window.socket = socket;
     }
     catch { }
 })();
+// calls.ts - Basic signaling UI for Phase 1 (ringing only)
+(function () {
+    const w = window;
+    // UI elements
+    function ensureCallsPanel() {
+        let panel = document.getElementById('calls-panel');
+        if (!panel) {
+            panel = document.createElement('div');
+            panel.id = 'calls-panel';
+            panel.style.marginTop = '10px';
+            panel.style.padding = '10px';
+            panel.style.border = '1px solid #e5e7eb';
+            panel.style.borderRadius = '8px';
+            panel.style.background = '#fff';
+            panel.innerHTML = `
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+          <strong>Calls (test)</strong>
+          <input id="call-target" type="text" placeholder="Target userId" style="flex:1;padding:6px 8px;border:1px solid #ddd;border-radius:6px;" />
+          <button id="call-audio" style="padding:6px 10px;border:none;border-radius:6px;background:#3b82f6;color:#fff;cursor:pointer;">Call (Audio)</button>
+          <button id="call-video" style="padding:6px 10px;border:none;border-radius:6px;background:#8b5cf6;color:#fff;cursor:pointer;">Call (Video)</button>
+        </div>
+        <div id="incoming-call" style="display:none;padding:8px;border-radius:6px;background:#111827;color:#fff;">
+          <span class="txt"></span>
+          <button class="accept" style="margin-left:10px;padding:4px 8px;border:none;border-radius:6px;background:#10b981;color:#fff;cursor:pointer;">Accepter</button>
+          <button class="decline" style="margin-left:6px;padding:4px 8px;border:none;border-radius:6px;background:#ef4444;color:#fff;cursor:pointer;">Refuser</button>
+        </div>
+        <ul id="call-log" style="list-style:disc;margin:8px 0 0 16px;"></ul>
+      `;
+            const chat = document.getElementById('chat') || document.body;
+            chat.appendChild(panel);
+        }
+        return panel;
+    }
+    function log(msg) {
+        const ul = document.getElementById('call-log');
+        if (!ul)
+            return;
+        const li = document.createElement('li');
+        li.textContent = msg;
+        ul.appendChild(li);
+    }
+    function init() {
+        ensureCallsPanel();
+        const input = document.getElementById('call-target');
+        const btnA = document.getElementById('call-audio');
+        const btnV = document.getElementById('call-video');
+        const incoming = document.getElementById('incoming-call');
+        const txt = incoming === null || incoming === void 0 ? void 0 : incoming.querySelector('.txt');
+        const acceptBtn = incoming === null || incoming === void 0 ? void 0 : incoming.querySelector('.accept');
+        const declineBtn = incoming === null || incoming === void 0 ? void 0 : incoming.querySelector('.decline');
+        btnA && (btnA.onclick = () => {
+            const target = input === null || input === void 0 ? void 0 : input.value.trim();
+            if (!target) {
+                log('Target userId is required');
+                return;
+            }
+            try {
+                w.socket.emit('callRequest', { targetUserId: target, media: 'audio' }, (res) => {
+                    if (res === null || res === void 0 ? void 0 : res.success)
+                        log(`Outgoing call (audio) -> callId=${res.callId}`);
+                    else
+                        log(`callRequest failed: ${(res === null || res === void 0 ? void 0 : res.error) || 'error'}`);
+                });
+            }
+            catch { }
+        });
+        btnV && (btnV.onclick = () => {
+            const target = input === null || input === void 0 ? void 0 : input.value.trim();
+            if (!target) {
+                log('Target userId is required');
+                return;
+            }
+            try {
+                w.socket.emit('callRequest', { targetUserId: target, media: 'video' }, (res) => {
+                    if (res === null || res === void 0 ? void 0 : res.success)
+                        log(`Outgoing call (video) -> callId=${res.callId}`);
+                    else
+                        log(`callRequest failed: ${(res === null || res === void 0 ? void 0 : res.error) || 'error'}`);
+                });
+            }
+            catch { }
+        });
+        // Incoming ring
+        try {
+            w.socket.on('callIncoming', (p) => {
+                var _a, _b, _c, _d;
+                log(`Incoming call from ${((_a = p === null || p === void 0 ? void 0 : p.fromUser) === null || _a === void 0 ? void 0 : _a.name) || ((_b = p === null || p === void 0 ? void 0 : p.fromUser) === null || _b === void 0 ? void 0 : _b.id) || '?'} (media=${p === null || p === void 0 ? void 0 : p.media}) callId=${p === null || p === void 0 ? void 0 : p.callId}`);
+                if (incoming && txt) {
+                    txt.textContent = `Appel entrant de ${((_c = p === null || p === void 0 ? void 0 : p.fromUser) === null || _c === void 0 ? void 0 : _c.name) || ((_d = p === null || p === void 0 ? void 0 : p.fromUser) === null || _d === void 0 ? void 0 : _d.id) || '?'} (${p === null || p === void 0 ? void 0 : p.media})`;
+                    incoming.style.display = '';
+                    acceptBtn && (acceptBtn.onclick = () => {
+                        try {
+                            w.socket.emit('callAccept', { callId: p.callId }, (res) => {
+                                if (res === null || res === void 0 ? void 0 : res.success)
+                                    log(`Accepted callId=${p.callId}`);
+                                else
+                                    log(`callAccept failed: ${(res === null || res === void 0 ? void 0 : res.error) || 'error'}`);
+                                incoming.style.display = 'none';
+                            });
+                        }
+                        catch { }
+                    });
+                    declineBtn && (declineBtn.onclick = () => {
+                        try {
+                            w.socket.emit('callDecline', { callId: p.callId, reason: 'declined' }, (res) => {
+                                if (res === null || res === void 0 ? void 0 : res.success)
+                                    log(`Declined callId=${p.callId}`);
+                                else
+                                    log(`callDecline failed: ${(res === null || res === void 0 ? void 0 : res.error) || 'error'}`);
+                                incoming.style.display = 'none';
+                            });
+                        }
+                        catch { }
+                    });
+                }
+            });
+        }
+        catch { }
+        // Other events
+        try {
+            w.socket.on('callAccepted', (p) => { log(`callAccepted callId=${p === null || p === void 0 ? void 0 : p.callId}`); });
+        }
+        catch { }
+        try {
+            w.socket.on('callDeclined', (p) => { log(`callDeclined callId=${p === null || p === void 0 ? void 0 : p.callId} reason=${(p === null || p === void 0 ? void 0 : p.reason) || ''}`); });
+        }
+        catch { }
+        try {
+            w.socket.on('callCanceled', (p) => { log(`callCanceled callId=${p === null || p === void 0 ? void 0 : p.callId}`); });
+        }
+        catch { }
+        try {
+            w.socket.on('callBusy', (p) => { log(`callBusy targetUserId=${p === null || p === void 0 ? void 0 : p.targetUserId}`); });
+        }
+        catch { }
+    }
+    // Expose minimal helpers for dev
+    window.callCancel = function (callId) {
+        try {
+            w.socket.emit('callCancel', { callId }, (res) => log((res === null || res === void 0 ? void 0 : res.success) ? `Canceled callId=${callId}` : `callCancel failed: ${(res === null || res === void 0 ? void 0 : res.error) || 'error'}`));
+        }
+        catch { }
+    };
+    // Initialize on load (after socket availability)
+    function waitSocket(attempt = 0) {
+        if (window.socket) {
+            init();
+            return;
+        }
+        if (attempt > 20)
+            return;
+        setTimeout(() => waitSocket(attempt + 1), 500);
+    }
+    waitSocket();
+})();
 var _a;
 // Utilities are now provided by core.ts (ensureTheme, debounce, getCookie, formatRelative)
 try {
@@ -3272,6 +3427,7 @@ catch { }
 /// <reference path="./invites.ts" />
 /// <reference path="./sockets.ts" />
 /// <reference path="./analytics.ts" />
+/// <reference path="./calls.ts" />
 /// <reference path="./chat-client.ts" />
 // stats.ts - Client-side realtime stats panel (no external libs)
 // Collects per-room metrics from incoming/outgoing events and renders sparklines

@@ -101,6 +101,37 @@ export const WsUndoTtlSchema = z.object({
   messageId: z.number().int().positive(),
 });
 
+// --- Calls (Phase 1: signaling scaffolding) ---
+export const WsCallRequestSchema = z.object({
+  targetUserId: z.string().min(1),
+  media: z.enum(["audio", "video"]),
+  roomId: z.string().optional(),
+});
+export const WsCallAcceptSchema = z.object({
+  callId: z.string().min(6),
+});
+export const WsCallDeclineSchema = z.object({
+  callId: z.string().min(6),
+  reason: z.string().max(200).optional(),
+});
+export const WsCallCancelSchema = z.object({
+  callId: z.string().min(6),
+});
+
+// Phase 2: SDP/ICE
+export const WsCallOfferSchema = z.object({
+  callId: z.string().min(6),
+  sdp: z.string().min(10),
+});
+export const WsCallAnswerSchema = z.object({
+  callId: z.string().min(6),
+  sdp: z.string().min(10),
+});
+export const WsCallIceSchema = z.object({
+  callId: z.string().min(6),
+  candidate: z.string().min(5),
+});
+
 // REST params/bodies
 export const MessageIdParamsSchema = z.object({
   messageId: z.coerce.number().int().positive(),
