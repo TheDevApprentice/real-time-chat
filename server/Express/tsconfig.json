@@ -8,5 +8,22 @@
     "esModuleInterop": true,
     "skipLibCheck": true
   },
-  "include": ["*.ts", "api/routes/**/*.ts", "utils/**/*.ts", "models/**/*.ts", "server.ts", "domain/services/dbServices/DatabaseService.ts", "api/routes/WS/router/WebSocketGateway.ts", "domain/entities/Friend.ts", "domain/entities/index.ts", "domain/entities/Message.ts", "domain/entities/Room.ts", "domain/entities/User.ts", "domain/entities/UserSession.ts", "api/middleware/text.ts", "api/middleware/validation.ts", "api/middleware/BruteForceGuard.ts"]
+  "include": [
+    "*.ts",
+    "api/routes/**/*.ts",
+    "utils/**/*.ts",
+    "models/**/*.ts",
+    "server.ts",
+    "domain/services/dbServices/DatabaseService.ts",
+    "api/routes/WS/router/WebSocketGateway.ts",
+    "domain/entities/Friend.ts",
+    "domain/entities/index.ts",
+    "domain/entities/Message.ts",
+    "domain/entities/Room.ts",
+    "domain/entities/User.ts",
+    "domain/entities/UserSession.ts",
+    "api/middleware/text.ts",
+    "api/middleware/validation.ts",
+    "api/middleware/BruteForceGuard.ts"
+  ]
 }

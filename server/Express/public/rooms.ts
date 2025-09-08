@@ -83,6 +83,23 @@
         }
         roomListAll && roomListAll.appendChild(li);
 
+        // Helpers for media-only preview detection
+        function isMediaUrl(u: string): boolean {
+          const s = String(u || '').toLowerCase();
+          if (!/^https?:\/\//.test(s)) return false;
+          return /(\.png|\.jpg|\.jpeg|\.webp|\.gif|\.mp4|\.webm|\.ogg)(\?.*)?$/.test(s);
+        }
+        function previewFromContent(content: string): string {
+          try {
+            const lines = String(content || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+            if (lines.length > 0 && lines.every((l) => isMediaUrl(l))) return '[Pièce jointe]';
+            const text = String(content || '').slice(0, 80);
+            return text;
+          } catch {
+            return String(content || '').slice(0, 80);
+          }
+        }
+
         // Fill last message preview inline (cached 15s)
         try {
           const previewEl = li.querySelector('.room-lastmsg-inline') as HTMLElement | null;
@@ -95,7 +112,7 @@
             } else if (typeof w.getRoomLastMessage === 'function') {
               w.getRoomLastMessage(cacheKey).then((res: any) => {
                 try {
-                  const text = res && res.success && res.message ? String(res.message.content || '').slice(0, 80) : '';
+                  const text = res && res.success && res.message ? previewFromContent(String(res.message.content || '')) : '';
                   previewEl.textContent = text ? ` – ${text}` : '';
                   w.roomLastMsgCache[cacheKey] = { text, ts: Date.now() };
                 } catch {}
@@ -115,7 +132,14 @@
       try {
         if (!roomId) return;
         w.roomLastMsgCache = w.roomLastMsgCache || {};
-        const preview = (text || '').slice(0, 80);
+        const isMediaOnly = (() => {
+          try {
+            const lines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+            if (lines.length === 0) return false;
+            return lines.every((l) => (/^https?:\/\//.test(l) && /(\.png|\.jpg|\.jpeg|\.webp|\.gif|\.mp4|\.webm|\.ogg)(\?.*)?$/.test(l.toLowerCase())));
+          } catch { return false; }
+        })();
+        const preview = isMediaOnly ? '[Pièce jointe]' : (text || '').slice(0, 80);
         // Cache with fresh ts
         w.roomLastMsgCache[String(roomId)] = { text: preview, ts: Date.now() };
         // Update DOM if present
