@@ -371,27 +371,7 @@
       };
     }
 
-    // Fallback gate if autoplay is blocked
-    audioGate = document.getElementById('webrtc-audio-gate') as HTMLDivElement | null;
-    if (!audioGate) {
-      audioGate = document.createElement('div');
-      audioGate.id = 'webrtc-audio-gate';
-      audioGate.style.position = 'fixed';
-      audioGate.style.right = '16px';
-      audioGate.style.bottom = '80px';
-      audioGate.style.background = '#111827';
-      audioGate.style.color = '#fff';
-      audioGate.style.padding = '8px 12px';
-      audioGate.style.borderRadius = '10px';
-      audioGate.style.display = 'none';
-      audioGate.style.zIndex = '10001';
-      audioGate.innerHTML = '<span>Audio bloqué</span> <button style="margin-left:8px;padding:4px 8px;border:none;border-radius:6px;background:#10b981;color:#fff;cursor:pointer;">Activer</button>';
-      document.body.appendChild(audioGate);
-      const btn = audioGate.querySelector('button') as HTMLButtonElement | null;
-      if (btn) btn.onclick = async () => {
-        try { await remoteAudio!.play(); audioGate!.style.display = 'none'; } catch {}
-      };
-    }
+    // Removed autoplay gate overlay; rely on permissions already granted.
 
     const ensureIce = async () => {
       if (iceServers) return iceServers;
@@ -432,7 +412,7 @@
 
           if (remoteAudio) {
             remoteAudio.srcObject = remoteRenderStream;
-            try { await remoteAudio.play(); } catch { if (audioGate) audioGate.style.display = ''; }
+            try { await remoteAudio.play(); } catch {}
           }
           if (remoteVideo && requestedMedia === 'video') {
             try { (remoteVideo as any).srcObject = remoteRenderStream; } catch {}
