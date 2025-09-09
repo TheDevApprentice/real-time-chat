@@ -16,6 +16,70 @@
   let permissionsReady = false;
   let remoteRenderStream: MediaStream | null = null;
   let pendingAddLocal = false;
+  let statsInterval: number | null = null;
+  let lastBytes: { aRecv?: number; vRecv?: number; aSend?: number; vSend?: number; t?: number } = {};
+  type HistPoint = { t: number; rtt: number; lossPct: number; brRecv: number };
+  let hist: HistPoint[] = [];
+
+  // ---- Stats helpers (top-level) ----
+  function getStatsBox() { return document.getElementById('call-stats') as HTMLDivElement | null; }
+  function showStats(show: boolean) { const el = getStatsBox(); if (el) el.style.display = show ? '' : 'none'; }
+  async function sampleStats() {
+    try {
+      if (!pc) return;
+      const report = await pc.getStats();
+      let rtt = 0; let lossA = 0; let lossV = 0; let jitterA = 0; let jitterV = 0;
+      let bytesRecvA = 0; let bytesRecvV = 0; let bytesSentA = 0; let bytesSentV = 0;
+      let fps = 0; let w = 0; let h = 0;
+      let now = Date.now();
+      report.forEach((s: any) => {
+        if (s.type === 'candidate-pair' && s.nominated) { rtt = Math.round((s.currentRoundTripTime || s.totalRoundTripTime || 0) * 1000); }
+        if (s.type === 'inbound-rtp') {
+          if (s.kind === 'audio') { lossA = s.packetsLost || 0; jitterA = Math.round((s.jitter || 0) * 1000); bytesRecvA = s.bytesReceived || 0; }
+          if (s.kind === 'video') { lossV = s.packetsLost || 0; jitterV = Math.round((s.jitter || 0) * 1000); bytesRecvV = s.bytesReceived || 0; fps = s.framesPerSecond || fps; w = s.frameWidth || w; h = s.frameHeight || h; }
+        }
+        if (s.type === 'outbound-rtp') {
+          if (s.kind === 'audio') { bytesSentA = s.bytesSent || 0; }
+          if (s.kind === 'video') { bytesSentV = s.bytesSent || 0; }
+        }
+      });
+      const dt = Math.max(1, now - (lastBytes.t || now));
+      const brRecvA = lastBytes.aRecv != null ? Math.round(((bytesRecvA - (lastBytes.aRecv||0)) * 8) / dt) : 0;
+      const brRecvV = lastBytes.vRecv != null ? Math.round(((bytesRecvV - (lastBytes.vRecv||0)) * 8) / dt) : 0;
+      const brSendA = lastBytes.aSend != null ? Math.round(((bytesSentA - (lastBytes.aSend||0)) * 8) / dt) : 0;
+      const brSendV = lastBytes.vSend != null ? Math.round(((bytesSentV - (lastBytes.vSend||0)) * 8) / dt) : 0;
+      lastBytes = { aRecv: bytesRecvA, vRecv: bytesRecvV, aSend: bytesSentA, vSend: bytesSentV, t: now };
+
+      const qScore = ((): string => {
+        const lossPct = Math.min(100, ((lossA + lossV) / 200) * 100);
+        const r = rtt; const br = brRecvA + brRecvV;
+        if (r < 80 && lossPct < 1 && br > 400) return 'Excellent';
+        if (r < 150 && lossPct < 3 && br > 200) return 'Good';
+        if (r < 300 && lossPct < 8) return 'Fair';
+        return 'Poor';
+      })();
+
+      const statsBox = getStatsBox();
+      if (statsBox) {
+        const q = statsBox.querySelector('.quality') as HTMLElement | null;
+        const r = statsBox.querySelector('.rtt') as HTMLElement | null;
+        const l = statsBox.querySelector('.loss') as HTMLElement | null;
+        const brR = statsBox.querySelector('.br-recv') as HTMLElement | null;
+        const brS = statsBox.querySelector('.br-send') as HTMLElement | null;
+        const j = statsBox.querySelector('.jitter') as HTMLElement | null;
+        const fr = statsBox.querySelector('.fps-res') as HTMLElement | null;
+        if (q) q.textContent = qScore;
+        if (r) r.textContent = `${rtt} ms`;
+        if (l) l.textContent = `${lossA}/${lossV}`;
+        if (brR) brR.textContent = `${brRecvA} + ${brRecvV} kbps`;
+        if (brS) brS.textContent = `${brSendA} + ${brSendV} kbps`;
+        if (j) j.textContent = `${jitterA}/${jitterV} ms`;
+        if (fr) fr.textContent = fps ? `${fps} fps ${w}x${h}` : '-';
+      }
+    } catch {}
+  }
+  function startStats() { if (statsInterval) return; lastBytes = {}; statsInterval = window.setInterval(sampleStats, 1000); showStats(true); }
+  function stopStats() { if (statsInterval) { window.clearInterval(statsInterval); statsInterval = null; } showStats(false); }
   // UI elements
   function ensureCallsPanel() {
     let panel = document.getElementById('calls-panel') as HTMLDivElement | null;
@@ -35,10 +99,27 @@
           <span class="status">Call active</span>
           <button class="mute" style="margin-left:10px;padding:4px 8px;border:none;border-radius:6px;background:#6b7280;color:#fff;cursor:pointer;">Mute</button>
           <button class="hangup" style="margin-left:6px;padding:4px 8px;border:none;border-radius:6px;background:#ef4444;color:#fff;cursor:pointer;">Hang up</button>
+          <button class="toggle-stats" style="margin-left:6px;padding:4px 8px;border:none;border-radius:6px;background:#0ea5e9;color:#fff;cursor:pointer;">Stats</button>
         </div>
         <div id="video-area" style="display:none;margin-top:8px;gap:8px;align-items:center;justify-content:center;">
           <video id="webrtc-local-video" autoplay muted playsinline style="max-width:48%;border-radius:8px;background:#111;aspect-ratio:16/9"></video>
           <video id="webrtc-remote-video" autoplay playsinline style="max-width:48%;border-radius:8px;background:#111;aspect-ratio:16/9"></video>
+        </div>
+        <div id="call-stats" style="display:none;margin-top:8px;padding:8px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#111;">
+          <div style="font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+            <span class="quality-dot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#9ca3af"></span>
+            <span>Quality</span>
+          </div>
+          <div class="quality" style="margin-bottom:6px;">-</div>
+          <div class="grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;font-size:12px;">
+            <div>RTT: <span class="rtt">-</span></div>
+            <div>Loss A/V: <span class="loss">-</span></div>
+            <div>Bitrate recv A/V: <span class="br-recv">-</span></div>
+            <div>Bitrate send A/V: <span class="br-send">-</span></div>
+            <div>Jitter A/V: <span class="jitter">-</span></div>
+            <div>FPS/Res recv: <span class="fps-res">-</span></div>
+          </div>
+          <canvas id="call-stats-canvas" width="600" height="100" style="width:100%;height:100px;margin-top:8px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;"></canvas>
         </div>
         <ul id="call-log" style="list-style:disc;margin:8px 0 0 16px;"></ul>
       `;
@@ -134,6 +215,8 @@
     const active = document.getElementById('active-call') as HTMLDivElement | null;
     const muteBtn = active?.querySelector('.mute') as HTMLButtonElement | null;
     const hangBtn = active?.querySelector('.hangup') as HTMLButtonElement | null;
+    const statsBtn = active?.querySelector('.toggle-stats') as HTMLButtonElement | null;
+    const statsBox = document.getElementById('call-stats') as HTMLDivElement | null;
 
     // prepare media renderers
     remoteAudio = document.getElementById('webrtc-remote') as HTMLAudioElement | null;
@@ -169,6 +252,12 @@
           }); } catch {}
         }
         endCall();
+      };
+    }
+
+    if (statsBtn) {
+      statsBtn.onclick = () => {
+        if (!statsInterval) startStats(); else stopStats();
       };
     }
 
@@ -277,6 +366,75 @@
     }
 
     function showActive(show: boolean) { if (active) active.style.display = show ? '' : 'none'; }
+    function showStats(show: boolean) { if (statsBox) statsBox.style.display = show ? '' : 'none'; }
+
+    async function sampleStats() {
+      try {
+        if (!pc) return;
+        const report = await pc.getStats();
+        let rtt = 0; let lossA = 0; let lossV = 0; let jitterA = 0; let jitterV = 0;
+        let bytesRecvA = 0; let bytesRecvV = 0; let bytesSentA = 0; let bytesSentV = 0;
+        let fps = 0; let w = 0; let h = 0;
+        let now = Date.now();
+        report.forEach((s: any) => {
+          if (s.type === 'candidate-pair' && s.nominated) { rtt = Math.round((s.currentRoundTripTime || s.totalRoundTripTime || 0) * 1000); }
+          if (s.type === 'inbound-rtp') {
+            if (s.kind === 'audio') { lossA = s.packetsLost || 0; jitterA = Math.round((s.jitter || 0) * 1000); bytesRecvA = s.bytesReceived || 0; }
+            if (s.kind === 'video') { lossV = s.packetsLost || 0; jitterV = Math.round((s.jitter || 0) * 1000); bytesRecvV = s.bytesReceived || 0; fps = s.framesPerSecond || fps; w = s.frameWidth || w; h = s.frameHeight || h; }
+          }
+          if (s.type === 'outbound-rtp') {
+            if (s.kind === 'audio') { bytesSentA = s.bytesSent || 0; }
+            if (s.kind === 'video') { bytesSentV = s.bytesSent || 0; }
+          }
+        });
+        const dt = Math.max(1, now - (lastBytes.t || now));
+        const brRecvA = lastBytes.aRecv != null ? Math.round(((bytesRecvA - (lastBytes.aRecv||0)) * 8) / dt) : 0;
+        const brRecvV = lastBytes.vRecv != null ? Math.round(((bytesRecvV - (lastBytes.vRecv||0)) * 8) / dt) : 0;
+        const brSendA = lastBytes.aSend != null ? Math.round(((bytesSentA - (lastBytes.aSend||0)) * 8) / dt) : 0;
+        const brSendV = lastBytes.vSend != null ? Math.round(((bytesSentV - (lastBytes.vSend||0)) * 8) / dt) : 0;
+        lastBytes = { aRecv: bytesRecvA, vRecv: bytesRecvV, aSend: bytesSentA, vSend: bytesSentV, t: now };
+
+        const qScore = ((): string => {
+          // Simple heuristic based on rtt, loss, and recv bitrate
+          const lossPct = Math.min(100, ((lossA + lossV) / 200) * 100); // scale approx
+          const r = rtt;
+          const br = brRecvA + brRecvV;
+          if (r < 80 && lossPct < 1 && br > 400) return 'Excellent';
+          if (r < 150 && lossPct < 3 && br > 200) return 'Good';
+          if (r < 300 && lossPct < 8) return 'Fair';
+          return 'Poor';
+        })();
+
+        if (statsBox) {
+          const q = statsBox.querySelector('.quality') as HTMLElement | null;
+          const r = statsBox.querySelector('.rtt') as HTMLElement | null;
+          const l = statsBox.querySelector('.loss') as HTMLElement | null;
+          const brR = statsBox.querySelector('.br-recv') as HTMLElement | null;
+          const brS = statsBox.querySelector('.br-send') as HTMLElement | null;
+          const j = statsBox.querySelector('.jitter') as HTMLElement | null;
+          const fr = statsBox.querySelector('.fps-res') as HTMLElement | null;
+          if (q) q.textContent = qScore;
+          if (r) r.textContent = `${rtt} ms`;
+          if (l) l.textContent = `${lossA}/${lossV}`;
+          if (brR) brR.textContent = `${brRecvA} + ${brRecvV} kbps`;
+          if (brS) brS.textContent = `${brSendA} + ${brSendV} kbps`;
+          if (j) j.textContent = `${jitterA}/${jitterV} ms`;
+          if (fr) fr.textContent = fps ? `${fps} fps ${w}x${h}` : '-';
+        }
+      } catch {}
+    }
+
+    function startStats() {
+      if (statsInterval) return;
+      lastBytes = {};
+      statsInterval = window.setInterval(sampleStats, 1000);
+      showStats(true);
+    }
+
+    function stopStats() {
+      if (statsInterval) { window.clearInterval(statsInterval); statsInterval = null; }
+      showStats(false);
+    }
 
     // Buttons removed; expose helpers for friends panel
     async function startCall(target: string, media: 'audio'|'video') {
@@ -352,6 +510,7 @@
               // Defer adding tracks until after remote offer is set
               pendingAddLocal = true;
               showActive(true);
+              startStats();
             } else log(`callAccept failed: ${res?.error||'error'}`);
           }); } catch {}
         };
@@ -473,6 +632,7 @@
     makingOffer = false;
     const active = document.getElementById('active-call') as HTMLDivElement | null;
     if (active) active.style.display = 'none';
+    stopStats();
   }
 
   // UI controls
