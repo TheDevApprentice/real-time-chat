@@ -29,9 +29,9 @@ import { FriendsWsController } from "../controllers/FriendsWsController";
 import { CallsWsController } from "../controllers/CallsWsController";
 import { WsContext } from "./WsContext";
 import { validate } from "../middlewares/validate";
-import { rateLimitPerSocket } from "../middlewares/rateLimit";
+import { rateLimitRedisPerUser, rateLimitRedisPerSocket, rateLimitRedisByIp } from "../middlewares/rateLimitRedis";
 import { requireAuth } from "../middlewares/requireAuth";
-import { bruteForce } from "../middlewares/bruteForce";
+import { bruteForceRedis } from "../middlewares/bruteForceRedis";
 import { requireCsrf } from "../middlewares/requireCsrf";
 import type { z } from "zod";
 import { getServices } from "../../../di/container";
@@ -82,7 +82,7 @@ export class WebSocketGateway {
       "callRequest",
       requireAuth(),
       requireCsrf(),
-      rateLimitPerSocket("call:request", 20, 60_000),
+      rateLimitRedisPerUser("call:request", 20, 60),
       validate(WsCallRequestSchema),
       async (ctx: WsContext<z.infer<typeof WsCallRequestSchema>>) => this.callsCtrl.callRequest(ctx)
     );
@@ -90,7 +90,7 @@ export class WebSocketGateway {
       "callAccept",
       requireAuth(),
       requireCsrf(),
-      rateLimitPerSocket("call:accept", 60, 60_000),
+      rateLimitRedisPerUser("call:accept", 60, 60),
       validate(WsCallAcceptSchema),
       async (ctx: WsContext<z.infer<typeof WsCallAcceptSchema>>) => this.callsCtrl.callAccept(ctx)
     );
@@ -98,7 +98,7 @@ export class WebSocketGateway {
       "callDecline",
       requireAuth(),
       requireCsrf(),
-      rateLimitPerSocket("call:decline", 60, 60_000),
+      rateLimitRedisPerUser("call:decline", 60, 60),
       validate(WsCallDeclineSchema),
       async (ctx: WsContext<z.infer<typeof WsCallDeclineSchema>>) => this.callsCtrl.callDecline(ctx)
     );
@@ -106,7 +106,7 @@ export class WebSocketGateway {
       "callCancel",
       requireAuth(),
       requireCsrf(),
-      rateLimitPerSocket("call:cancel", 60, 60_000),
+      rateLimitRedisPerUser("call:cancel", 60, 60),
       validate(WsCallCancelSchema),
       async (ctx: WsContext<z.infer<typeof WsCallCancelSchema>>) => this.callsCtrl.callCancel(ctx)
     );
@@ -114,7 +114,7 @@ export class WebSocketGateway {
       "callOffer",
       requireAuth(),
       requireCsrf(),
-      rateLimitPerSocket("call:offer", 120, 60_000),
+      rateLimitRedisPerUser("call:offer", 120, 60),
       validate(WsCallOfferSchema),
       async (ctx: WsContext<z.infer<typeof WsCallOfferSchema>>) => this.callsCtrl.callOffer(ctx)
     );
@@ -122,7 +122,7 @@ export class WebSocketGateway {
       "callAnswer",
       requireAuth(),
       requireCsrf(),
-      rateLimitPerSocket("call:answer", 120, 60_000),
+      rateLimitRedisPerUser("call:answer", 120, 60),
       validate(WsCallAnswerSchema),
       async (ctx: WsContext<z.infer<typeof WsCallAnswerSchema>>) => this.callsCtrl.callAnswer(ctx)
     );
@@ -130,7 +130,7 @@ export class WebSocketGateway {
       "callIceCandidate",
       requireAuth(),
       requireCsrf(),
-      rateLimitPerSocket("call:ice", 600, 10_000),
+      rateLimitRedisPerUser("call:ice", 600, 10),
       validate(WsCallIceSchema),
       async (ctx: WsContext<z.infer<typeof WsCallIceSchema>>) => this.callsCtrl.callIceCandidate(ctx)
     );
@@ -138,7 +138,7 @@ export class WebSocketGateway {
       "callHangup",
       requireAuth(),
       requireCsrf(),
-      rateLimitPerSocket("call:hangup", 120, 60_000),
+      rateLimitRedisPerUser("call:hangup", 120, 60),
       validate(WsCallHangupSchema),
       async (ctx: WsContext<z.infer<typeof WsCallHangupSchema>>) => this.callsCtrl.callHangup(ctx)
     );
@@ -147,7 +147,7 @@ export class WebSocketGateway {
     this.router.register(
       "getTurnConfig",
       requireAuth(),
-      rateLimitPerSocket("call:getTurnConfig", 60, 60_000),
+      rateLimitRedisPerUser("call:getTurnConfig", 60, 60),
       async (ctx: WsContext) => this.callsCtrl.getTurnConfig(ctx)
     );
 
@@ -155,7 +155,7 @@ export class WebSocketGateway {
     this.router.register(
       "loadRoomHistory",
       requireAuth(),
-      rateLimitPerSocket("chat:loadHistory", 120, 60_000),
+      rateLimitRedisPerUser("chat:loadHistory", 120, 60),
       async (ctx: WsContext<{ roomId: string; cursor?: number; size?: number }>) => this.roomsCtrl.loadRoomHistory(ctx)
     );
 
@@ -163,7 +163,7 @@ export class WebSocketGateway {
     this.router.register(
       "getTopActiveRooms",
       requireAuth(),
-      rateLimitPerSocket("chat:topActive", 60, 60_000),
+      rateLimitRedisPerUser("chat:topActive", 60, 60),
       async (ctx: WsContext<{ limit?: number }>) => this.roomsCtrl.getTopActiveRooms(ctx)
     );
 
@@ -171,7 +171,7 @@ export class WebSocketGateway {
     this.router.register(
       "getRoomLastMessage",
       requireAuth(),
-      rateLimitPerSocket("chat:lastMessage", 240, 60_000),
+      rateLimitRedisPerUser("chat:lastMessage", 240, 60),
       async (ctx: WsContext<{ roomId: string }>) => this.roomsCtrl.getRoomLastMessage(ctx)
     );
 
@@ -179,7 +179,7 @@ export class WebSocketGateway {
     this.router.register(
       "getActiveUsersTop",
       requireAuth(),
-      rateLimitPerSocket("chat:activeUsersTop", 60, 60_000),
+      rateLimitRedisPerUser("chat:activeUsersTop", 60, 60),
       async (ctx: WsContext<{ limit?: number }>) => this.roomsCtrl.getActiveUsersTop(ctx)
     );
 
@@ -187,27 +187,29 @@ export class WebSocketGateway {
     this.router.register(
       "getRoomMessageCounts",
       requireAuth(),
-      rateLimitPerSocket("chat:roomMsgCounts", 120, 60_000),
+      rateLimitRedisPerUser("chat:roomMsgCounts", 120, 60),
       async (ctx: WsContext<{ roomId: string; range?: 'hour' | 'day'; from?: number; to?: number }>) => this.roomsCtrl.getRoomMessageCounts(ctx)
     );
     this.router.register(
       "login",
-      rateLimitPerSocket("auth:login", 10, 60_000),
+      rateLimitRedisByIp("auth:login", 10, 60),
       validate(WsLoginSchema),
-      bruteForce<z.infer<typeof WsLoginSchema>>({
+      bruteForceRedis<z.infer<typeof WsLoginSchema>>({
         action: "login",
-        keyFrom: (ctx: WsContext<z.infer<typeof WsLoginSchema>>) => ctx.payload?.username || "unknown",
+        keyFrom: (ctx: WsContext<z.infer<typeof WsLoginSchema>>) => ctx.payload?.username || ctx.socket.data?.userId || "unknown",
+        maxAttempts: 5,
       }),
       async (ctx: WsContext<z.infer<typeof WsLoginSchema>>) => this.authCtrl.login(ctx)
     );
     this.router.register(
       "refreshToken",
-      rateLimitPerSocket("auth:refresh", 20, 60_000),
+      rateLimitRedisByIp("auth:refresh", 20, 60),
       validate(WsRefreshTokenSchema),
-      bruteForce<z.infer<typeof WsRefreshTokenSchema>>({
+      bruteForceRedis<z.infer<typeof WsRefreshTokenSchema>>({
         action: "refresh",
         keyFrom: (ctx: WsContext<z.infer<typeof WsRefreshTokenSchema>>) =>
           ctx.payload?.refreshToken || (ctx.socket.data as any)?.userId || "unknown",
+        maxAttempts: 10,
       }),
       async (ctx: WsContext<z.infer<typeof WsRefreshTokenSchema>>) => this.authCtrl.refreshToken(ctx)
     );
@@ -236,7 +238,7 @@ export class WebSocketGateway {
       "createRoom",
       requireAuth(),
       requireCsrf(),
-      rateLimitPerSocket("chat:createRoom", 10, 60_000),
+      rateLimitRedisPerUser("chat:createRoom", 10, 60),
       validate(WsCreateRoomSchema),
       async (ctx: WsContext<z.infer<typeof WsCreateRoomSchema>>) => this.roomsCtrl.createRoom(ctx)
     );
@@ -245,7 +247,7 @@ export class WebSocketGateway {
       "joinRoom",
       requireAuth(),
       requireCsrf(),
-      rateLimitPerSocket("chat:joinRoom", 20, 60_000),
+      rateLimitRedisPerUser("chat:joinRoom", 20, 60),
       validate(WsJoinRoomSchema),
       async (ctx: WsContext<z.infer<typeof WsJoinRoomSchema>>) => this.roomsCtrl.joinRoom(ctx)
     );
@@ -269,7 +271,7 @@ export class WebSocketGateway {
       "sendMessageToRoom",
       requireAuth(),
       requireCsrf(),
-      rateLimitPerSocket("chat:sendMessage", 60, 10_000),
+      rateLimitRedisPerUser("chat:sendMessage", 60, 10),
       validate(WsSendMessageSchema),
       async (ctx: WsContext<z.infer<typeof WsSendMessageSchema>>) => this.messagesCtrl.sendMessageToRoom(ctx)
     );
@@ -277,7 +279,7 @@ export class WebSocketGateway {
       "messageEdit",
       requireAuth(),
       requireCsrf(),
-      rateLimitPerSocket("chat:messageEdit", 60, 10_000),
+      rateLimitRedisPerUser("chat:messageEdit", 60, 10),
       validate(WsMessageEditSchema),
       async (ctx: WsContext<z.infer<typeof WsMessageEditSchema>>) => this.messagesCtrl.messageEdit(ctx)
     );
@@ -285,7 +287,7 @@ export class WebSocketGateway {
       "messageDelete",
       requireAuth(),
       requireCsrf(),
-      rateLimitPerSocket("chat:messageDelete", 60, 10_000),
+      rateLimitRedisPerUser("chat:messageDelete", 60, 10),
       validate(WsMessageDeleteSchema),
       async (ctx: WsContext<z.infer<typeof WsMessageDeleteSchema>>) => this.messagesCtrl.messageDelete(ctx)
     );
@@ -293,14 +295,14 @@ export class WebSocketGateway {
       "messageUndo",
       requireAuth(),
       requireCsrf(),
-      rateLimitPerSocket("chat:messageUndo", 60, 10_000),
+      rateLimitRedisPerUser("chat:messageUndo", 60, 10),
       validate(WsMessageUndoSchema),
       async (ctx: WsContext<z.infer<typeof WsMessageUndoSchema>>) => this.messagesCtrl.messageUndo(ctx)
     );
     this.router.register(
       "getUndoTTL",
       requireAuth(),
-      rateLimitPerSocket("chat:getUndoTTL", 240, 10_000),
+      rateLimitRedisPerUser("chat:getUndoTTL", 240, 10),
       validate(WsUndoTtlSchema),
       async (ctx: WsContext<z.infer<typeof WsUndoTtlSchema>>) => this.messagesCtrl.getUndoTTL(ctx)
     );
@@ -308,14 +310,14 @@ export class WebSocketGateway {
       "messageDelivered",
       requireAuth(),
       requireCsrf(),
-      rateLimitPerSocket("chat:msgDelivered", 120, 60_000),
+      rateLimitRedisPerUser("chat:msgDelivered", 120, 60),
       async (ctx: WsContext) => this.messagesCtrl.messageDelivered(ctx)
     );
     this.router.register(
       "messageRead",
       requireAuth(),
       requireCsrf(),
-      rateLimitPerSocket("chat:msgRead", 120, 60_000),
+      rateLimitRedisPerUser("chat:msgRead", 120, 60),
       async (ctx: WsContext) => this.messagesCtrl.messageRead(ctx)
     );
 
@@ -324,20 +326,20 @@ export class WebSocketGateway {
       "friendRequest",
       requireAuth(),
       requireCsrf(),
-      rateLimitPerSocket("friend:request", 30, 60_000),
+      rateLimitRedisPerUser("friend:request", 30, 60),
       async (ctx: WsContext) => this.friendsCtrl.friendRequest(ctx)
     );
     this.router.register(
       "friendRespond",
       requireAuth(),
       requireCsrf(),
-      rateLimitPerSocket("friend:respond", 60, 60_000),
+      rateLimitRedisPerUser("friend:respond", 60, 60),
       async (ctx: WsContext) => this.friendsCtrl.friendRespond(ctx)
     );
     this.router.register(
       "friendList",
       requireAuth(),
-      rateLimitPerSocket("friend:list", 60, 60_000),
+      rateLimitRedisPerUser("friend:list", 60, 60),
       async (ctx: WsContext) => this.friendsCtrl.friendList(ctx)
     );
 

@@ -16,6 +16,12 @@ export const TTL = {
   roomOnlineExpire: 300,
   searchShort: 20,
   rateWindowSearch: 20,
+  // Rate-limiting windows
+  rateWindowAuth: 60,
+  rateWindowWs: 10,
+  // Brute-force guard
+  bruteForceWindowSec: 15 * 60, // track attempts for 15 minutes
+  bruteForcePenaltySec: 15 * 60, // block for 15 minutes
   readMax: 3600, // 1h default for aggregated read receipts (if used)
   // Aggregation retention
   counterHourRetainSec: 48 * 3600, // keep hourly buckets for 48h
@@ -61,6 +67,17 @@ export const K = {
   // Search cache
   search: (userId: string, q: string, limit: number) => `cache:search:${userId}:${q}:${limit}`,
   rlSearch: (userId: string) => `rl:search:${userId}`,
+  // REST rate limit (cluster-safe)
+  rlRest: (routeKey: string, fingerprint: string) => `rl:rest:${routeKey}:${fingerprint}`,
+  // WS rate limits (cluster-safe)
+  rlWsSocket: (subKey: string, socketId: string) => `rl:ws:${subKey}:socket:${socketId}`,
+  rlWsUser: (subKey: string, userId: string) => `rl:ws:${subKey}:user:${userId}`,
+  rlWsIp: (subKey: string, ip: string) => `rl:ws:${subKey}:ip:${ip}`,
+  // Brute-force (cluster-safe)
+  bfAttemptsIp: (ip: string) => `bf:attempts:ip:${ip}`,
+  bfAttemptsKey: (action: string, key: string) => `bf:attempts:key:${action}:${key}`,
+  bfBlockedIp: (ip: string) => `bf:blocked:ip:${ip}`,
+  bfBlockedKey: (action: string, key: string) => `bf:blocked:key:${action}:${key}`,
   // Locks / invites / avatars / leaderboard
   lock: (resource: string) => `lock:${resource}`,
   invite: (token: string) => `invite:${token}`,

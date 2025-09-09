@@ -4,7 +4,9 @@ import { Router, Request, Response } from "express";
 import { User } from "../../../../domain/entities/User";
 import { getServices } from "../../../di/container";
 
-import { bruteForceGuard } from "../../../middleware/BruteForceGuard";
+import { bruteForceRedis } from "../../../middleware/bruteForceRedis";
+import { rateLimitRedis } from "../../../middleware/rateLimitRedis";
+import { TTL } from "../../../cache/cacheKeys";
 import { authMiddleware, AuthenticatedRequest } from "../../../middleware/auth";
 import {
   RegisterSchema,
@@ -15,14 +17,18 @@ import { asyncHandler } from "../middleware/asyncHandler";
 
 const router = Router();
 
-// Use centralized guard-based rate limiter
-const rateLimit = (routeKey: string, maxReq = 50, windowMs = 15 * 60 * 1000) =>
-  bruteForceGuard.rateLimit(routeKey, maxReq, windowMs);
+// Redis-backed, cluster-safe rate limiter for auth endpoints
+const rateLimit = (routeKey: string, maxReq = 50, windowSec = TTL.rateWindowAuth) =>
+  rateLimitRedis(routeKey, maxReq, windowSec);
 
 // Registration endpoint
 router.post(
   "/register",
   rateLimit("auth:register", 20),
+  bruteForceRedis({
+    action: "register",
+    keyFrom: (req) => String((req.body as any)?.username || "unknown"),
+  }),
   validateBody(RegisterSchema),
   asyncHandler(async (req: RequestWithValidated<any>, res) => {
     const { username, password } = (req.validated!.body as any)!;
@@ -44,6 +50,10 @@ router.post(
 router.post(
   "/session-cookie",
   rateLimit("auth:sessionCookie", 60),
+  bruteForceRedis({
+    action: "sessionCookie",
+    keyFrom: (req) => String((req.body as any)?.token || req.ip || "unknown"),
+  }),
   async (req: Request, res: Response) => {
     const { token } = req.body || {};
     if (!token) return res.status(400).json({ error: "token is required." });
@@ -97,6 +107,10 @@ router.get(
 router.post(
   "/refresh-token",
   rateLimit("auth:refresh", 60),
+  bruteForceRedis({
+    action: "refresh",
+    keyFrom: (req) => String((req.body as any)?.refreshToken || req.ip || "unknown"),
+  }),
   validateBody(RefreshTokenSchema),
   asyncHandler(async (req: RequestWithValidated<any>, res) => {
     const { refreshToken } = (req.validated!.body as any)!;

@@ -24,6 +24,6 @@
     "domain/entities/UserSession.ts",
     "api/middleware/text.ts",
     "api/middleware/validation.ts",
-    "api/middleware/BruteForceGuard.ts"
+    
   ]
 }

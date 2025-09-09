@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
-import { bruteForceGuard } from "../../../middleware/BruteForceGuard";
+import { rateLimitRedis } from "../../../middleware/rateLimitRedis";
+import { bruteForceRedis } from "../../../middleware/bruteForceRedis";
 import { authMiddleware, AuthenticatedRequest } from "../../../middleware/auth";
 import {
   SearchUsersQuerySchema,
@@ -16,9 +17,9 @@ import { randomUUID } from "crypto";
 
 const router = Router();
 
-// Centralized rate limiter
-const rateLimit = (routeKey: string, maxReq = 50, windowMs = 15 * 60 * 1000) =>
-  bruteForceGuard.rateLimit(routeKey, maxReq, windowMs);
+// Redis-backed, cluster-safe rate limiter
+const rateLimit = (routeKey: string, maxReq = 50, windowSec = TTL.rateWindowAuth) =>
+  rateLimitRedis(routeKey, maxReq, windowSec);
 
 // Require authentication for all chat routes
 router.use(authMiddleware);
@@ -27,6 +28,11 @@ router.use(authMiddleware);
 router.post(
   "/messages/:messageId/undo",
   rateLimit("chat:undoMessage", 120),
+  bruteForceRedis({
+    action: "chat:undoMessage",
+    keyFrom: (req) => String((req as any)?.user?.id || req.ip || "unknown"),
+    maxAttempts: 60,
+  }),
   validateParams(MessageIdParamsSchema),
   validateBody(MessageUndoBodySchema),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -54,6 +60,11 @@ router.post(
 router.patch(
   "/messages/:messageId",
   rateLimit("chat:editMessage", 100),
+  bruteForceRedis({
+    action: "chat:editMessage",
+    keyFrom: (req) => String((req as any)?.user?.id || req.ip || "unknown"),
+    maxAttempts: 100,
+  }),
   validateParams(MessageIdParamsSchema),
   validateBody(MessageEditBodySchema),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -76,6 +87,11 @@ router.patch(
 router.delete(
   "/messages/:messageId",
   rateLimit("chat:deleteMessage", 100),
+  bruteForceRedis({
+    action: "chat:deleteMessage",
+    keyFrom: (req) => String((req as any)?.user?.id || req.ip || "unknown"),
+    maxAttempts: 100,
+  }),
   validateParams(MessageIdParamsSchema),
   validateBody(MessageDeleteBodySchema),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -114,6 +130,11 @@ router.get(
 router.get(
   "/users/search",
   rateLimit("chat:searchUsers", 150),
+  bruteForceRedis({
+    action: "chat:searchUsers",
+    keyFrom: (req) => String((req as any)?.user?.id || req.ip || "unknown"),
+    maxAttempts: 200,
+  }),
   validateQuery(SearchUsersQuerySchema),
   asyncHandler(async (
     req: RequestWithValidated<any, any, any>,
@@ -184,6 +205,11 @@ router.get(
 router.post(
   "/invite",
   rateLimit("chat:createInvite", 60),
+  bruteForceRedis({
+    action: "chat:createInvite",
+    keyFrom: (req) => String((req as any)?.user?.id || req.ip || "unknown"),
+    maxAttempts: 60,
+  }),
   validateBody(InviteCreateBodySchema),
   asyncHandler(async (req: RequestWithValidated<{ roomId: string; invitedUserId?: string; role?: string }>, res: Response) => {
     const { redisService, roomService } = getServices() as any;
@@ -212,6 +238,11 @@ router.post(
 router.get(
   "/invite/:token",
   rateLimit("chat:consumeInvite", 120),
+  bruteForceRedis({
+    action: "chat:consumeInvite",
+    keyFrom: (req) => String(req.params.token || req.ip || "unknown"),
+    maxAttempts: 120,
+  }),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { redisService, roomService } = getServices() as any;
     const token = String(req.params.token || "");

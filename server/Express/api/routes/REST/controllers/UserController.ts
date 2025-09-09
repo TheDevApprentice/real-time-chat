@@ -1,17 +1,19 @@
 import { AuthenticatedRequest, authMiddleware } from "../../../middleware/auth";
 import { Router, Request, Response } from "express";
 import { User } from "../../../../domain/entities/User";
-import { bruteForceGuard } from "../../../middleware/BruteForceGuard";
+import { rateLimitRedis } from "../../../middleware/rateLimitRedis";
+import { TTL } from "../../../cache/cacheKeys";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { validateParams } from "../middleware/validate";
 import { SessionTokenParamsSchema } from "../../../middleware/validation";
 import { getServices } from "../../../di/container";
+import { bruteForceRedis } from "../../../middleware/bruteForceRedis";
 
 const router = Router();
 
-// Centralized rate limiter
-const rateLimit = (routeKey: string, maxReq = 50, windowMs = 15 * 60 * 1000) =>
-  bruteForceGuard.rateLimit(routeKey, maxReq, windowMs);
+// Redis-backed, cluster-safe rate limiter
+const rateLimit = (routeKey: string, maxReq = 50, windowSec = TTL.rateWindowAuth) =>
+  rateLimitRedis(routeKey, maxReq, windowSec);
 
 // Get all users
 router.get(
@@ -41,6 +43,11 @@ router.get(
 router.get(
   "/sessions/:token",
   rateLimit("user:getSessionByToken", 120),
+  bruteForceRedis({
+    action: "getSessionByToken",
+    keyFrom: (req) => String(req.params.token || req.ip || "unknown"),
+    maxAttempts: 20,
+  }),
   validateParams(SessionTokenParamsSchema),
   asyncHandler(async (req, res) => {
     const { authService } = getServices();
@@ -55,6 +62,11 @@ router.delete(
   "/sessions/:token",
   authMiddleware,
   rateLimit("user:deleteSession", 30),
+  bruteForceRedis({
+    action: "deleteSession",
+    keyFrom: (req) => String(req.params.token || req.ip || "unknown"),
+    maxAttempts: 20,
+  }),
   validateParams(SessionTokenParamsSchema),
   asyncHandler(async (req: AuthenticatedRequest, res) => {
     const { authService } = getServices();
@@ -94,6 +106,11 @@ router.delete(
   "/sessions",
   authMiddleware,
   rateLimit("user:deleteAllSessions", 10),
+  bruteForceRedis({
+    action: "deleteAllSessions",
+    keyFrom: (req) => String((req as any)?.user?.id || req.ip || "unknown"),
+    maxAttempts: 10,
+  }),
   asyncHandler(async (req: AuthenticatedRequest, res) => {
     const { authService } = getServices();
     if (!req.user) return res.status(401).json({ error: "Not authenticated." });

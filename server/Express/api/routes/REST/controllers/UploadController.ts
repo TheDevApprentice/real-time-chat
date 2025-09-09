@@ -3,7 +3,9 @@ import multer from "multer";
 import path from "path";
 import { randomUUID } from "crypto";
 import { authMiddleware, AuthenticatedRequest } from "../../../middleware/auth";
-import { bruteForceGuard } from "../../../middleware/BruteForceGuard";
+import { rateLimitRedis } from "../../../middleware/rateLimitRedis";
+import { bruteForceRedis } from "../../../middleware/bruteForceRedis";
+import { TTL } from "../../../cache/cacheKeys";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { getServices } from "../../../di/container";
 
@@ -18,9 +20,9 @@ const upload = multer({
   },
 });
 
-// Centralized rate limiter
-const rateLimit = (routeKey: string, maxReq = 60, windowMs = 15 * 60 * 1000) =>
-  bruteForceGuard.rateLimit(routeKey, maxReq, windowMs);
+// Redis-backed, cluster-safe rate limiter
+const rateLimit = (routeKey: string, maxReq = 60, windowSec = TTL.rateWindowAuth) =>
+  rateLimitRedis(routeKey, maxReq, windowSec);
 
 // Require auth for uploads
 router.use(authMiddleware);
@@ -28,6 +30,11 @@ router.use(authMiddleware);
 router.post(
   "/",
   rateLimit("upload:file", 60),
+  bruteForceRedis({
+    action: "upload:file",
+    keyFrom: (req) => String((req as any)?.user?.id || req.ip || "unknown"),
+    maxAttempts: 120,
+  }),
   upload.single("file"),
   asyncHandler(async (
     req: AuthenticatedRequest & { file?: Express.Multer.File },
@@ -84,6 +91,11 @@ router.post(
 router.delete(
   "/",
   rateLimit("upload:delete", 60),
+  bruteForceRedis({
+    action: "upload:delete",
+    keyFrom: (req) => String((req as any)?.user?.id || req.ip || "unknown"),
+    maxAttempts: 120,
+  }),
   asyncHandler(async (req: AuthenticatedRequest & Request, res: Response) => {
     const { s3Service } = getServices() as any;
     const userId = req.user?.id || "anonymous";
