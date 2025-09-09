@@ -211,7 +211,12 @@ export class WebSocketGateway {
       }),
       async (ctx: WsContext<z.infer<typeof WsRefreshTokenSchema>>) => this.authCtrl.refreshToken(ctx)
     );
-    this.router.register("logout", async (ctx: WsContext<{ token: string }>) => this.authCtrl.logout(ctx));
+    this.router.register(
+      "logout",
+      requireAuth(),
+      requireCsrf(),
+      async (ctx: WsContext<{ token: string }>) => this.authCtrl.logout(ctx)
+    );
     this.router.register("getSessions", requireAuth(), async (ctx: WsContext) => this.authCtrl.getSessions(ctx));
     this.router.register(
       "revokeSession",
