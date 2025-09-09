@@ -23,6 +23,17 @@
   type StatsAgg = { start: number; sumRtt: number; cnt: number; sumLoss: number; sumBrRecv: number; sumBrSend: number; lastQuality: string };
   let agg: StatsAgg | null = null;
 
+  // Basic logger to the Calls panel list
+  function log(msg: string) {
+    try {
+      const ul = document.getElementById('call-log') as HTMLUListElement | null;
+      if (!ul) return;
+      const li = document.createElement('li');
+      li.textContent = String(msg || '');
+      ul.appendChild(li);
+    } catch {}
+  }
+
   // ---- Stats helpers (top-level) ----
   function getStatsBox() { return document.getElementById('call-stats') as HTMLDivElement | null; }
   function showStats(show: boolean) { const el = getStatsBox(); if (el) el.style.display = show ? '' : 'none'; }
@@ -255,10 +266,10 @@
       btn.style.color = '#fff';
       btn.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
       btn.style.cursor = 'pointer';
-      btn.onclick = () => {
-        const panel = ensureCallsPanel();
-        panel.style.display = panel.style.display === 'none' ? '' : (panel.style.display || '') === '' ? 'none' : '';
-      };
+      // btn.onclick = () => {
+      //   const panel = ensureCallsPanel();
+      //   panel.style.display = panel.style.display === 'none' ? '' : (panel.style.display || '') === '' ? 'none' : '';
+      // };
       document.body.appendChild(btn);
     }
     return btn;
@@ -280,19 +291,19 @@
       card.style.background = '#ffffff';
       card.style.borderRadius = '12px';
       card.style.padding = '16px';
-      card.style.minWidth = '280px';
+      card.style.minWidth = '320px';
       card.style.textAlign = 'center';
       card.innerHTML = `
-        <div style="font-weight:600;margin-bottom:6px;">Appel entrant</div>
-        <div class="txt" style="margin-bottom:12px;color:#374151"></div>
+        <div style="font-weight:700;margin-bottom:8px;font-size:16px;">Incoming call</div>
+        <div class="txt" style="margin-bottom:10px;color:#374151"></div>
         <div class="perm" style="font-size:12px;color:#6b7280;margin-bottom:10px;">
-          Autorisations requises: micro ${navigator?.mediaDevices ? '' : '(non supporté)'}<span class="vonly" style="display:none;"> + caméra</span>
-          <button class="grant" style="margin-left:8px;padding:4px 8px;border:none;border-radius:6px;background:#3b82f6;color:#fff;cursor:pointer;">Accorder</button>
-          <span class="pstat" style="margin-left:6px;color:#ef4444;">En attente…</span>
+          Permissions: mic${navigator?.mediaDevices ? '' : ' (not supported)'}<span class="vonly" style="display:none;"> + camera</span>
+          <button class="grant" style="margin-left:8px;padding:4px 8px;border:none;border-radius:6px;background:#3b82f6;color:#fff;cursor:pointer;">Grant</button>
+          <span class="pstat" style="margin-left:6px;color:#ef4444;">Waiting…</span>
         </div>
-        <div>
-          <button class="accept" disabled style="padding:6px 12px;border:none;border-radius:8px;background:#10b981;color:#fff;cursor:not-allowed;opacity:0.7;margin-right:8px;">Accepter</button>
-          <button class="decline" style="padding:6px 12px;border:none;border-radius:8px;background:#ef4444;color:#fff;cursor:pointer;">Refuser</button>
+        <div style="display:flex;align-items:center;justify-content:center;gap:10px;">
+          <button class="accept" disabled style="padding:8px 14px;border:none;border-radius:9999px;background:#10b981;color:#fff;cursor:not-allowed;opacity:0.7;">Accept</button>
+          <button class="decline" style="padding:8px 14px;border:none;border-radius:9999px;background:#ef4444;color:#fff;cursor:pointer;">Decline</button>
         </div>
       `;
       overlay.appendChild(card);
@@ -301,18 +312,181 @@
     return overlay;
   }
 
-  function log(msg: string) {
-    const ul = document.getElementById('call-log');
-    if (!ul) return;
-    const li = document.createElement('li');
-    li.textContent = msg;
-    ul.appendChild(li);
+  // --- Active call overlay (video/voice) ---
+  let coOriginalVideoParent: HTMLElement | null = null;
+  function ensureCallOverlay() {
+    let ov = document.getElementById('call-overlay') as HTMLDivElement | null;
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'call-overlay';
+      ov.style.position = 'fixed'; ov.style.inset = '0'; ov.style.zIndex = '9999';
+      ov.style.display = 'none'; ov.style.background = 'linear-gradient(180deg,#eef2ff,#faf5ff)';
+      ov.innerHTML = `
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:12px">
+          <div id="co-video" style="display:none;width:100%;max-width:980px;grid-template-columns:1fr 1fr;gap:12px;align-items:center;justify-content:center;">
+            <div id="co-remote-host" style="position:relative;background:#0b1020;border-radius:12px;aspect-ratio:16/9;overflow:hidden">
+              <div class="avatar remote-avatar" style="position:absolute;inset:0;z-index:2;pointer-events:none;display:flex;align-items:center;justify-content:center">
+                <div style="width:96px;height:96px;border-radius:9999px;background:#3b82f6;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:32px">R</div>
+              </div>
+            </div>
+            <div id="co-local-host" style="position:relative;background:#0b1020;border-radius:12px;aspect-ratio:16/9;overflow:hidden">
+              <div class="avatar local-avatar" style="position:absolute;inset:0;z-index:2;pointer-events:none;display:flex;align-items:center;justify-content:center">
+                <div style="width:96px;height:96px;border-radius:9999px;background:#3b82f6;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:32px">Y</div>
+              </div>
+            </div>
+          </div>
+          <div id="co-audio" style="display:none;width:100%;max-width:600px;display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center;justify-content:center;">
+            <div style="background:#0b1020;color:#e5e7eb;border-radius:12px;padding:24px;text-align:center">
+              <div class="name-remote" style="font-size:18px;font-weight:700">Remote</div>
+            </div>
+            <div style="background:#0b1020;color:#e5e7eb;border-radius:12px;padding:24px;text-align:center">
+              <div class="name-me" style="font-size:18px;font-weight:700">You</div>
+            </div>
+          </div>
+          <div style="position:absolute;left:50%;transform:translateX(-50%);bottom:24px;display:flex;gap:12px;align-items:center;justify-content:center">
+            <button id="co-mute" style="padding:10px 14px;border:none;border-radius:9999px;background:#111827;color:#fff;cursor:pointer">Mute</button>
+            <button id="co-cam" style="padding:10px 14px;border:none;border-radius:9999px;background:#374151;color:#fff;cursor:pointer">Camera Off</button>
+            <button id="co-hang" style="padding:10px 14px;border:none;border-radius:9999px;background:#ef4444;color:#fff;cursor:pointer">Hang up</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(ov);
+    }
+    return ov;
   }
+
+  function styleOverlayVideos() {
+    try {
+      if (localVideo) {
+        const anyV = localVideo as any;
+        if (!anyV.dataset) anyV.dataset = {} as any;
+        if (anyV.dataset.prevStyle == null) anyV.dataset.prevStyle = localVideo.getAttribute('style') || '';
+        localVideo.setAttribute('style', 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;z-index:1;');
+      }
+      if (remoteVideo) {
+        const anyV = remoteVideo as any;
+        if (!anyV.dataset) anyV.dataset = {} as any;
+        if (anyV.dataset.prevStyle == null) anyV.dataset.prevStyle = remoteVideo.getAttribute('style') || '';
+        remoteVideo.setAttribute('style', 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;z-index:1;');
+      }
+    } catch {}
+  }
+
+  function restoreVideoStyles() {
+    try {
+      if (localVideo) {
+        const anyV = localVideo as any;
+        const prev = anyV?.dataset?.prevStyle as string | undefined;
+        if (prev != null) localVideo.setAttribute('style', prev); else localVideo.removeAttribute('style');
+        if (anyV?.dataset) anyV.dataset.prevStyle = '';
+      }
+      if (remoteVideo) {
+        const anyV = remoteVideo as any;
+        const prev = anyV?.dataset?.prevStyle as string | undefined;
+        if (prev != null) remoteVideo.setAttribute('style', prev); else remoteVideo.removeAttribute('style');
+        if (anyV?.dataset) anyV.dataset.prevStyle = '';
+      }
+    } catch {}
+  }
+
+  function getInitials(name?: string) {
+    const s = (name || '').trim();
+    if (!s) return 'U';
+    const parts = s.split(/\s+/).filter(Boolean);
+    const a = parts[0]?.[0] || '';
+    const b = (parts[1]?.[0] || (parts[0]?.[1] || ''));
+    return (a + b).toUpperCase();
+  }
+
+  function refreshAvatars() {
+    try {
+      const ov = document.getElementById('call-overlay') as HTMLDivElement | null;
+      if (!ov) return;
+      const localAv = ov.querySelector('.local-avatar') as HTMLDivElement | null;
+      const remoteAv = ov.querySelector('.remote-avatar') as HTMLDivElement | null;
+      // Local: prefer the video element's bound stream if present
+      const lvStream = (localVideo?.srcObject as MediaStream | null) || localStream || null;
+      const lTrack = lvStream?.getVideoTracks()?.[0];
+      // For local, use explicit track.enabled so if user disables camera, we show avatar even if last frame remains.
+      const localActive = !!(lTrack && lTrack.readyState === 'live' && lTrack.enabled);
+      if (localAv) localAv.style.display = localActive ? 'none' : '';
+      // Remote: prefer the video element's bound stream if present
+      const rvStream = (remoteVideo?.srcObject as MediaStream | null) || remoteRenderStream || null;
+      const remoteHasFrames = !!(remoteVideo && remoteVideo.videoWidth > 0 && remoteVideo.videoHeight > 0);
+      const remoteActive = !!(remoteHasFrames || rvStream?.getVideoTracks()?.some(t => t.readyState === 'live' && (t.enabled !== false)));
+      if (remoteAv) remoteAv.style.display = remoteActive ? 'none' : '';
+    } catch {}
+  }
+
+  function wireVideoEvents() {
+    try {
+      if (localVideo && !(localVideo as any)._wiredAvatar) {
+        (localVideo as any)._wiredAvatar = true;
+        localVideo.addEventListener('loadedmetadata', refreshAvatars);
+        localVideo.addEventListener('resize', refreshAvatars as any);
+        localVideo.addEventListener('playing', refreshAvatars as any);
+      }
+      if (remoteVideo && !(remoteVideo as any)._wiredAvatar) {
+        (remoteVideo as any)._wiredAvatar = true;
+        remoteVideo.addEventListener('loadedmetadata', refreshAvatars);
+        remoteVideo.addEventListener('resize', refreshAvatars as any);
+        remoteVideo.addEventListener('playing', refreshAvatars as any);
+      }
+    } catch {}
+  }
+
+  function moveVideosToOverlay() {
+    const ov = ensureCallOverlay();
+    const hostR = ov.querySelector('#co-remote-host') as HTMLElement | null;
+    const hostL = ov.querySelector('#co-local-host') as HTMLElement | null;
+    const area = document.getElementById('video-area') as HTMLElement | null;
+    if (!hostR || !hostL || !area) return;
+    coOriginalVideoParent = area;
+    try { hostR.appendChild(document.getElementById('webrtc-remote-video')!); } catch {}
+    try { hostL.appendChild(document.getElementById('webrtc-local-video')!); } catch {}
+    styleOverlayVideos();
+    refreshAvatars();
+  }
+  function restoreVideosFromOverlay() {
+    try {
+      const vLocal = document.getElementById('webrtc-local-video');
+      const vRemote = document.getElementById('webrtc-remote-video');
+      if (coOriginalVideoParent && vLocal && vRemote) {
+        coOriginalVideoParent.appendChild(vLocal);
+        coOriginalVideoParent.appendChild(vRemote);
+      }
+      restoreVideoStyles();
+    } catch {}
+  }
+
+  function showCallOverlay(kind: 'audio'|'video', meName?: string, remoteName?: string) {
+    const ov = ensureCallOverlay();
+    ov.style.display = '';
+    const v = ov.querySelector('#co-video') as HTMLDivElement | null;
+    const a = ov.querySelector('#co-audio') as HTMLDivElement | null;
+    const camBtn = ov.querySelector('#co-cam') as HTMLButtonElement | null;
+    if (v && a) {
+      if (kind === 'video') { v.style.display = 'grid'; a.style.display = 'none'; if (camBtn) camBtn.style.display = ''; moveVideosToOverlay(); }
+      else { v.style.display = 'none'; a.style.display = 'grid'; if (camBtn) camBtn.style.display = 'none'; }
+    }
+    try {
+      const me = (ov.querySelector('.name-me') as HTMLElement | null); if (me && meName) me.textContent = meName;
+      const rn = (ov.querySelector('.name-remote') as HTMLElement | null); if (rn && remoteName) rn.textContent = remoteName;
+      const localAv = ov.querySelector('.local-avatar div') as HTMLDivElement | null;
+      const remoteAv = ov.querySelector('.remote-avatar div') as HTMLDivElement | null;
+      if (localAv) localAv.textContent = getInitials(meName || 'You');
+      if (remoteAv) remoteAv.textContent = getInitials(remoteName || 'Remote');
+    } catch {}
+    refreshAvatars();
+  }
+
+  function hideCallOverlay() { const ov = document.getElementById('call-overlay') as HTMLDivElement | null; if (ov) ov.style.display = 'none'; restoreVideosFromOverlay(); }
 
   function init() {
     ensureCallsPanel();
-    ensureCallsButton();
+    // ensureCallsButton();
     ensureIncomingOverlay();
+    ensureCallOverlay();
     // Note: input/btns removed; calls are now triggered from friends panel via global functions
     const overlay = ensureIncomingOverlay();
     const oTxt = overlay.querySelector('.txt') as HTMLElement | null;
@@ -339,6 +513,8 @@
     }
     localVideo = document.getElementById('webrtc-local-video') as HTMLVideoElement | null;
     remoteVideo = document.getElementById('webrtc-remote-video') as HTMLVideoElement | null;
+    try { if (localVideo) { localVideo.muted = true; localVideo.playsInline = true as any; } } catch {}
+    try { if (remoteVideo) { remoteVideo.muted = true; remoteVideo.playsInline = true as any; } } catch {}
 
     // Wire mute/hang buttons here to guarantee actions
     if (muteBtn) {
@@ -409,6 +585,12 @@
           // Avoid adding duplicates
           const already = remoteRenderStream.getTracks().some(t => t.id === ev.track.id);
           if (!already) remoteRenderStream.addTrack(ev.track);
+          try {
+            // Keep avatar visibility in sync with remote video status
+            ev.track.addEventListener('ended', refreshAvatars);
+            ev.track.addEventListener('mute', refreshAvatars as any);
+            ev.track.addEventListener('unmute', refreshAvatars as any);
+          } catch {}
 
           if (remoteAudio) {
             remoteAudio.srcObject = remoteRenderStream;
@@ -416,9 +598,13 @@
           }
           if (remoteVideo && requestedMedia === 'video') {
             try { (remoteVideo as any).srcObject = remoteRenderStream; } catch {}
+            try { (remoteVideo as any).muted = true; (remoteVideo as any).playsInline = true; } catch {}
             const area = document.getElementById('video-area') as HTMLDivElement | null;
             if (area) area.style.display = '';
+            try { await (remoteVideo as any).play(); } catch {}
           }
+          refreshAvatars();
+          wireVideoEvents();
         } catch {}
       };
       pc.onconnectionstatechange = () => log(`pc state: ${pc?.connectionState}`);
@@ -443,9 +629,13 @@
         // bind local preview if video
         if (kind === 'video' && localVideo && localStream) {
           try { (localVideo as any).srcObject = localStream; } catch {}
+          try { (localVideo as any).muted = true; (localVideo as any).playsInline = true; } catch {}
           const area = document.getElementById('video-area') as HTMLDivElement | null;
           if (area) area.style.display = '';
+          try { await (localVideo as any).play(); } catch {}
         }
+        refreshAvatars();
+        wireVideoEvents();
       } catch (e: any) {
         const msg = e?.message || String(e);
         log(`getUserMedia error: ${msg}`);
@@ -599,7 +789,10 @@
               await getLocalMedia(requestedMedia); await ensurePc();
               // Defer adding tracks until after remote offer is set
               pendingAddLocal = true;
-              showActive(true);
+              showActive(false);
+              const meName = String((w.currentUser?.name)||'You');
+              const otherName = String(p?.fromUser?.name || p?.fromUser?.id || 'Remote');
+              showCallOverlay(requestedMedia, meName, otherName);
               startStats();
             } else log(`callAccept failed: ${res?.error||'error'}`);
           }); } catch {}
@@ -637,7 +830,9 @@
         const offer = await pc!.createOffer();
         await pc!.setLocalDescription(offer);
         w.socket.emit('callOffer', { callId: currentCallId, sdp: JSON.stringify(offer) });
-        showActive(true);
+        showActive(false);
+        const meName = String((w.currentUser?.name)||'You');
+        showCallOverlay(requestedMedia, meName, 'Remote');
       } catch (e: any) {
         const msg = e?.message || String(e);
         log(`offer error: ${msg}`);
@@ -724,6 +919,7 @@
     makingOffer = false;
     const active = document.getElementById('active-call') as HTMLDivElement | null;
     if (active) active.style.display = 'none';
+    hideCallOverlay();
     // Persist last QA summary
     try {
       if (agg && agg.cnt > 0) {
@@ -748,6 +944,11 @@
     const active = document.getElementById('active-call') as HTMLDivElement | null;
     const muteBtn = active?.querySelector('.mute') as HTMLButtonElement | null;
     const hangBtn = active?.querySelector('.hangup') as HTMLButtonElement | null;
+    // Overlay controls
+    const ov = ensureCallOverlay();
+    const oMute = ov.querySelector('#co-mute') as HTMLButtonElement | null;
+    const oCam = ov.querySelector('#co-cam') as HTMLButtonElement | null;
+    const oHang = ov.querySelector('#co-hang') as HTMLButtonElement | null;
     if (muteBtn) muteBtn.onclick = () => {
       try {
         const enabled = !!localStream?.getAudioTracks()[0]?.enabled;
@@ -756,6 +957,30 @@
       } catch {}
     };
     if (hangBtn) hangBtn.onclick = () => { endCall(); };
+    if (oMute) oMute.onclick = () => {
+      try {
+        const track = localStream?.getAudioTracks()[0];
+        if (track) { const en = !!track.enabled; track.enabled = !en; oMute.textContent = en ? 'Unmute' : 'Mute'; }
+      } catch {}
+    };
+    if (oCam) oCam.onclick = () => {
+      try {
+        const track = localStream?.getVideoTracks()[0];
+        if (track) {
+          const en = !!track.enabled;
+          track.enabled = !en;
+          oCam.textContent = en ? 'Camera On' : 'Camera Off';
+        }
+      } catch {}
+      refreshAvatars();
+    };
+    if (oHang) oHang.onclick = () => {
+      const id = currentCallId;
+      if (id) {
+        try { w.socket.emit('callHangup', { callId: id }, (_res: any) => {}); } catch {}
+      }
+      endCall();
+    };
   })();
 
   // Initialize on load (after socket availability)

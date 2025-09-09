@@ -9,6 +9,12 @@ try {
   ensureTheme();
 } catch {}
 
+// Apply modern theme overrides for the test UI (provided by theme.ts)
+try {
+  (window as any).applyModernTheme?.();
+  (window as any).installThemeToggle?.();
+} catch {}
+
 // Expose helpers for other modules
 (window as any).setupDmPresence = setupDmPresence;
 (window as any).fetchPresence = fetchPresence;

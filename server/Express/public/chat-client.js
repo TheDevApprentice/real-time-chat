@@ -489,6 +489,31 @@ function renderSearchResults(users) {
     if (w.__rooms_ts_initialized__)
         return; // idempotent
     w.__rooms_ts_initialized__ = true;
+    // ---- Pins & Filters state (persisted) ----
+    try {
+        const raw = localStorage.getItem('rt:pins');
+        w.__rt_pins = new Set(raw ? JSON.parse(raw) : []);
+    }
+    catch {
+        w.__rt_pins = new Set();
+    }
+    try {
+        if (typeof w.__rt_room_query !== 'string')
+            w.__rt_room_query = localStorage.getItem('rt:roomQuery') || '';
+    }
+    catch { }
+    try {
+        if (w.__rt_sort_mode !== 'recent' && w.__rt_sort_mode !== 'unread')
+            w.__rt_sort_mode = localStorage.getItem('rt:roomSort') || 'recent';
+    }
+    catch {
+        w.__rt_sort_mode = 'recent';
+    }
+    try {
+        if (typeof w.__rt_pinned_only !== 'boolean')
+            w.__rt_pinned_only = localStorage.getItem('rt:pinnedOnly') === '1';
+    }
+    catch { }
     // Provide helpers on window only if not already present
     if (!w.renderRoomList)
         w.renderRoomList = function renderRoomList() {
@@ -500,7 +525,107 @@ function renderSearchResults(users) {
             const unreadCounts = w.unreadCounts || {};
             if (roomListAll)
                 roomListAll.innerHTML = "";
-            const visibleRooms = rooms.filter((room) => {
+            // Ensure filter bar exists above the list (search + pinned-only + sort)
+            (function ensureFilterBar() {
+                try {
+                    const host = document.getElementById('room-list-section');
+                    if (!host)
+                        return;
+                    let bar = document.getElementById('room-filter-bar');
+                    if (!bar) {
+                        bar = document.createElement('div');
+                        bar.id = 'room-filter-bar';
+                        bar.style.display = 'flex';
+                        bar.style.alignItems = 'center';
+                        bar.style.gap = '8px';
+                        bar.style.margin = '8px 8px 4px 8px';
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.id = 'room-search-input';
+                        input.placeholder = 'Search rooms or users…';
+                        input.value = String(w.__rt_room_query || '');
+                        input.style.flex = '1';
+                        input.oninput = () => { var _a; try {
+                            w.__rt_room_query = input.value || '';
+                            localStorage.setItem('rt:roomQuery', String(w.__rt_room_query));
+                        }
+                        catch { } ; try {
+                            (_a = w.renderRoomList) === null || _a === void 0 ? void 0 : _a.call(w);
+                        }
+                        catch { } };
+                        input.onkeydown = (ev) => {
+                            var _a;
+                            if (ev.key === 'Escape' || ev.key === 'Esc') {
+                                try {
+                                    ev.preventDefault();
+                                }
+                                catch { }
+                                try {
+                                    w.__rt_room_query = '';
+                                    localStorage.setItem('rt:roomQuery', '');
+                                    input.value = '';
+                                }
+                                catch { }
+                                try {
+                                    (_a = w.renderRoomList) === null || _a === void 0 ? void 0 : _a.call(w);
+                                }
+                                catch { }
+                            }
+                        };
+                        const clearBtn = document.createElement('button');
+                        clearBtn.type = 'button';
+                        clearBtn.className = 'icon-btn';
+                        clearBtn.textContent = '✕';
+                        clearBtn.title = 'Clear search';
+                        clearBtn.onclick = () => { var _a; try {
+                            w.__rt_room_query = '';
+                            localStorage.setItem('rt:roomQuery', '');
+                            input.value = '';
+                            (_a = w.renderRoomList) === null || _a === void 0 ? void 0 : _a.call(w);
+                        }
+                        catch { } };
+                        const poBtn = document.createElement('button');
+                        poBtn.type = 'button';
+                        poBtn.className = 'icon-btn';
+                        const setPoText = () => poBtn.textContent = `Pinned Only: ${w.__rt_pinned_only ? 'On' : 'Off'}`;
+                        setPoText();
+                        poBtn.onclick = () => { var _a; try {
+                            w.__rt_pinned_only = !w.__rt_pinned_only;
+                            localStorage.setItem('rt:pinnedOnly', w.__rt_pinned_only ? '1' : '0');
+                            setPoText();
+                            (_a = w.renderRoomList) === null || _a === void 0 ? void 0 : _a.call(w);
+                        }
+                        catch { } };
+                        const sortBtn = document.createElement('button');
+                        sortBtn.type = 'button';
+                        sortBtn.className = 'icon-btn';
+                        const setSortBtnText = () => sortBtn.textContent = `Sort: ${w.__rt_sort_mode === 'unread' ? 'Unread' : (w.__rt_sort_mode === 'unreadFirst' ? 'Unread First' : 'Recent')}`;
+                        setSortBtnText();
+                        sortBtn.onclick = () => {
+                            var _a;
+                            try {
+                                w.__rt_sort_mode = (w.__rt_sort_mode === 'recent') ? 'unread' : (w.__rt_sort_mode === 'unread' ? 'unreadFirst' : 'recent');
+                                localStorage.setItem('rt:roomSort', w.__rt_sort_mode);
+                                setSortBtnText();
+                                (_a = w.renderRoomList) === null || _a === void 0 ? void 0 : _a.call(w);
+                            }
+                            catch { }
+                        };
+                        bar.appendChild(input);
+                        bar.appendChild(clearBtn);
+                        bar.appendChild(poBtn);
+                        bar.appendChild(sortBtn);
+                        // Insert before UL
+                        const ul = document.getElementById('room-list-all');
+                        if (ul === null || ul === void 0 ? void 0 : ul.parentElement)
+                            ul.parentElement.insertBefore(bar, ul);
+                        else
+                            host.appendChild(bar);
+                    }
+                }
+                catch { }
+            })();
+            let visibleRooms = rooms.filter((room) => {
                 if (room.isPublic === false) {
                     const meId = currentUser === null || currentUser === void 0 ? void 0 : currentUser.id;
                     if (!meId)
@@ -514,11 +639,100 @@ function renderSearchResults(users) {
                 }
                 return true; // public
             });
+            // Apply text search filter
+            try {
+                const q = String(w.__rt_room_query || '').trim().toLowerCase();
+                if (q) {
+                    visibleRooms = visibleRooms.filter((room) => {
+                        let label = room.name || (room.type === 'user' ? 'DM' : 'Room');
+                        if (room.type === 'user') {
+                            const meId = currentUser === null || currentUser === void 0 ? void 0 : currentUser.id;
+                            const members = Array.isArray(room.users) ? room.users : [];
+                            const other = meId ? members.find((u) => u && u.id !== meId) : null;
+                            if (other === null || other === void 0 ? void 0 : other.name)
+                                label = other.name;
+                        }
+                        return String(label || '').toLowerCase().includes(q);
+                    });
+                }
+            }
+            catch { }
+            // Apply unread-only filter if enabled (set by UI quickbar)
+            try {
+                if (w.__rt_unread_only) {
+                    visibleRooms = visibleRooms.filter((r) => (unreadCounts && unreadCounts[r.id] > 0));
+                }
+            }
+            catch { }
+            // Pins set (used for both optional filter and sorting)
+            const pins = (w.__rt_pins instanceof Set) ? w.__rt_pins : new Set();
+            // Apply pinned-only filter if enabled
+            try {
+                if (w.__rt_pinned_only) {
+                    visibleRooms = visibleRooms.filter((r) => pins.has(String(r.id)));
+                }
+            }
+            catch { }
+            // Sorting: pinned first, then by selected mode (recent, unread, unreadFirst)
+            function lastTsFor(room) {
+                var _a;
+                try {
+                    const cache = (_a = w.roomLastMsgCache) === null || _a === void 0 ? void 0 : _a[String(room.id)];
+                    if (cache && typeof cache.lastTs === 'number')
+                        return cache.lastTs;
+                }
+                catch { }
+                return 0;
+            }
+            const pinnedRooms = visibleRooms.filter(r => pins.has(String(r.id)));
+            const otherRooms = visibleRooms.filter(r => !pins.has(String(r.id)));
+            const sortMode = (w.__rt_sort_mode === 'unread' || w.__rt_sort_mode === 'unreadFirst') ? w.__rt_sort_mode : 'recent';
+            const sorter = (a, b) => {
+                if (sortMode === 'unread' || sortMode === 'unreadFirst') {
+                    const ua = unreadCounts[a.id] || 0;
+                    const ub = unreadCounts[b.id] || 0;
+                    if (ub !== ua)
+                        return ub - ua;
+                    const ta = lastTsFor(a);
+                    const tb = lastTsFor(b);
+                    return tb - ta;
+                }
+                else {
+                    const ta = lastTsFor(a);
+                    const tb = lastTsFor(b);
+                    if (tb !== ta)
+                        return tb - ta;
+                    const ua = unreadCounts[a.id] || 0;
+                    const ub = unreadCounts[b.id] || 0;
+                    return ub - ua;
+                }
+            };
+            pinnedRooms.sort(sorter);
+            otherRooms.sort(sorter);
+            // Render headers and groups
             if (noRoomMsgAll)
-                noRoomMsgAll.style.display = visibleRooms.length ? "none" : "block";
-            // simple cache { [roomId]: { text: string, ts: number } }
+                noRoomMsgAll.style.display = (pinnedRooms.length + otherRooms.length) ? "none" : "block";
+            // simple cache { [roomId]: { text, cachedAt, lastTs } }
             w.roomLastMsgCache = w.roomLastMsgCache || {};
-            visibleRooms.forEach((room) => {
+            function appendHeader(text) {
+                try {
+                    if (!roomListAll)
+                        return;
+                    const h = document.createElement('li');
+                    h.className = 'room-list-header';
+                    h.textContent = text;
+                    roomListAll.appendChild(h);
+                }
+                catch { }
+            }
+            let idx = 0;
+            if (pinnedRooms.length)
+                appendHeader('Pinned');
+            const renderOrder = [...pinnedRooms, ...otherRooms];
+            renderOrder.forEach((room) => {
+                if (idx === pinnedRooms.length && pinnedRooms.length && otherRooms.length)
+                    appendHeader('Others');
+                idx++;
                 const li = document.createElement("li");
                 li.className = "room-list-item";
                 try {
@@ -544,9 +758,11 @@ function renderSearchResults(users) {
                 li.innerHTML = `
         <div class="room-avatar" aria-hidden="true">${initial}</div>
         <span class="room-type-icon" aria-hidden="true">${typeIcon}</span>
+        <span class="presence-dot presence-offline" aria-hidden="true"></span>
         <span class="room-name">${label}</span>
         <span class="room-lastmsg-inline" style="color:#888;font-size:12px;margin-left:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40%;display:inline-block;vertical-align:middle;"></span>
         <span class="room-badge" hidden></span>
+        <button type="button" class="icon-btn" style="margin-left:auto" aria-label="Pin" title="Pin/Unpin" data-pin="1">${pins.has(String(room.id)) ? '★' : '☆'}</button>
       `;
                 li.style.cursor = "pointer";
                 li.onclick = () => (w.joinRoom ? w.joinRoom(room) : undefined);
@@ -564,6 +780,75 @@ function renderSearchResults(users) {
                     }
                 }
                 roomListAll && roomListAll.appendChild(li);
+                // Highlight search match in name
+                try {
+                    const q = String(w.__rt_room_query || '').trim().toLowerCase();
+                    if (q) {
+                        const nameEl = li.querySelector('.room-name');
+                        if (nameEl) {
+                            const src = String(nameEl.textContent || '');
+                            const i = src.toLowerCase().indexOf(q);
+                            if (i >= 0) {
+                                const before = src.slice(0, i);
+                                const mid = src.slice(i, i + q.length);
+                                const after = src.slice(i + q.length);
+                                nameEl.innerHTML = `${before}<span class="rt-hl">${mid}</span>${after}`;
+                            }
+                        }
+                    }
+                }
+                catch { }
+                // Pin toggle
+                try {
+                    const pinBtn = li.querySelector('button[data-pin]');
+                    if (pinBtn) {
+                        pinBtn.onclick = (ev) => {
+                            var _a;
+                            try {
+                                ev.stopPropagation();
+                                ev.preventDefault();
+                            }
+                            catch { }
+                            const id = String(room.id);
+                            if (pins.has(id))
+                                pins.delete(id);
+                            else
+                                pins.add(id);
+                            try {
+                                localStorage.setItem('rt:pins', JSON.stringify(Array.from(pins)));
+                            }
+                            catch { }
+                            w.__rt_pins = pins; // update global
+                            try {
+                                (_a = w.renderRoomList) === null || _a === void 0 ? void 0 : _a.call(w);
+                            }
+                            catch { }
+                        };
+                    }
+                }
+                catch { }
+                // Presence dot for DMs only
+                if (room.type === "user") {
+                    try {
+                        const presEl = li.querySelector('.presence-dot');
+                        const meId = currentUser === null || currentUser === void 0 ? void 0 : currentUser.id;
+                        const members = Array.isArray(room.users) ? room.users : [];
+                        const other = meId ? members.find((u) => u && u.id !== meId) : null;
+                        if (presEl && other && typeof (w.fetchPresence) === 'function') {
+                            w.fetchPresence(other.id).then((pr) => {
+                                try {
+                                    presEl.classList.remove('presence-online', 'presence-offline');
+                                    if (pr && pr.status === 'online')
+                                        presEl.classList.add('presence-online');
+                                    else
+                                        presEl.classList.add('presence-offline');
+                                }
+                                catch { }
+                            }).catch(() => undefined);
+                        }
+                    }
+                    catch { }
+                }
                 // Helpers for media-only preview detection
                 function isMediaUrl(u) {
                     const s = String(u || '').toLowerCase();
@@ -590,15 +875,17 @@ function renderSearchResults(users) {
                         const cacheKey = String(room.id || '');
                         const now = Date.now();
                         const cache = w.roomLastMsgCache[cacheKey];
-                        if (cache && now - cache.ts < 15000) {
+                        if (cache && now - (cache.cachedAt || 0) < 15000) {
                             previewEl.textContent = cache.text ? ` – ${cache.text}` : '';
                         }
                         else if (typeof w.getRoomLastMessage === 'function') {
                             w.getRoomLastMessage(cacheKey).then((res) => {
                                 try {
-                                    const text = res && res.success && res.message ? previewFromContent(String(res.message.content || '')) : '';
+                                    const msg = (res && res.success) ? res.message : null;
+                                    const text = msg ? previewFromContent(String(msg.content || '')) : '';
                                     previewEl.textContent = text ? ` – ${text}` : '';
-                                    w.roomLastMsgCache[cacheKey] = { text, ts: Date.now() };
+                                    const lastTs = msg && typeof msg.timestamp === 'number' ? Number(msg.timestamp) : Date.now();
+                                    w.roomLastMsgCache[cacheKey] = { text, cachedAt: Date.now(), lastTs };
                                 }
                                 catch { }
                             }).catch(() => undefined);
@@ -627,8 +914,8 @@ function renderSearchResults(users) {
                     }
                 })();
                 const preview = isMediaOnly ? '[Pièce jointe]' : (text || '').slice(0, 80);
-                // Cache with fresh ts
-                w.roomLastMsgCache[String(roomId)] = { text: preview, ts: Date.now() };
+                // Cache with fresh timestamps (we don't have message ts here, fallback to now)
+                w.roomLastMsgCache[String(roomId)] = { text: preview, cachedAt: Date.now(), lastTs: Date.now() };
                 // Update DOM if present
                 const roomListAll = document.getElementById("room-list-all");
                 if (roomListAll) {
@@ -2841,6 +3128,18 @@ window.socket = socket;
     let lastBytes = {};
     let hist = [];
     let agg = null;
+    // Basic logger to the Calls panel list
+    function log(msg) {
+        try {
+            const ul = document.getElementById('call-log');
+            if (!ul)
+                return;
+            const li = document.createElement('li');
+            li.textContent = String(msg || '');
+            ul.appendChild(li);
+        }
+        catch { }
+    }
     // ---- Stats helpers (top-level) ----
     function getStatsBox() { return document.getElementById('call-stats'); }
     function showStats(show) { const el = getStatsBox(); if (el)
@@ -3181,10 +3480,10 @@ window.socket = socket;
             btn.style.color = '#fff';
             btn.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
             btn.style.cursor = 'pointer';
-            btn.onclick = () => {
-                const panel = ensureCallsPanel();
-                panel.style.display = panel.style.display === 'none' ? '' : (panel.style.display || '') === '' ? 'none' : '';
-            };
+            // btn.onclick = () => {
+            //   const panel = ensureCallsPanel();
+            //   panel.style.display = panel.style.display === 'none' ? '' : (panel.style.display || '') === '' ? 'none' : '';
+            // };
             document.body.appendChild(btn);
         }
         return btn;
@@ -3205,19 +3504,19 @@ window.socket = socket;
             card.style.background = '#ffffff';
             card.style.borderRadius = '12px';
             card.style.padding = '16px';
-            card.style.minWidth = '280px';
+            card.style.minWidth = '320px';
             card.style.textAlign = 'center';
             card.innerHTML = `
-        <div style="font-weight:600;margin-bottom:6px;">Appel entrant</div>
-        <div class="txt" style="margin-bottom:12px;color:#374151"></div>
+        <div style="font-weight:700;margin-bottom:8px;font-size:16px;">Incoming call</div>
+        <div class="txt" style="margin-bottom:10px;color:#374151"></div>
         <div class="perm" style="font-size:12px;color:#6b7280;margin-bottom:10px;">
-          Autorisations requises: micro ${(navigator === null || navigator === void 0 ? void 0 : navigator.mediaDevices) ? '' : '(non supporté)'}<span class="vonly" style="display:none;"> + caméra</span>
-          <button class="grant" style="margin-left:8px;padding:4px 8px;border:none;border-radius:6px;background:#3b82f6;color:#fff;cursor:pointer;">Accorder</button>
-          <span class="pstat" style="margin-left:6px;color:#ef4444;">En attente…</span>
+          Permissions: mic${(navigator === null || navigator === void 0 ? void 0 : navigator.mediaDevices) ? '' : ' (not supported)'}<span class="vonly" style="display:none;"> + camera</span>
+          <button class="grant" style="margin-left:8px;padding:4px 8px;border:none;border-radius:6px;background:#3b82f6;color:#fff;cursor:pointer;">Grant</button>
+          <span class="pstat" style="margin-left:6px;color:#ef4444;">Waiting…</span>
         </div>
-        <div>
-          <button class="accept" disabled style="padding:6px 12px;border:none;border-radius:8px;background:#10b981;color:#fff;cursor:not-allowed;opacity:0.7;margin-right:8px;">Accepter</button>
-          <button class="decline" style="padding:6px 12px;border:none;border-radius:8px;background:#ef4444;color:#fff;cursor:pointer;">Refuser</button>
+        <div style="display:flex;align-items:center;justify-content:center;gap:10px;">
+          <button class="accept" disabled style="padding:8px 14px;border:none;border-radius:9999px;background:#10b981;color:#fff;cursor:not-allowed;opacity:0.7;">Accept</button>
+          <button class="decline" style="padding:8px 14px;border:none;border-radius:9999px;background:#ef4444;color:#fff;cursor:pointer;">Decline</button>
         </div>
       `;
             overlay.appendChild(card);
@@ -3225,18 +3524,225 @@ window.socket = socket;
         }
         return overlay;
     }
-    function log(msg) {
-        const ul = document.getElementById('call-log');
-        if (!ul)
-            return;
-        const li = document.createElement('li');
-        li.textContent = msg;
-        ul.appendChild(li);
+    // --- Active call overlay (video/voice) ---
+    let coOriginalVideoParent = null;
+    function ensureCallOverlay() {
+        let ov = document.getElementById('call-overlay');
+        if (!ov) {
+            ov = document.createElement('div');
+            ov.id = 'call-overlay';
+            ov.style.position = 'fixed';
+            ov.style.inset = '0';
+            ov.style.zIndex = '9999';
+            ov.style.display = 'none';
+            ov.style.background = 'linear-gradient(180deg,#eef2ff,#faf5ff)';
+            ov.innerHTML = `
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:12px">
+          <div id="co-video" style="display:none;width:100%;max-width:980px;grid-template-columns:1fr 1fr;gap:12px;align-items:center;justify-content:center;">
+            <div id="co-remote-host" style="position:relative;background:#0b1020;border-radius:12px;aspect-ratio:16/9;overflow:hidden">
+              <div class="avatar remote-avatar" style="position:absolute;inset:0;z-index:2;pointer-events:none;display:flex;align-items:center;justify-content:center">
+                <div style="width:96px;height:96px;border-radius:9999px;background:#3b82f6;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:32px">R</div>
+              </div>
+            </div>
+            <div id="co-local-host" style="position:relative;background:#0b1020;border-radius:12px;aspect-ratio:16/9;overflow:hidden">
+              <div class="avatar local-avatar" style="position:absolute;inset:0;z-index:2;pointer-events:none;display:flex;align-items:center;justify-content:center">
+                <div style="width:96px;height:96px;border-radius:9999px;background:#3b82f6;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:32px">Y</div>
+              </div>
+            </div>
+          </div>
+          <div id="co-audio" style="display:none;width:100%;max-width:600px;display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center;justify-content:center;">
+            <div style="background:#0b1020;color:#e5e7eb;border-radius:12px;padding:24px;text-align:center">
+              <div class="name-remote" style="font-size:18px;font-weight:700">Remote</div>
+            </div>
+            <div style="background:#0b1020;color:#e5e7eb;border-radius:12px;padding:24px;text-align:center">
+              <div class="name-me" style="font-size:18px;font-weight:700">You</div>
+            </div>
+          </div>
+          <div style="position:absolute;left:50%;transform:translateX(-50%);bottom:24px;display:flex;gap:12px;align-items:center;justify-content:center">
+            <button id="co-mute" style="padding:10px 14px;border:none;border-radius:9999px;background:#111827;color:#fff;cursor:pointer">Mute</button>
+            <button id="co-cam" style="padding:10px 14px;border:none;border-radius:9999px;background:#374151;color:#fff;cursor:pointer">Camera Off</button>
+            <button id="co-hang" style="padding:10px 14px;border:none;border-radius:9999px;background:#ef4444;color:#fff;cursor:pointer">Hang up</button>
+          </div>
+        </div>
+      `;
+            document.body.appendChild(ov);
+        }
+        return ov;
     }
+    function styleOverlayVideos() {
+        try {
+            if (localVideo) {
+                const anyV = localVideo;
+                if (!anyV.dataset)
+                    anyV.dataset = {};
+                if (anyV.dataset.prevStyle == null)
+                    anyV.dataset.prevStyle = localVideo.getAttribute('style') || '';
+                localVideo.setAttribute('style', 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;z-index:1;');
+            }
+            if (remoteVideo) {
+                const anyV = remoteVideo;
+                if (!anyV.dataset)
+                    anyV.dataset = {};
+                if (anyV.dataset.prevStyle == null)
+                    anyV.dataset.prevStyle = remoteVideo.getAttribute('style') || '';
+                remoteVideo.setAttribute('style', 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;z-index:1;');
+            }
+        }
+        catch { }
+    }
+    function restoreVideoStyles() {
+        var _a, _b;
+        try {
+            if (localVideo) {
+                const anyV = localVideo;
+                const prev = (_a = anyV === null || anyV === void 0 ? void 0 : anyV.dataset) === null || _a === void 0 ? void 0 : _a.prevStyle;
+                if (prev != null)
+                    localVideo.setAttribute('style', prev);
+                else
+                    localVideo.removeAttribute('style');
+                if (anyV === null || anyV === void 0 ? void 0 : anyV.dataset)
+                    anyV.dataset.prevStyle = '';
+            }
+            if (remoteVideo) {
+                const anyV = remoteVideo;
+                const prev = (_b = anyV === null || anyV === void 0 ? void 0 : anyV.dataset) === null || _b === void 0 ? void 0 : _b.prevStyle;
+                if (prev != null)
+                    remoteVideo.setAttribute('style', prev);
+                else
+                    remoteVideo.removeAttribute('style');
+                if (anyV === null || anyV === void 0 ? void 0 : anyV.dataset)
+                    anyV.dataset.prevStyle = '';
+            }
+        }
+        catch { }
+    }
+    function getInitials(name) {
+        var _a, _b, _c;
+        const s = (name || '').trim();
+        if (!s)
+            return 'U';
+        const parts = s.split(/\s+/).filter(Boolean);
+        const a = ((_a = parts[0]) === null || _a === void 0 ? void 0 : _a[0]) || '';
+        const b = (((_b = parts[1]) === null || _b === void 0 ? void 0 : _b[0]) || (((_c = parts[0]) === null || _c === void 0 ? void 0 : _c[1]) || ''));
+        return (a + b).toUpperCase();
+    }
+    function refreshAvatars() {
+        var _a, _b;
+        try {
+            const ov = document.getElementById('call-overlay');
+            if (!ov)
+                return;
+            const localAv = ov.querySelector('.local-avatar');
+            const remoteAv = ov.querySelector('.remote-avatar');
+            // Local: prefer the video element's bound stream if present
+            const lvStream = (localVideo === null || localVideo === void 0 ? void 0 : localVideo.srcObject) || localStream || null;
+            const lTrack = (_a = lvStream === null || lvStream === void 0 ? void 0 : lvStream.getVideoTracks()) === null || _a === void 0 ? void 0 : _a[0];
+            // For local, use explicit track.enabled so if user disables camera, we show avatar even if last frame remains.
+            const localActive = !!(lTrack && lTrack.readyState === 'live' && lTrack.enabled);
+            if (localAv)
+                localAv.style.display = localActive ? 'none' : '';
+            // Remote: prefer the video element's bound stream if present
+            const rvStream = (remoteVideo === null || remoteVideo === void 0 ? void 0 : remoteVideo.srcObject) || remoteRenderStream || null;
+            const remoteHasFrames = !!(remoteVideo && remoteVideo.videoWidth > 0 && remoteVideo.videoHeight > 0);
+            const remoteActive = !!(remoteHasFrames || ((_b = rvStream === null || rvStream === void 0 ? void 0 : rvStream.getVideoTracks()) === null || _b === void 0 ? void 0 : _b.some(t => t.readyState === 'live' && (t.enabled !== false))));
+            if (remoteAv)
+                remoteAv.style.display = remoteActive ? 'none' : '';
+        }
+        catch { }
+    }
+    function wireVideoEvents() {
+        try {
+            if (localVideo && !localVideo._wiredAvatar) {
+                localVideo._wiredAvatar = true;
+                localVideo.addEventListener('loadedmetadata', refreshAvatars);
+                localVideo.addEventListener('resize', refreshAvatars);
+                localVideo.addEventListener('playing', refreshAvatars);
+            }
+            if (remoteVideo && !remoteVideo._wiredAvatar) {
+                remoteVideo._wiredAvatar = true;
+                remoteVideo.addEventListener('loadedmetadata', refreshAvatars);
+                remoteVideo.addEventListener('resize', refreshAvatars);
+                remoteVideo.addEventListener('playing', refreshAvatars);
+            }
+        }
+        catch { }
+    }
+    function moveVideosToOverlay() {
+        const ov = ensureCallOverlay();
+        const hostR = ov.querySelector('#co-remote-host');
+        const hostL = ov.querySelector('#co-local-host');
+        const area = document.getElementById('video-area');
+        if (!hostR || !hostL || !area)
+            return;
+        coOriginalVideoParent = area;
+        try {
+            hostR.appendChild(document.getElementById('webrtc-remote-video'));
+        }
+        catch { }
+        try {
+            hostL.appendChild(document.getElementById('webrtc-local-video'));
+        }
+        catch { }
+        styleOverlayVideos();
+        refreshAvatars();
+    }
+    function restoreVideosFromOverlay() {
+        try {
+            const vLocal = document.getElementById('webrtc-local-video');
+            const vRemote = document.getElementById('webrtc-remote-video');
+            if (coOriginalVideoParent && vLocal && vRemote) {
+                coOriginalVideoParent.appendChild(vLocal);
+                coOriginalVideoParent.appendChild(vRemote);
+            }
+            restoreVideoStyles();
+        }
+        catch { }
+    }
+    function showCallOverlay(kind, meName, remoteName) {
+        const ov = ensureCallOverlay();
+        ov.style.display = '';
+        const v = ov.querySelector('#co-video');
+        const a = ov.querySelector('#co-audio');
+        const camBtn = ov.querySelector('#co-cam');
+        if (v && a) {
+            if (kind === 'video') {
+                v.style.display = 'grid';
+                a.style.display = 'none';
+                if (camBtn)
+                    camBtn.style.display = '';
+                moveVideosToOverlay();
+            }
+            else {
+                v.style.display = 'none';
+                a.style.display = 'grid';
+                if (camBtn)
+                    camBtn.style.display = 'none';
+            }
+        }
+        try {
+            const me = ov.querySelector('.name-me');
+            if (me && meName)
+                me.textContent = meName;
+            const rn = ov.querySelector('.name-remote');
+            if (rn && remoteName)
+                rn.textContent = remoteName;
+            const localAv = ov.querySelector('.local-avatar div');
+            const remoteAv = ov.querySelector('.remote-avatar div');
+            if (localAv)
+                localAv.textContent = getInitials(meName || 'You');
+            if (remoteAv)
+                remoteAv.textContent = getInitials(remoteName || 'Remote');
+        }
+        catch { }
+        refreshAvatars();
+    }
+    function hideCallOverlay() { const ov = document.getElementById('call-overlay'); if (ov)
+        ov.style.display = 'none'; restoreVideosFromOverlay(); }
     function init() {
         ensureCallsPanel();
-        ensureCallsButton();
+        // ensureCallsButton();
         ensureIncomingOverlay();
+        ensureCallOverlay();
         // Note: input/btns removed; calls are now triggered from friends panel via global functions
         const overlay = ensureIncomingOverlay();
         const oTxt = overlay.querySelector('.txt');
@@ -3265,6 +3771,20 @@ window.socket = socket;
         }
         localVideo = document.getElementById('webrtc-local-video');
         remoteVideo = document.getElementById('webrtc-remote-video');
+        try {
+            if (localVideo) {
+                localVideo.muted = true;
+                localVideo.playsInline = true;
+            }
+        }
+        catch { }
+        try {
+            if (remoteVideo) {
+                remoteVideo.muted = true;
+                remoteVideo.playsInline = true;
+            }
+        }
+        catch { }
         // Wire mute/hang buttons here to guarantee actions
         if (muteBtn) {
             muteBtn.onclick = () => {
@@ -3350,6 +3870,13 @@ window.socket = socket;
                     const already = remoteRenderStream.getTracks().some(t => t.id === ev.track.id);
                     if (!already)
                         remoteRenderStream.addTrack(ev.track);
+                    try {
+                        // Keep avatar visibility in sync with remote video status
+                        ev.track.addEventListener('ended', refreshAvatars);
+                        ev.track.addEventListener('mute', refreshAvatars);
+                        ev.track.addEventListener('unmute', refreshAvatars);
+                    }
+                    catch { }
                     if (remoteAudio) {
                         remoteAudio.srcObject = remoteRenderStream;
                         try {
@@ -3362,10 +3889,21 @@ window.socket = socket;
                             remoteVideo.srcObject = remoteRenderStream;
                         }
                         catch { }
+                        try {
+                            remoteVideo.muted = true;
+                            remoteVideo.playsInline = true;
+                        }
+                        catch { }
                         const area = document.getElementById('video-area');
                         if (area)
                             area.style.display = '';
+                        try {
+                            await remoteVideo.play();
+                        }
+                        catch { }
                     }
+                    refreshAvatars();
+                    wireVideoEvents();
                 }
                 catch { }
             };
@@ -3396,10 +3934,21 @@ window.socket = socket;
                         localVideo.srcObject = localStream;
                     }
                     catch { }
+                    try {
+                        localVideo.muted = true;
+                        localVideo.playsInline = true;
+                    }
+                    catch { }
                     const area = document.getElementById('video-area');
                     if (area)
                         area.style.display = '';
+                    try {
+                        await localVideo.play();
+                    }
+                    catch { }
                 }
+                refreshAvatars();
+                wireVideoEvents();
             }
             catch (e) {
                 const msg = (e === null || e === void 0 ? void 0 : e.message) || String(e);
@@ -3618,6 +4167,7 @@ window.socket = socket;
                     oAccept.onclick = () => {
                         try {
                             w.socket.emit('callAccept', { callId: p.callId }, async (res) => {
+                                var _a, _b, _c;
                                 if (res === null || res === void 0 ? void 0 : res.success) {
                                     currentCallId = String(p.callId);
                                     log(`Accepted callId=${currentCallId}`);
@@ -3626,7 +4176,10 @@ window.socket = socket;
                                     await ensurePc();
                                     // Defer adding tracks until after remote offer is set
                                     pendingAddLocal = true;
-                                    showActive(true);
+                                    showActive(false);
+                                    const meName = String(((_a = w.currentUser) === null || _a === void 0 ? void 0 : _a.name) || 'You');
+                                    const otherName = String(((_b = p === null || p === void 0 ? void 0 : p.fromUser) === null || _b === void 0 ? void 0 : _b.name) || ((_c = p === null || p === void 0 ? void 0 : p.fromUser) === null || _c === void 0 ? void 0 : _c.id) || 'Remote');
+                                    showCallOverlay(requestedMedia, meName, otherName);
                                     startStats();
                                 }
                                 else
@@ -3654,7 +4207,7 @@ window.socket = socket;
         // Other events
         try {
             w.socket.on('callAccepted', async (p) => {
-                var _a, _b;
+                var _a, _b, _c;
                 log(`callAccepted callId=${p === null || p === void 0 ? void 0 : p.callId}`);
                 if (!currentCallId)
                     currentCallId = String((p === null || p === void 0 ? void 0 : p.callId) || '');
@@ -3677,7 +4230,9 @@ window.socket = socket;
                     const offer = await pc.createOffer();
                     await pc.setLocalDescription(offer);
                     w.socket.emit('callOffer', { callId: currentCallId, sdp: JSON.stringify(offer) });
-                    showActive(true);
+                    showActive(false);
+                    const meName = String(((_a = w.currentUser) === null || _a === void 0 ? void 0 : _a.name) || 'You');
+                    showCallOverlay(requestedMedia, meName, 'Remote');
                 }
                 catch (e) {
                     const msg = (e === null || e === void 0 ? void 0 : e.message) || String(e);
@@ -3686,7 +4241,7 @@ window.socket = socket;
                         log(`state pc=${pc === null || pc === void 0 ? void 0 : pc.signalingState} conn=${pc === null || pc === void 0 ? void 0 : pc.connectionState}`);
                     }
                     catch { }
-                    (_b = (_a = window.console) === null || _a === void 0 ? void 0 : _a.error) === null || _b === void 0 ? void 0 : _b.call(_a, 'offer error', e);
+                    (_c = (_b = window.console) === null || _b === void 0 ? void 0 : _b.error) === null || _c === void 0 ? void 0 : _c.call(_b, 'offer error', e);
                 }
                 finally {
                     makingOffer = false;
@@ -3824,6 +4379,7 @@ window.socket = socket;
         const active = document.getElementById('active-call');
         if (active)
             active.style.display = 'none';
+        hideCallOverlay();
         // Persist last QA summary
         try {
             if (agg && agg.cnt > 0) {
@@ -3849,6 +4405,11 @@ window.socket = socket;
         const active = document.getElementById('active-call');
         const muteBtn = active === null || active === void 0 ? void 0 : active.querySelector('.mute');
         const hangBtn = active === null || active === void 0 ? void 0 : active.querySelector('.hangup');
+        // Overlay controls
+        const ov = ensureCallOverlay();
+        const oMute = ov.querySelector('#co-mute');
+        const oCam = ov.querySelector('#co-cam');
+        const oHang = ov.querySelector('#co-hang');
         if (muteBtn)
             muteBtn.onclick = () => {
                 var _a;
@@ -3862,6 +4423,42 @@ window.socket = socket;
             };
         if (hangBtn)
             hangBtn.onclick = () => { endCall(); };
+        if (oMute)
+            oMute.onclick = () => {
+                try {
+                    const track = localStream === null || localStream === void 0 ? void 0 : localStream.getAudioTracks()[0];
+                    if (track) {
+                        const en = !!track.enabled;
+                        track.enabled = !en;
+                        oMute.textContent = en ? 'Unmute' : 'Mute';
+                    }
+                }
+                catch { }
+            };
+        if (oCam)
+            oCam.onclick = () => {
+                try {
+                    const track = localStream === null || localStream === void 0 ? void 0 : localStream.getVideoTracks()[0];
+                    if (track) {
+                        const en = !!track.enabled;
+                        track.enabled = !en;
+                        oCam.textContent = en ? 'Camera On' : 'Camera Off';
+                    }
+                }
+                catch { }
+                refreshAvatars();
+            };
+        if (oHang)
+            oHang.onclick = () => {
+                const id = currentCallId;
+                if (id) {
+                    try {
+                        w.socket.emit('callHangup', { callId: id }, (_res) => { });
+                    }
+                    catch { }
+                }
+                endCall();
+            };
     })();
     // Initialize on load (after socket availability)
     function waitSocket(attempt = 0) {
@@ -3875,10 +4472,16 @@ window.socket = socket;
     }
     waitSocket();
 })();
-var _a;
+var _a, _b, _c, _d, _e;
 // Utilities are now provided by core.ts (ensureTheme, debounce, getCookie, formatRelative)
 try {
     ensureTheme();
+}
+catch { }
+// Apply modern theme overrides for the test UI (provided by theme.ts)
+try {
+    (_b = (_a = window).applyModernTheme) === null || _b === void 0 ? void 0 : _b.call(_a);
+    (_d = (_c = window).installThemeToggle) === null || _d === void 0 ? void 0 : _d.call(_c);
 }
 catch { }
 // Expose helpers for other modules
@@ -4013,7 +4616,7 @@ typingBanner.style.fontSize = "12px";
 typingBanner.style.color = "#888";
 typingBanner.style.margin = "4px 0 8px 0";
 try {
-    (_a = selectedRoomTitle === null || selectedRoomTitle === void 0 ? void 0 : selectedRoomTitle.parentElement) === null || _a === void 0 ? void 0 : _a.insertBefore(typingBanner, selectedRoomTitle.nextSibling);
+    (_e = selectedRoomTitle === null || selectedRoomTitle === void 0 ? void 0 : selectedRoomTitle.parentElement) === null || _e === void 0 ? void 0 : _e.insertBefore(typingBanner, selectedRoomTitle.nextSibling);
 }
 catch { }
 // New UI elements (search moved to search.ts)
@@ -4555,6 +5158,557 @@ catch { }
         ensureStatsPanel();
         setPanelVisible(false);
         render();
+    }
+    catch { }
+})();
+// theme.ts - Injects a modern visual theme for the server test UI without modifying CSS files.
+// This file will be bundled into chat-client.js via public/tsconfig.json (outFile) along with other TS files.
+// It appends a <style> tag at the end of <head> to override existing styles.
+(function initThemeGlobals() {
+    try {
+        window.applyModernTheme = applyModernTheme;
+        window.installThemeToggle = installThemeToggle;
+    }
+    catch { }
+})();
+function applyModernTheme() {
+    try {
+        const id = "modern-theme-overrides";
+        if (document.getElementById(id))
+            return; // already installed
+        // Restore saved theme preference before injecting styles
+        try {
+            const saved = localStorage.getItem('rt:theme');
+            if (saved === 'dark' || saved === 'light') {
+                document.documentElement.setAttribute('data-theme', saved);
+            }
+        }
+        catch { }
+        const css = `
+      :root {
+        --rt-primary: #6d5efc;
+        --rt-primary-2: #b14bf4;
+        --rt-bg: #f7f8fc;
+        --rt-text: #1a1a1a;
+        --rt-muted: #6b7280;
+        --rt-card: #ffffff;
+        --rt-border: rgba(25, 25, 50, 0.08);
+        --rt-ring: rgba(109, 94, 252, .25);
+      }
+      :root[data-theme="dark"] {
+        --rt-primary: #8b7bff;
+        --rt-primary-2: #d16cff;
+        --rt-bg: #0f1220;
+        --rt-text: #e5e7eb;
+        --rt-muted: #9ca3af;
+        --rt-card: #15182a;
+        --rt-border: rgba(255, 255, 255, 0.08);
+        --rt-ring: rgba(209,108,255,.25);
+      }
+      /* Base */
+      body#app {
+        background: radial-gradient(1200px 600px at 10% -10%, #f0f5ff 0%, transparent 60%),
+                    radial-gradient(900px 500px at 110% 0%, #fde7ff 0%, transparent 60%),
+                    var(--rt-bg);
+        color: var(--rt-text);
+        min-height: 100dvh;
+      }
+      /* Header */
+      .app-header {
+        position: sticky; top: 0; z-index: 50;
+        background: linear-gradient(90deg, #ffffffee 0%, #eef2ffcc 40%, #faf5ffcc 100%);
+        backdrop-filter: saturate(1.6) blur(6px);
+        border-bottom: 1px solid var(--rt-border);
+      }
+      :root[data-theme="dark"] .app-header { background: linear-gradient(90deg, #0f1220cc 0%, #121631cc 40%, #1b1030cc 100%); }
+      .app-header__inner { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; max-width: 1100px; margin: 0 auto; }
+      .brand { display:flex; align-items:center; gap:10px; font-weight: 700; letter-spacing:.3px; }
+      .brand-logo { font-size: 20px; }
+      .brand-name { font-size: 15px; color: #374151; }
+
+      /* Cards & layout */
+      .chat-root.layout { max-width: 1100px; margin: 18px auto; display:grid; grid-template-columns: 320px 1fr; gap: 14px; }
+      .chat-root.layout.no-chat { grid-template-columns: 1fr; }
+      .chat-card, .auth-card, .sidebar, .section-card, .room-section-card {
+        background: var(--rt-card);
+        border: 1px solid var(--rt-border);
+        box-shadow: 0 8px 30px rgba(16,24,40,0.06);
+        border-radius: 14px;
+      }
+      .sidebar { padding: 12px; }
+      .chat-main { padding: 12px; }
+
+      /* Buttons */
+      .auth-btn, .chat-send-btn, .icon-btn, #logout-btn, #logout-all-btn, #attach-btn, .room-section-header {
+        border-radius: 10px; border: 1px solid transparent; transition: all .17s ease; outline: none;
+      }
+      .auth-btn, .chat-send-btn, #logout-btn, #logout-all-btn {
+        background: linear-gradient(90deg, var(--rt-primary) 0%, var(--rt-primary-2) 100%);
+        color: #fff; box-shadow: 0 6px 16px rgba(109,94,252,.18);
+      }
+      .auth-btn:hover, .chat-send-btn:hover, #logout-btn:hover, #logout-all-btn:hover {
+        transform: translateY(-1px); box-shadow: 0 10px 22px rgba(109,94,252,.22);
+      }
+      .icon-btn { background:#fff; border-color: var(--rt-border); padding: 6px 10px; }
+      .icon-btn:hover { background: #f7f7ff; border-color: #e2e8ff; box-shadow: 0 4px 16px rgba(109,94,252,.12); }
+      :root[data-theme="dark"] .icon-btn { background:#1b1e34; color:#e5e7eb; border-color: var(--rt-border); }
+      :root[data-theme="dark"] .icon-btn:hover { background:#242846; border-color:#3a3f6a; box-shadow: 0 6px 18px rgba(0,0,0,.4); }
+
+      /* Inputs */
+      input[type="text"], input[type="password"] {
+        background: #fafaff; border: 1px solid #e6e7ef; border-radius: 10px; padding: 10px 12px;
+        transition: box-shadow .15s ease, border-color .15s ease;
+      }
+      input[type="text"]:focus, input[type="password"]:focus {
+        border-color: #a7a4ff; box-shadow: 0 0 0 3px var(--rt-ring);
+      }
+      :root[data-theme="dark"] input[type="text"], :root[data-theme="dark"] input[type="password"] { background:#14172a; color:#e5e7eb; border-color:#2b3156; }
+      :root[data-theme="dark"] input[type="text"]:focus, :root[data-theme="dark"] input[type="password"]:focus { border-color:#6f6cff; }
+
+      /* Sidebar lists */
+      .room-list { display:flex; flex-direction:column; gap: 8px; margin: 8px 0; padding: 0; }
+      .room-list li, .friend-item { background: #fff; border:1px solid var(--rt-border); border-radius: 10px; padding: 10px 12px; display:flex; align-items:center; justify-content:space-between; gap: 8px; transition: box-shadow .15s ease, transform .06s ease; }
+      .room-list li:hover, .friend-item:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(16,24,40,0.08); }
+      .room-empty { color: var(--rt-muted); }
+
+      /* Chat window */
+      .chat-window { background: #fbfbff; border:1px solid var(--rt-border); border-radius: 12px; padding: 10px; height: 52vh; overflow:auto; }
+      .message { background:#fff; border:1px solid var(--rt-border); border-radius: 12px; padding: 8px 10px; margin: 10px 4px; position: relative; box-shadow: 0 2px 8px rgba(16,24,40,0.04); }
+      .message.mine { background: linear-gradient(180deg,#f7f5ff,#fff); border-color:#e6e1ff; }
+      .msg-meta-row { display:flex; align-items:center; justify-content:space-between; font-size: 12px; color:#6b7280; margin-bottom: 4px; }
+      .msg-author { font-weight: 600; color: #374151; }
+      .msg-content { font-size: 14px; color: #1f2937; }
+      .msg-status { position:absolute; right:8px; bottom: 8px; font-size: 11px; color:#8b5cf6; }
+      :root[data-theme="dark"] .chat-window { background:#0f1220; border-color:#2b3156; }
+      :root[data-theme="dark"] .message { background:#181b31; border-color:#2b3156; box-shadow: 0 2px 10px rgba(0,0,0,.4); }
+      :root[data-theme="dark"] .message.mine { background: linear-gradient(180deg,#1a1d36,#181b31); border-color:#3a3f6a; }
+      :root[data-theme="dark"] .msg-author { color:#e5e7eb; }
+      :root[data-theme="dark"] .msg-content { color:#e2e6f4; }
+
+      /* Drawer */
+      .room-drawer { position: fixed; inset: 0; display:none; }
+      .room-drawer[aria-hidden="false"] { display:block; }
+      .room-drawer__panel { position:absolute; right:0; top:0; height:100%; width:360px; max-width:92vw; background:#fff; border-left:1px solid var(--rt-border); box-shadow: -10px 0 30px rgba(16,24,40,0.06); padding: 14px; }
+      .room-drawer__header { display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px; }
+
+      /* Auth card tighten */
+      .auth-card { padding-top: 26px; }
+      .auth-card-title { letter-spacing: .2px; }
+
+      /* Small improves */
+      #typing-banner { color: var(--rt-muted); }
+      #selected-room-title { color: #111827; font-weight: 700; }
+      :root[data-theme="dark"] #selected-room-title { color:#f3f4f6; }
+
+      /* Presence dot */
+      .presence-dot { display:inline-block; width:8px; height:8px; border-radius:9999px; margin-right:6px; vertical-align:middle; }
+      .presence-online { background:#22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,.2); }
+      .presence-offline { background:#9ca3af; }
+    `;
+        const style = document.createElement("style");
+        style.id = id;
+        style.textContent = css;
+        document.head.appendChild(style);
+    }
+    catch { }
+}
+// Optional: small helper to add a theme toggle button in header
+function installThemeToggle() {
+    try {
+        const header = document.querySelector('.app-header__inner');
+        if (!header)
+            return;
+        if (document.getElementById('rt-theme-toggle'))
+            return;
+        const btn = document.createElement('button');
+        btn.id = 'rt-theme-toggle';
+        btn.type = 'button';
+        btn.textContent = 'Theme';
+        btn.style.border = '1px solid var(--rt-border)';
+        btn.style.borderRadius = '10px';
+        btn.style.padding = '6px 10px';
+        btn.style.background = '#fff';
+        btn.style.cursor = 'pointer';
+        btn.style.transition = 'all .15s ease';
+        btn.onmouseenter = () => { btn.style.boxShadow = '0 6px 16px rgba(109,94,252,.12)'; };
+        btn.onmouseleave = () => { btn.style.boxShadow = 'none'; };
+        btn.onclick = () => {
+            const root = document.documentElement;
+            const current = root.getAttribute('data-theme') || 'light';
+            const next = current === 'light' ? 'dark' : 'light';
+            root.setAttribute('data-theme', next);
+            try {
+                localStorage.setItem('rt:theme', next);
+            }
+            catch { }
+        };
+        header.appendChild(btn);
+    }
+    catch { }
+}
+// ui.ts - Enhanced UX for the server test UI, keeping it a great debugging playground
+// No imports/exports. Bundled into chat-client.js via public/tsconfig.json (outFile)
+(function () {
+    const w = window;
+    if (w.__ui_ts_initialized__)
+        return; // idempotent
+    w.__ui_ts_initialized__ = true;
+    // ---------------- Style injection ----------------
+    try {
+        const id = 'rt-ui-overrides';
+        if (!document.getElementById(id)) {
+            const css = `
+        /* Quick actions bar */
+        #rt-quickbar { position: sticky; top: 54px; z-index: 40; display:flex; align-items:center; gap:8px; padding:8px 12px; max-width:1100px; margin: 6px auto; }
+        .rt-chip { border:1px solid rgba(25,25,50,.08); background:#fff; color:#374151; border-radius:9999px; padding:6px 10px; font-size:12px; box-shadow:0 2px 10px rgba(16,24,40,.06); cursor:pointer; }
+        .rt-chip:hover { box-shadow:0 6px 16px rgba(16,24,40,.08); transform: translateY(-1px); }
+        .rt-chip.primary { background: linear-gradient(90deg, var(--rt-primary,#6d5efc), var(--rt-primary-2,#b14bf4)); color:#fff; border-color: transparent; }
+
+        /* Debug dock */
+        #rt-debug-dock { position: fixed; left: 12px; right: 12px; bottom: 10px; z-index: 60; background: #fff; border:1px solid rgba(25,25,50,.08); border-radius: 12px; box-shadow: 0 14px 40px rgba(16,24,40,.18); display:none; }
+        #rt-debug-dock[data-open="true"] { display:block; }
+        #rt-debug-head { display:flex; align-items:center; justify-content: space-between; padding:8px 10px; border-bottom:1px solid rgba(25,25,50,.08); }
+        #rt-debug-tabs { display:flex; align-items:center; gap:6px; padding:6px 10px; border-bottom:1px solid rgba(25,25,50,.08); }
+        .rt-tab { border:1px solid rgba(25,25,50,.08); border-radius: 8px; background:#fafaff; padding:6px 10px; font-size:12px; cursor:pointer; color:#374151; }
+        .rt-tab[aria-selected="true"] { background:#fff; box-shadow: inset 0 0 0 2px rgba(109,94,252,.25); }
+        #rt-debug-body { display:grid; grid-template-columns: 1fr 1fr; gap:10px; padding:10px; }
+        .rt-panel { border:1px solid rgba(25,25,50,.08); border-radius: 8px; overflow:hidden; display:flex; flex-direction:column; }
+        .rt-panel h4 { margin:0; padding:6px 10px; border-bottom:1px solid rgba(25,25,50,.08); font-size:12px; color:#6b7280; background:#fcfcff; }
+        .rt-log { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; padding:8px; max-height: 220px; overflow:auto; white-space: pre-wrap; }
+        .rt-kv { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; padding:8px; }
+        #rt-debug-foot { padding:8px 10px; display:flex; justify-content: flex-end; gap:8px; border-top:1px solid rgba(25,25,50,.08); }
+        .rt-btn { border:1px solid rgba(25,25,50,.08); background:#fff; border-radius:8px; padding:6px 10px; font-size:12px; cursor:pointer; }
+        .rt-btn.primary { background: linear-gradient(90deg, var(--rt-primary,#6d5efc), var(--rt-primary-2,#b14bf4)); color:#fff; border-color:transparent; }
+        @media (max-width: 860px) { #rt-debug-body { grid-template-columns: 1fr; } #rt-quickbar { top: 48px; } }
+      `;
+            const style = document.createElement('style');
+            style.id = id;
+            style.textContent = css;
+            document.head.appendChild(style);
+        }
+    }
+    catch { }
+    // ---------------- Quick actions ----------------
+    function ensureQuickbar() {
+        try {
+            if (document.getElementById('rt-quickbar'))
+                return document.getElementById('rt-quickbar');
+            const header = document.querySelector('.app-header');
+            if (!header)
+                return null;
+            const bar = document.createElement('div');
+            bar.id = 'rt-quickbar';
+            bar.innerHTML = `
+        <button class="rt-chip primary" id="rt-qb-refresh">Refresh Rooms</button>
+        <button class="rt-chip" id="rt-qb-unread">Unread Only: Off</button>
+        <button class="rt-chip" id="rt-qb-dock">Debug Dock</button>
+      `;
+            header.insertAdjacentElement('afterend', bar);
+            // Wire actions
+            const $ = (id) => document.getElementById(id);
+            $('rt-qb-refresh').onclick = () => { var _a; try {
+                (_a = w.socket) === null || _a === void 0 ? void 0 : _a.emit('getRooms');
+            }
+            catch { } };
+            // Restore unread filter from storage
+            try {
+                w.__rt_unread_only = localStorage.getItem('rt:unreadOnly') === '1';
+            }
+            catch { }
+            const unreadBtn = $('rt-qb-unread');
+            if (unreadBtn)
+                unreadBtn.textContent = `Unread Only: ${w.__rt_unread_only ? 'On' : 'Off'}`;
+            $('rt-qb-unread').onclick = () => {
+                var _a;
+                try {
+                    w.__rt_unread_only = !w.__rt_unread_only;
+                    try {
+                        localStorage.setItem('rt:unreadOnly', w.__rt_unread_only ? '1' : '0');
+                    }
+                    catch { }
+                    const btn = $('rt-qb-unread');
+                    if (btn)
+                        btn.textContent = `Unread Only: ${w.__rt_unread_only ? 'On' : 'Off'}`;
+                    (_a = w.renderRoomList) === null || _a === void 0 ? void 0 : _a.call(w);
+                }
+                catch { }
+            };
+            $('rt-qb-dock').onclick = () => toggleDock();
+            return bar;
+        }
+        catch {
+            return null;
+        }
+    }
+    function toggleStatsPanel() {
+        var _a;
+        try {
+            const el = document.getElementById('stats-sidebar-panel');
+            if (!el) {
+                (_a = w.showToast) === null || _a === void 0 ? void 0 : _a.call(w, 'Stats panel not mounted yet');
+                return;
+            }
+            // flip based on current style
+            const isVisible = el.style.display !== 'none';
+            const nextVisible = !isVisible;
+            el.style.display = nextVisible ? '' : 'none';
+            try {
+                localStorage.setItem('rt:statsVisible', nextVisible ? '1' : '0');
+            }
+            catch { }
+        }
+        catch { }
+    }
+    // ---------------- Debug dock ----------------
+    function ensureDock() {
+        let dock = document.getElementById('rt-debug-dock');
+        if (dock)
+            return dock;
+        dock = document.createElement('div');
+        dock.id = 'rt-debug-dock';
+        dock.setAttribute('data-open', 'false');
+        dock.innerHTML = `
+      <div id="rt-debug-head">
+        <div style="display:flex;align-items:center;gap:8px">
+          <strong style="font-size:13px">Debug</strong>
+          <span id="rt-debug-meta" style="font-size:12px;color:#6b7280"></span>
+        </div>
+        <div>
+          <button class="rt-btn" id="rt-debug-clear">Clear</button>
+          <button class="rt-btn primary" id="rt-debug-close">Close</button>
+        </div>
+      </div>
+      <div id="rt-debug-tabs">
+        <button class="rt-tab" data-tab="logs" aria-selected="true">Logs</button>
+        <button class="rt-tab" data-tab="ws">WS</button>
+        <button class="rt-tab" data-tab="rest">REST</button>
+        <button class="rt-tab" data-tab="state">State</button>
+      </div>
+      <div id="rt-debug-body">
+        <div class="rt-panel"><h4>Console</h4><div id="rt-log-console" class="rt-log"></div></div>
+        <div class="rt-panel"><h4>WebSocket</h4><div id="rt-log-ws" class="rt-log"></div></div>
+        <div class="rt-panel"><h4>REST</h4><div id="rt-log-rest" class="rt-log"></div></div>
+        <div class="rt-panel"><h4>State</h4><div id="rt-log-state" class="rt-kv"></div></div>
+        <div class="rt-panel" style="grid-column:1/-1"><h4>Details</h4><div id="rt-log-details" class="rt-log"></div><div style="padding:8px 10px;display:flex;justify-content:flex-end"><button class="rt-btn" id="rt-copy-details">Copy JSON</button></div></div>
+      </div>
+      <div id="rt-debug-foot">
+        <button class="rt-btn" id="rt-state-refresh">Refresh State</button>
+      </div>
+    `;
+        document.body.appendChild(dock);
+        // Wiring
+        const close = document.getElementById('rt-debug-close');
+        const clear = document.getElementById('rt-debug-clear');
+        close.onclick = () => toggleDock(false);
+        clear.onclick = () => {
+            ['rt-log-console', 'rt-log-ws', 'rt-log-rest'].forEach(id => { const el = document.getElementById(id); if (el)
+                el.textContent = ''; });
+        };
+        const refresh = document.getElementById('rt-state-refresh');
+        refresh.onclick = () => renderState();
+        const copyDetails = document.getElementById('rt-copy-details');
+        copyDetails.onclick = () => {
+            var _a, _b, _c;
+            try {
+                const details = dock.__rt_details_json || '';
+                (_a = navigator.clipboard) === null || _a === void 0 ? void 0 : _a.writeText(typeof details === 'string' ? details : JSON.stringify(details, null, 2));
+                (_c = (_b = window).showToast) === null || _c === void 0 ? void 0 : _c.call(_b, 'Details copied');
+            }
+            catch { }
+        };
+        // Tabs (presentational only for now)
+        Array.from(dock.querySelectorAll('.rt-tab')).forEach(btn => {
+            btn.addEventListener('click', () => {
+                Array.from(dock.querySelectorAll('.rt-tab')).forEach(b => b.setAttribute('aria-selected', 'false'));
+                btn.setAttribute('aria-selected', 'true');
+            });
+        });
+        // Restore dock open state
+        try {
+            const open = localStorage.getItem('rt:dockOpen') === '1';
+            dock.setAttribute('data-open', open ? 'true' : 'false');
+            if (open)
+                renderState();
+        }
+        catch { }
+        return dock;
+    }
+    function toggleDock(force) {
+        const el = ensureDock();
+        const open = force != null ? !!force : el.getAttribute('data-open') !== 'true';
+        el.setAttribute('data-open', open ? 'true' : 'false');
+        if (open)
+            renderState();
+        try {
+            localStorage.setItem('rt:dockOpen', open ? '1' : '0');
+        }
+        catch { }
+    }
+    // ---------------- Log helpers ----------------
+    function setDetails(obj) {
+        try {
+            const dock = document.getElementById('rt-debug-dock');
+            const el = document.getElementById('rt-log-details');
+            if (!el || !dock)
+                return;
+            const json = typeof obj === 'string' ? obj : (() => { try {
+                return JSON.stringify(obj, null, 2);
+            }
+            catch {
+                return String(obj);
+            } })();
+            el.textContent = json;
+            dock.__rt_details_json = json;
+        }
+        catch { }
+    }
+    function appendLogLine(id, msg, details) {
+        try {
+            const el = document.getElementById(id);
+            if (!el)
+                return;
+            const line = document.createElement('div');
+            line.textContent = msg;
+            if (details !== undefined) {
+                line.style.cursor = 'pointer';
+                line.onclick = () => setDetails(details);
+            }
+            el.appendChild(line);
+            el.scrollTop = el.scrollHeight;
+        }
+        catch { }
+    }
+    function fmt(obj) { try {
+        return JSON.stringify(obj, null, 2);
+    }
+    catch {
+        return String(obj);
+    } }
+    // Patch console.log to also mirror into console pane (non-invasive)
+    try {
+        const origLog = console.log.bind(console);
+        console.log = (...args) => { try {
+            appendLogLine('rt-log-console', args.map(a => typeof a === 'string' ? a : fmt(a)).join(' '));
+        }
+        catch { } ; origLog(...args); };
+    }
+    catch { }
+    // Patch socket emits and on-listeners for tracing
+    try {
+        const s = w.socket;
+        if (s && !s.__rt_patched) {
+            s.__rt_patched = true;
+            const origEmit = s.emit.bind(s);
+            s.emit = (event, ...args) => {
+                const t0 = performance.now();
+                const maybeCb = args[args.length - 1];
+                if (typeof maybeCb === 'function') {
+                    const cb = args.pop();
+                    args.push((res) => { appendLogLine('rt-log-ws', `→ ${event} ${fmt(args[0])} [${Math.round(performance.now() - t0)}ms]`, { direction: 'out', event, payload: args[0], cb: res }); try {
+                        cb(res);
+                    }
+                    catch { } });
+                }
+                else {
+                    appendLogLine('rt-log-ws', `→ ${event} ${fmt(args[0])}`, { direction: 'out', event, payload: args[0] });
+                }
+                return origEmit(event, ...args);
+            };
+            const origOn = s.on.bind(s);
+            s.on = (name, handler) => {
+                return origOn(name, (...a) => { try {
+                    appendLogLine('rt-log-ws', `← ${name} ${fmt(a[0])}`, { direction: 'in', event: name, payload: a[0] });
+                }
+                catch { } ; try {
+                    handler(...a);
+                }
+                catch { } });
+            };
+        }
+    }
+    catch { }
+    // Patch fetch for REST tracing
+    try {
+        const origFetch = window.fetch.bind(window);
+        window.fetch = async (...args) => {
+            const input = args[0];
+            const init = args[1] || {};
+            const url = typeof input === 'string' ? input : ((input === null || input === void 0 ? void 0 : input.url) || '');
+            const method = (init.method || 'GET').toUpperCase();
+            const t0 = performance.now();
+            try {
+                const res = await origFetch(input, init);
+                const ms = Math.round(performance.now() - t0);
+                appendLogLine('rt-log-rest', `${method} ${url} – ${res.status} (${ms}ms)`, { method, url, status: res.status, req: init });
+                return res;
+            }
+            catch (e) {
+                const ms = Math.round(performance.now() - t0);
+                appendLogLine('rt-log-rest', `${method} ${url} – FAILED (${ms}ms)`, { method, url, error: String(e) });
+                throw e;
+            }
+        };
+    }
+    catch { }
+    // ---------------- State renderer ----------------
+    function renderState() {
+        try {
+            const el = document.getElementById('rt-log-state');
+            if (!el)
+                return;
+            const state = {
+                user: w.currentUser,
+                selectedRoom: w.selectedRoom ? { id: w.selectedRoom.id, name: w.selectedRoom.name, type: w.selectedRoom.type } : null,
+                rooms: Array.isArray(w.rooms) ? w.rooms.map((r) => ({ id: r.id, name: r.name, type: r.type, isPublic: r.isPublic })) : [],
+                unreadCounts: w.unreadCounts,
+            };
+            el.textContent = fmt(state);
+        }
+        catch { }
+    }
+    // ---------------- Keyboard shortcuts ----------------
+    try {
+        window.addEventListener('keydown', (ev) => {
+            var _a;
+            if (ev.altKey || ev.ctrlKey || ev.metaKey)
+                return;
+            const k = ev.key.toLowerCase();
+            if (k === 'd') {
+                ev.preventDefault();
+                toggleDock();
+            }
+            if (k === 'r') {
+                ev.preventDefault();
+                try {
+                    (_a = w.socket) === null || _a === void 0 ? void 0 : _a.emit('getRooms');
+                }
+                catch { }
+            }
+            if (k === '/') {
+                ev.preventDefault();
+                const input = document.getElementById('user-search-input');
+                input === null || input === void 0 ? void 0 : input.focus();
+            }
+            if (k === 's') {
+                ev.preventDefault();
+                toggleStatsPanel();
+            }
+        });
+    }
+    catch { }
+    // Mount
+    ensureQuickbar();
+    // Restore persisted stats visibility after quickbar (panel is mounted by stats.ts)
+    try {
+        const wantStats = localStorage.getItem('rt:statsVisible') === '1';
+        const el = document.getElementById('stats-sidebar-panel');
+        if (el)
+            el.style.display = wantStats ? '' : 'none';
+    }
+    catch { }
+    // Ensure dock exists so keyboard toggle works and open state can be restored independently
+    try {
+        ensureDock();
     }
     catch { }
 })();

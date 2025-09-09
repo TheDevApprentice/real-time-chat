@@ -5,6 +5,15 @@
   if (w.__rooms_ts_initialized__) return; // idempotent
   w.__rooms_ts_initialized__ = true;
 
+  // ---- Pins & Filters state (persisted) ----
+  try {
+    const raw = localStorage.getItem('rt:pins');
+    w.__rt_pins = new Set<string>(raw ? JSON.parse(raw) : []);
+  } catch { w.__rt_pins = new Set<string>(); }
+  try { if (typeof w.__rt_room_query !== 'string') w.__rt_room_query = localStorage.getItem('rt:roomQuery') || ''; } catch {}
+  try { if (w.__rt_sort_mode !== 'recent' && w.__rt_sort_mode !== 'unread') w.__rt_sort_mode = (localStorage.getItem('rt:roomSort') as any) || 'recent'; } catch { w.__rt_sort_mode = 'recent'; }
+  try { if (typeof w.__rt_pinned_only !== 'boolean') w.__rt_pinned_only = localStorage.getItem('rt:pinnedOnly') === '1'; } catch {}
+
   // Provide helpers on window only if not already present
   if (!w.renderRoomList)
     w.renderRoomList = function renderRoomList() {
@@ -20,7 +29,72 @@
       const unreadCounts: Record<string, number> = w.unreadCounts || {};
       if (roomListAll) roomListAll.innerHTML = "";
 
-      const visibleRooms = rooms.filter((room) => {
+      // Ensure filter bar exists above the list (search + pinned-only + sort)
+      (function ensureFilterBar(){
+        try {
+          const host = document.getElementById('room-list-section');
+          if (!host) return;
+          let bar = document.getElementById('room-filter-bar') as HTMLDivElement | null;
+          if (!bar) {
+            bar = document.createElement('div');
+            bar.id = 'room-filter-bar';
+            bar.style.display = 'flex';
+            bar.style.alignItems = 'center';
+            bar.style.gap = '8px';
+            bar.style.margin = '8px 8px 4px 8px';
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.id = 'room-search-input';
+            input.placeholder = 'Search rooms or users…';
+            input.value = String(w.__rt_room_query || '');
+            input.style.flex = '1';
+            input.oninput = () => { try { w.__rt_room_query = input.value || ''; localStorage.setItem('rt:roomQuery', String(w.__rt_room_query)); } catch {} ; try { w.renderRoomList?.(); } catch {} };
+            input.onkeydown = (ev: KeyboardEvent) => {
+              if (ev.key === 'Escape' || (ev as any).key === 'Esc') {
+                try { ev.preventDefault(); } catch {}
+                try { w.__rt_room_query = ''; localStorage.setItem('rt:roomQuery',''); input.value=''; } catch {}
+                try { w.renderRoomList?.(); } catch {}
+              }
+            };
+            const clearBtn = document.createElement('button');
+            clearBtn.type = 'button';
+            clearBtn.className = 'icon-btn';
+            clearBtn.textContent = '✕';
+            clearBtn.title = 'Clear search';
+            clearBtn.onclick = () => { try { w.__rt_room_query = ''; localStorage.setItem('rt:roomQuery',''); input.value=''; w.renderRoomList?.(); } catch {} };
+            const poBtn = document.createElement('button');
+            poBtn.type = 'button';
+            poBtn.className = 'icon-btn';
+            const setPoText = () => poBtn.textContent = `Pinned Only: ${w.__rt_pinned_only ? 'On' : 'Off'}`;
+            setPoText();
+            poBtn.onclick = () => { try { w.__rt_pinned_only = !w.__rt_pinned_only; localStorage.setItem('rt:pinnedOnly', w.__rt_pinned_only ? '1' : '0'); setPoText(); w.renderRoomList?.(); } catch {} };
+
+            const sortBtn = document.createElement('button');
+            sortBtn.type = 'button';
+            sortBtn.className = 'icon-btn';
+            const setSortBtnText = () => sortBtn.textContent = `Sort: ${w.__rt_sort_mode === 'unread' ? 'Unread' : (w.__rt_sort_mode==='unreadFirst'?'Unread First':'Recent')}`;
+            setSortBtnText();
+            sortBtn.onclick = () => {
+              try {
+                w.__rt_sort_mode = (w.__rt_sort_mode === 'recent') ? 'unread' : (w.__rt_sort_mode === 'unread' ? 'unreadFirst' : 'recent');
+                localStorage.setItem('rt:roomSort', w.__rt_sort_mode);
+                setSortBtnText();
+                w.renderRoomList?.();
+              } catch {}
+            };
+            bar.appendChild(input);
+            bar.appendChild(clearBtn);
+            bar.appendChild(poBtn);
+            bar.appendChild(sortBtn);
+            // Insert before UL
+            const ul = document.getElementById('room-list-all');
+            if (ul?.parentElement) ul.parentElement.insertBefore(bar, ul);
+            else host.appendChild(bar);
+          }
+        } catch {}
+      })();
+
+      let visibleRooms = rooms.filter((room) => {
         if (room.isPublic === false) {
           const meId = currentUser?.id;
           if (!meId) return false;
@@ -35,13 +109,89 @@
         return true; // public
       });
 
-      if (noRoomMsgAll)
-        noRoomMsgAll.style.display = visibleRooms.length ? "none" : "block";
+      // Apply text search filter
+      try {
+        const q = String(w.__rt_room_query || '').trim().toLowerCase();
+        if (q) {
+          visibleRooms = visibleRooms.filter((room) => {
+            let label = room.name || (room.type === 'user' ? 'DM' : 'Room');
+            if (room.type === 'user') {
+              const meId = currentUser?.id;
+              const members: Array<{ id: string; name: string }> = Array.isArray(room.users) ? room.users : [];
+              const other = meId ? members.find((u) => u && u.id !== meId) : null;
+              if (other?.name) label = other.name;
+            }
+            return String(label || '').toLowerCase().includes(q);
+          });
+        }
+      } catch {}
 
-      // simple cache { [roomId]: { text: string, ts: number } }
+      // Apply unread-only filter if enabled (set by UI quickbar)
+      try {
+        if ((w as any).__rt_unread_only) {
+          visibleRooms = visibleRooms.filter((r) => (unreadCounts && unreadCounts[r.id] > 0));
+        }
+      } catch {}
+
+      // Pins set (used for both optional filter and sorting)
+      const pins: Set<string> = (w.__rt_pins instanceof Set) ? w.__rt_pins : new Set<string>();
+
+      // Apply pinned-only filter if enabled
+      try {
+        if (w.__rt_pinned_only) {
+          visibleRooms = visibleRooms.filter((r) => pins.has(String(r.id)));
+        }
+      } catch {}
+
+      // Sorting: pinned first, then by selected mode (recent, unread, unreadFirst)
+      function lastTsFor(room: any): number {
+        try {
+          const cache = (w as any).roomLastMsgCache?.[String(room.id)];
+          if (cache && typeof cache.lastTs === 'number') return cache.lastTs;
+        } catch {}
+        return 0;
+      }
+      const pinnedRooms = visibleRooms.filter(r => pins.has(String(r.id)));
+      const otherRooms = visibleRooms.filter(r => !pins.has(String(r.id)));
+      const sortMode = (w.__rt_sort_mode === 'unread' || w.__rt_sort_mode === 'unreadFirst') ? w.__rt_sort_mode : 'recent';
+      const sorter = (a: any, b: any) => {
+        if (sortMode === 'unread' || sortMode === 'unreadFirst') {
+          const ua = unreadCounts[a.id] || 0; const ub = unreadCounts[b.id] || 0;
+          if (ub !== ua) return ub - ua;
+          const ta = lastTsFor(a); const tb = lastTsFor(b);
+          return tb - ta;
+        } else {
+          const ta = lastTsFor(a); const tb = lastTsFor(b);
+          if (tb !== ta) return tb - ta;
+          const ua = unreadCounts[a.id] || 0; const ub = unreadCounts[b.id] || 0;
+          return ub - ua;
+        }
+      };
+      pinnedRooms.sort(sorter);
+      otherRooms.sort(sorter);
+      // Render headers and groups
+      if (noRoomMsgAll)
+        noRoomMsgAll.style.display = (pinnedRooms.length + otherRooms.length) ? "none" : "block";
+
+      // simple cache { [roomId]: { text, cachedAt, lastTs } }
       w.roomLastMsgCache = w.roomLastMsgCache || {};
 
-      visibleRooms.forEach((room) => {
+      function appendHeader(text: string) {
+        try {
+          if (!roomListAll) return;
+          const h = document.createElement('li');
+          h.className = 'room-list-header';
+          h.textContent = text;
+          roomListAll.appendChild(h);
+        } catch {}
+      }
+
+      let idx = 0;
+      if (pinnedRooms.length) appendHeader('Pinned');
+      const renderOrder: any[] = [...pinnedRooms, ...otherRooms];
+      renderOrder.forEach((room) => {
+        if (idx === pinnedRooms.length && pinnedRooms.length && otherRooms.length) appendHeader('Others');
+        idx++;
         const li = document.createElement("li");
         li.className = "room-list-item";
         try { if (room && room.id) (li as any).dataset.roomId = String(room.id); } catch {}
@@ -63,9 +213,11 @@
         li.innerHTML = `
         <div class="room-avatar" aria-hidden="true">${initial}</div>
         <span class="room-type-icon" aria-hidden="true">${typeIcon}</span>
+        <span class="presence-dot presence-offline" aria-hidden="true"></span>
         <span class="room-name">${label}</span>
         <span class="room-lastmsg-inline" style="color:#888;font-size:12px;margin-left:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40%;display:inline-block;vertical-align:middle;"></span>
         <span class="room-badge" hidden></span>
+        <button type="button" class="icon-btn" style="margin-left:auto" aria-label="Pin" title="Pin/Unpin" data-pin="1">${pins.has(String(room.id)) ? '★' : '☆'}</button>
       `;
         li.style.cursor = "pointer";
         li.onclick = () => (w.joinRoom ? w.joinRoom(room) : undefined);
@@ -82,6 +234,58 @@
           }
         }
         roomListAll && roomListAll.appendChild(li);
+
+        // Highlight search match in name
+        try {
+          const q = String(w.__rt_room_query || '').trim().toLowerCase();
+          if (q) {
+            const nameEl = li.querySelector('.room-name') as HTMLElement | null;
+            if (nameEl) {
+              const src = String(nameEl.textContent || '');
+              const i = src.toLowerCase().indexOf(q);
+              if (i >= 0) {
+                const before = src.slice(0, i);
+                const mid = src.slice(i, i + q.length);
+                const after = src.slice(i + q.length);
+                nameEl.innerHTML = `${before}<span class="rt-hl">${mid}</span>${after}`;
+              }
+            }
+          }
+        } catch {}
+
+        // Pin toggle
+        try {
+          const pinBtn = li.querySelector('button[data-pin]') as HTMLButtonElement | null;
+          if (pinBtn) {
+            pinBtn.onclick = (ev) => {
+              try { ev.stopPropagation(); ev.preventDefault(); } catch {}
+              const id = String(room.id);
+              if (pins.has(id)) pins.delete(id); else pins.add(id);
+              try { localStorage.setItem('rt:pins', JSON.stringify(Array.from(pins))); } catch {}
+              w.__rt_pins = pins; // update global
+              try { w.renderRoomList?.(); } catch {}
+            };
+          }
+        } catch {}
+
+        // Presence dot for DMs only
+        if (room.type === "user") {
+          try {
+            const presEl = li.querySelector('.presence-dot') as HTMLElement | null;
+            const meId = currentUser?.id;
+            const members: Array<{ id: string; name: string }> = Array.isArray(room.users) ? room.users : [];
+            const other = meId ? members.find((u) => u && u.id !== meId) : null;
+            if (presEl && other && typeof (w.fetchPresence) === 'function') {
+              (w.fetchPresence as any)(other.id).then((pr: any) => {
+                try {
+                  presEl.classList.remove('presence-online','presence-offline');
+                  if (pr && pr.status === 'online') presEl.classList.add('presence-online');
+                  else presEl.classList.add('presence-offline');
+                } catch {}
+              }).catch(() => undefined);
+            }
+          } catch {}
+        }
 
         // Helpers for media-only preview detection
         function isMediaUrl(u: string): boolean {
@@ -107,14 +311,16 @@
             const cacheKey = String(room.id || '');
             const now = Date.now();
             const cache = w.roomLastMsgCache[cacheKey];
-            if (cache && now - cache.ts < 15000) {
+            if (cache && now - (cache.cachedAt || 0) < 15000) {
               previewEl.textContent = cache.text ? ` – ${cache.text}` : '';
             } else if (typeof w.getRoomLastMessage === 'function') {
               w.getRoomLastMessage(cacheKey).then((res: any) => {
                 try {
-                  const text = res && res.success && res.message ? previewFromContent(String(res.message.content || '')) : '';
+                  const msg = (res && res.success) ? res.message : null;
+                  const text = msg ? previewFromContent(String(msg.content || '')) : '';
                   previewEl.textContent = text ? ` – ${text}` : '';
-                  w.roomLastMsgCache[cacheKey] = { text, ts: Date.now() };
+                  const lastTs = msg && typeof msg.timestamp === 'number' ? Number(msg.timestamp) : Date.now();
+                  w.roomLastMsgCache[cacheKey] = { text, cachedAt: Date.now(), lastTs };
                 } catch {}
               }).catch(() => undefined);
             }
@@ -140,8 +346,8 @@
           } catch { return false; }
         })();
         const preview = isMediaOnly ? '[Pièce jointe]' : (text || '').slice(0, 80);
-        // Cache with fresh ts
-        w.roomLastMsgCache[String(roomId)] = { text: preview, ts: Date.now() };
+        // Cache with fresh timestamps (we don't have message ts here, fallback to now)
+        w.roomLastMsgCache[String(roomId)] = { text: preview, cachedAt: Date.now(), lastTs: Date.now() };
         // Update DOM if present
         const roomListAll = document.getElementById(
           "room-list-all"
