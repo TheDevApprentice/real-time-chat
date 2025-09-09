@@ -217,11 +217,67 @@ Below is the high-level sequence focusing on the UI code paths and the files res
 
 ---
 
-## Tips & Conventions
-- Keep functions small and side-effect free; expose only what’s needed on `window`.
-- If you add a new concern, create `xyz.ts` and add it to `refs.ts` before `chat-client.ts`.
-- Always compile with `npx tsc -p tsconfig.json` to generate a single `chat-client.js`.
-- If UI doesn’t reflect changes, hard refresh (Ctrl+F5) or rebuild the Docker `server` service.
+## Calls (WebRTC) – Signaling, TURN/STUN and Test UI
+
+The Test UI includes a minimal audio/video calling feature for validation purposes.
+
+### Files of interest
+
+- `public/calls.ts`
+  - Client signaling and media handling (adds tracks, renders remote audio/video, cleanups on hangup).
+  - Exposes `window.startCallAudio(userId)` and `window.startCallVideo(userId)` used by the friends panel.
+  - Quality panel: live `getStats()` sampling, quality dot, metrics, 30s mini‑graph with legend and tooltip, and localStorage summaries on hangup.
+- `api/routes/WS/router/WebSocketGateway.ts`
+  - Registers call events: `callRequest`, `callAccept`, `callDecline`, `callCancel`, `callOffer`, `callAnswer`, `callIceCandidate`, `callHangup`, `getTurnConfig`.
+- `docker-compose.yml`
+  - TURN server service `turn` (coturn) and server env vars used by `getTurnConfig`.
+
+### Signaling flow (high level)
+
+1. Caller emits `callRequest { targetUserId, media }` → callee receives `callIncoming` overlay.
+2. Callee accepts with `callAccept` → caller creates offer, sends `callOffer`.
+3. Callee sets remote offer, adds local tracks, creates answer, sends `callAnswer`.
+4. Both sides exchange ICE candidates via `callIceCandidate` until a pair connects.
+5. Hangup via `callHangup` → the peer receives `callEnded` and both sides clean up.
+
+Additional cases handled: `callDeclined` (manual or timeout), `callCanceled` (caller cancels), `callBusy` (callee already in a call).
+
+### TURN/STUN configuration
+
+- Clients fetch ICE servers through `getTurnConfig` (Socket.IO ack) and build `RTCPeerConnection` with those servers.
+- `server` service env:
+  - `WEBRTC_STUN` (default `stun:stun.l.google.com:19302`)
+  - `WEBRTC_TURN_URLS`, `WEBRTC_TURN_USERNAME`, `WEBRTC_TURN_CREDENTIAL`
+- Coturn (`turn` service) for relay candidates:
+  - Expose publicly for cross‑internet tests: open UDP 3478, TCP 3478, and a UDP relay range (49160–49200 by default).
+  - Set `COTURN_PUBLIC_IP` to the machine’s public IP or DNS.
+  - Optional: TLS on 5349 for `turns:` URLs (requires cert/key).
+
+### How to test in the Test UI
+
+1) Build the bundle
+
+```bash
+cd server/Express/public
+npx tsc -p tsconfig.json
+```
+
+2) Start the server (repo root)
+
+```bash
+docker compose up -d --build server
+```
+
+3) Open two sessions (users) and place a call from the friends panel
+
+- Use "Call (Audio)" or "Call (Video)". Callee accepts from the overlay.
+- Use the "Stats" button to toggle the quality panel.
+- On hangup, a compact summary is saved in `localStorage` under `qa_call_summaries`.
+
+Notes
+
+- Strict NAT/corporate networks typically require a public TURN; STUN alone may not suffice. Prefer a VPS or router port‑forwarding over ngrok for TURN (ngrok TCP only is limited and no generic UDP).
+- This Test UI is intentionally minimal; a production UI should add device selectors, screen share, and explicit error banners.
 
 ---
 
