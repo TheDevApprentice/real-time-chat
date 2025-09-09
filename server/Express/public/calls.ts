@@ -434,12 +434,21 @@
       log(`callEnded ${p?.callId}`);
       endCall();
     }); } catch {}
-    // Ring timeout handling via callDeclined(reason=timeout)
+    // Decline/Busy/Cancel handling
     try { w.socket.on('callDeclined', (p: any) => {
-      if (p?.reason === 'timeout') {
-        log(`call timed out callId=${p?.callId}`);
-        endCall();
-      }
+      const reason = p?.reason || 'declined';
+      log(`callDeclined callId=${p?.callId} reason=${reason}`);
+      // Clean up UI for current pending/active call
+      endCall();
+    }); } catch {}
+    try { w.socket.on('callBusy', (p: any) => {
+      log(`callBusy targetUserId=${p?.targetUserId||'?'} — user is already in a call`);
+      // If we were attempting to ring, reset our state
+      endCall();
+    }); } catch {}
+    try { w.socket.on('callCanceled', (p: any) => {
+      log(`callCanceled callId=${p?.callId}`);
+      endCall();
     }); } catch {}
   }
 
