@@ -9,6 +9,7 @@ services:
       - "3080:3080"
     environment:
       NODE_ENV: production
+      DEBUG: true
       PORT: 3080
       FRONTEND_URL: https://e95a717c1bd4.ngrok-free.app
       # Trust proxy (e.g. when behind a reverse proxy)
