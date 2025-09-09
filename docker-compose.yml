@@ -10,7 +10,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3080
-      FRONTEND_URL: https://f08df3f1764d.ngrok-free.app
+      FRONTEND_URL: https://e95a717c1bd4.ngrok-free.app
       # Trust proxy (e.g. when behind a reverse proxy)
       TRUST_PROXY: "false"
       # Bcrypt cost
@@ -45,9 +45,10 @@ services:
       # MYSQL_PASSWORD: chat
       # MYSQL_SSL: false
       WEBRTC_STUN: stun:stun.l.google.com:19302
-      # WEBRTC_TURN_URLS: turn:your-turn:3478
-      # WEBRTC_TURN_USERNAME: 
-      # WEBRTC_TURN_CREDENTIAL: 
+      # Point to the local TURN (coturn) service below; replace with public DNS when deployed
+      WEBRTC_TURN_URLS: turn:turn:3478
+      WEBRTC_TURN_USERNAME: devuser
+      WEBRTC_TURN_CREDENTIAL: devpass
       CALL_RING_TIMEOUT: 20
     volumes:
       - sqlite_data:/data
@@ -57,8 +58,38 @@ services:
       - sqlite
       - redis
       - minio
+      - turn
       # - postgres
       # - mysql
+    restart: unless-stopped
+
+  # TURN/STUN server (coturn)
+  turn:
+    image: coturn/coturn:latest
+    container_name: chat-turn
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478"
+    environment:
+      # REQUIRED: Set to your public IP or DNS-resolved IP of this host for NAT hairpin correctness
+      - COTURN_PUBLIC_IP=${COTURN_PUBLIC_IP:-127.0.0.1}
+      - COTURN_REALM=${COTURN_REALM:-chat.local}
+      - COTURN_USER=${COTURN_USER:-devuser}
+      - COTURN_PASS=${COTURN_PASS:-devpass}
+    command: >-
+      bash -lc "\
+      turnserver \
+        --no-cli \
+        --no-tls \
+        --fingerprint \
+        --lt-cred-mech \
+        --realm=${COTURN_REALM:-chat.local} \
+        --user=${COTURN_USER:-devuser}:${COTURN_PASS:-devpass} \
+        --external-ip=${COTURN_PUBLIC_IP:-127.0.0.1} \
+        --listening-port=3478 \
+        --listening-ip=0.0.0.0 \
+        --min-port=49160 --max-port=49200 \
+        --verbose"
     restart: unless-stopped
 
   minio:
