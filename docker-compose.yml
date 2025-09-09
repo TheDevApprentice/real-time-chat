@@ -44,6 +44,10 @@ services:
       # MYSQL_USER: chat
       # MYSQL_PASSWORD: chat
       # MYSQL_SSL: false
+      WEBRTC_STUN: stun:stun.l.google.com:19302
+      # WEBRTC_TURN_URLS: turn:your-turn:3478
+      # WEBRTC_TURN_USERNAME: 
+      # WEBRTC_TURN_CREDENTIAL: 
     volumes:
       - sqlite_data:/data
       # - postgres_data:/var/lib/postgresql/data

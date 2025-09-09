@@ -2798,7 +2798,10 @@ window.socket = socket;
     let pc = null;
     let localStream = null;
     let remoteAudio = null;
+    let audioGate = null;
     let iceServers = null;
+    let addedTracks = false;
+    let makingOffer = false;
     // UI elements
     function ensureCallsPanel() {
         let panel = document.getElementById('calls-panel');
@@ -2927,6 +2930,56 @@ window.socket = socket;
             catch { }
             document.body.appendChild(remoteAudio);
         }
+        // Wire mute/hang buttons here to guarantee actions
+        if (muteBtn) {
+            muteBtn.onclick = () => {
+                try {
+                    const track = localStream === null || localStream === void 0 ? void 0 : localStream.getAudioTracks()[0];
+                    if (track) {
+                        const enabled = !!track.enabled;
+                        track.enabled = !enabled;
+                        muteBtn.textContent = enabled ? 'Unmute' : 'Mute';
+                    }
+                }
+                catch { }
+            };
+        }
+        if (hangBtn) {
+            hangBtn.onclick = () => {
+                var _a, _b;
+                try { /* later: emit callHangup when available */ }
+                catch { }
+                // Local cleanup
+                (_b = (_a = window.console) === null || _a === void 0 ? void 0 : _a.log) === null || _b === void 0 ? void 0 : _b.call(_a, 'Ending call locally');
+                endCall();
+            };
+        }
+        // Fallback gate if autoplay is blocked
+        audioGate = document.getElementById('webrtc-audio-gate');
+        if (!audioGate) {
+            audioGate = document.createElement('div');
+            audioGate.id = 'webrtc-audio-gate';
+            audioGate.style.position = 'fixed';
+            audioGate.style.right = '16px';
+            audioGate.style.bottom = '80px';
+            audioGate.style.background = '#111827';
+            audioGate.style.color = '#fff';
+            audioGate.style.padding = '8px 12px';
+            audioGate.style.borderRadius = '10px';
+            audioGate.style.display = 'none';
+            audioGate.style.zIndex = '10001';
+            audioGate.innerHTML = '<span>Audio bloqué</span> <button style="margin-left:8px;padding:4px 8px;border:none;border-radius:6px;background:#10b981;color:#fff;cursor:pointer;">Activer</button>';
+            document.body.appendChild(audioGate);
+            const btn = audioGate.querySelector('button');
+            if (btn)
+                btn.onclick = async () => {
+                    try {
+                        await remoteAudio.play();
+                        audioGate.style.display = 'none';
+                    }
+                    catch { }
+                };
+        }
         const ensureIce = async () => {
             if (iceServers)
                 return iceServers;
@@ -2957,21 +3010,52 @@ window.socket = socket;
                     catch { }
                 }
             };
-            pc.ontrack = (ev) => {
+            pc.ontrack = async (ev) => {
                 try {
                     const [stream] = ev.streams;
-                    if (remoteAudio && stream)
+                    if (remoteAudio && stream) {
                         remoteAudio.srcObject = stream;
+                        try {
+                            await remoteAudio.play();
+                        }
+                        catch {
+                            if (audioGate)
+                                audioGate.style.display = '';
+                        }
+                    }
                 }
                 catch { }
             };
             pc.onconnectionstatechange = () => log(`pc state: ${pc === null || pc === void 0 ? void 0 : pc.connectionState}`);
+            try {
+                // Ensure an audio transceiver exists to stabilize negotiation on some mobiles
+                if (pc.getTransceivers().length === 0) {
+                    pc.addTransceiver('audio', { direction: 'sendrecv' });
+                }
+            }
+            catch { }
             return pc;
         }
         async function getMic() {
+            var _a, _b;
             if (localStream)
                 return localStream;
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                    },
+                });
+            }
+            catch (e) {
+                const msg = (e === null || e === void 0 ? void 0 : e.message) || String(e);
+                log(`getUserMedia error: ${msg}`);
+                (_b = (_a = window.console) === null || _a === void 0 ? void 0 : _a.error) === null || _b === void 0 ? void 0 : _b.call(_a, 'getUserMedia error', e);
+                // Proceed without mic; transceiver will still allow negotiation
+                localStream = null;
+            }
             return localStream;
         }
         function showActive(show) { if (active)
@@ -2990,7 +3074,17 @@ window.socket = socket;
                         // prepare local mic and pc, wait for acceptance to create offer
                         await getMic();
                         await ensurePc();
-                        localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+                        if (!addedTracks && localStream) {
+                            localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+                            addedTracks = true;
+                        }
+                        try {
+                            // Ensure an audio transceiver exists to stabilize negotiation on some mobiles
+                            if (pc.getTransceivers().length === 0) {
+                                pc.addTransceiver('audio', { direction: 'sendrecv' });
+                            }
+                        }
+                        catch { }
                     }
                     else
                         log(`callRequest failed: ${(res === null || res === void 0 ? void 0 : res.error) || 'error'}`);
@@ -3096,27 +3190,47 @@ window.socket = socket;
         // Other events
         try {
             w.socket.on('callAccepted', async (p) => {
+                var _a, _b;
                 log(`callAccepted callId=${p === null || p === void 0 ? void 0 : p.callId}`);
                 if (!currentCallId)
                     currentCallId = String((p === null || p === void 0 ? void 0 : p.callId) || '');
                 // Caller creates offer and sends
                 try {
+                    await getMic();
                     await ensurePc();
-                    if (localStream)
+                    if (!addedTracks && localStream) {
                         localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+                        addedTracks = true;
+                    }
+                    if (pc.signalingState !== 'stable') {
+                        log(`offer skipped: signalingState=${pc.signalingState}`);
+                        return;
+                    }
+                    log(`creating offer; senders=${pc.getSenders().length}, transceivers=${pc.getTransceivers().length}`);
+                    makingOffer = true;
                     const offer = await pc.createOffer();
                     await pc.setLocalDescription(offer);
                     w.socket.emit('callOffer', { callId: currentCallId, sdp: JSON.stringify(offer) });
                     showActive(true);
                 }
                 catch (e) {
-                    log('offer error');
+                    const msg = (e === null || e === void 0 ? void 0 : e.message) || String(e);
+                    log(`offer error: ${msg}`);
+                    try {
+                        log(`state pc=${pc === null || pc === void 0 ? void 0 : pc.signalingState} conn=${pc === null || pc === void 0 ? void 0 : pc.connectionState}`);
+                    }
+                    catch { }
+                    (_b = (_a = window.console) === null || _a === void 0 ? void 0 : _a.error) === null || _b === void 0 ? void 0 : _b.call(_a, 'offer error', e);
+                }
+                finally {
+                    makingOffer = false;
                 }
             });
         }
         catch { }
         try {
             w.socket.on('callOffer', async (p) => {
+                var _a, _b;
                 log(`callOffer ${p === null || p === void 0 ? void 0 : p.callId}`);
                 if (!pc)
                     await ensurePc();
@@ -3128,7 +3242,9 @@ window.socket = socket;
                     w.socket.emit('callAnswer', { callId: currentCallId || String((p === null || p === void 0 ? void 0 : p.callId) || ''), sdp: JSON.stringify(answer) });
                 }
                 catch (e) {
-                    log('answer error');
+                    const msg = (e === null || e === void 0 ? void 0 : e.message) || String(e);
+                    log(`answer error: ${msg}`);
+                    (_b = (_a = window.console) === null || _a === void 0 ? void 0 : _a.error) === null || _b === void 0 ? void 0 : _b.call(_a, 'answer error', e);
                 }
             });
         }
@@ -3139,6 +3255,14 @@ window.socket = socket;
                 try {
                     const desc = JSON.parse((p === null || p === void 0 ? void 0 : p.sdp) || '{}');
                     await (pc === null || pc === void 0 ? void 0 : pc.setRemoteDescription(desc));
+                    // ensure playback if remote arrived first
+                    try {
+                        await (remoteAudio === null || remoteAudio === void 0 ? void 0 : remoteAudio.play());
+                    }
+                    catch {
+                        if (audioGate)
+                            audioGate.style.display = '';
+                    }
                 }
                 catch { }
             });
@@ -3181,6 +3305,8 @@ window.socket = socket;
         if (remoteAudio)
             remoteAudio.srcObject = null;
         currentCallId = null;
+        addedTracks = false;
+        makingOffer = false;
         const active = document.getElementById('active-call');
         if (active)
             active.style.display = 'none';
