@@ -2613,10 +2613,6 @@ window.socket = socket;
             sec.className = "top-active-block";
             sec.style.margin = "12px 0";
             sec.innerHTML = `
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-          <h3 style="margin:0; font-size:14px;">Récemment actives</h3>
-          <button id="btn-refresh-top" class="auth-btn" title="Rafraîchir">Rafraîchir</button>
-        </div>
         <ul id="top-active-list" class="room-list" style="max-height:160px; overflow:auto; margin:0; padding:0;"></ul>
       `;
             panel.appendChild(sec);
@@ -3300,32 +3296,7 @@ window.socket = socket;
                     stopStats();
             };
         }
-        // Fallback gate if autoplay is blocked
-        audioGate = document.getElementById('webrtc-audio-gate');
-        if (!audioGate) {
-            audioGate = document.createElement('div');
-            audioGate.id = 'webrtc-audio-gate';
-            audioGate.style.position = 'fixed';
-            audioGate.style.right = '16px';
-            audioGate.style.bottom = '80px';
-            audioGate.style.background = '#111827';
-            audioGate.style.color = '#fff';
-            audioGate.style.padding = '8px 12px';
-            audioGate.style.borderRadius = '10px';
-            audioGate.style.display = 'none';
-            audioGate.style.zIndex = '10001';
-            audioGate.innerHTML = '<span>Audio bloqué</span> <button style="margin-left:8px;padding:4px 8px;border:none;border-radius:6px;background:#10b981;color:#fff;cursor:pointer;">Activer</button>';
-            document.body.appendChild(audioGate);
-            const btn = audioGate.querySelector('button');
-            if (btn)
-                btn.onclick = async () => {
-                    try {
-                        await remoteAudio.play();
-                        audioGate.style.display = 'none';
-                    }
-                    catch { }
-                };
-        }
+        // Removed autoplay gate overlay; rely on permissions already granted.
         const ensureIce = async () => {
             if (iceServers)
                 return iceServers;
@@ -3378,10 +3349,7 @@ window.socket = socket;
                         try {
                             await remoteAudio.play();
                         }
-                        catch {
-                            if (audioGate)
-                                audioGate.style.display = '';
-                        }
+                        catch { }
                     }
                     if (remoteVideo && requestedMedia === 'video') {
                         try {
@@ -4083,10 +4051,16 @@ let dmPresenceInterval = null;
 // Close chat (desktop/mobile)
 if (closeChatBtn) {
     closeChatBtn.addEventListener("click", () => {
+        var _a, _b;
         try {
             window.selectedRoom = null;
             chatWindow.innerHTML = "";
             setTypingBanner("");
+            // Hide realtime stats panel if present
+            try {
+                (_b = (_a = window).statsOnRoomClosed) === null || _b === void 0 ? void 0 : _b.call(_a);
+            }
+            catch { }
             if (dmPresenceInterval) {
                 window.clearInterval(dmPresenceInterval);
                 dmPresenceInterval = null;
@@ -4445,6 +4419,7 @@ catch { }
             section.id = "stats-sidebar-panel";
             section.className = "room-section-card";
             section.style.marginTop = "12px";
+            section.style.display = "none"; // hidden by default
             section.innerHTML = `
         <button type="button" class="room-section-header" disabled style="cursor: default">
           📈 Stats en temps réel (client)
@@ -4472,6 +4447,11 @@ catch { }
             }
         }
         return section;
+    }
+    function setPanelVisible(show) {
+        const panel = ensureStatsPanel();
+        if (panel)
+            panel.style.display = show ? "" : "none";
     }
     function scheduleRender() {
         if (renderTimer != null)
@@ -4523,11 +4503,13 @@ catch { }
             return;
         const rid = currentRoomId;
         if (!rid) {
+            setPanelVisible(false);
             label.textContent = "Aucune room sélectionnée";
             drawSparkline(c1, [], "#7f5af0");
             drawSparkline(c2, [], "#06d6a0");
             return;
         }
+        setPanelVisible(true);
         const b = ensureBuffers(rid);
         label.textContent = `Room sélectionnée: ${rid}`;
         drawSparkline(c1, b.msgPerMin.slice(), "#7f5af0");
@@ -4538,6 +4520,7 @@ catch { }
         const rid = (room === null || room === void 0 ? void 0 : room.id) ? String(room.id) : null;
         currentRoomId = rid;
         ensureStatsPanel();
+        setPanelVisible(!!rid);
         scheduleRender();
     }
     // Wrap joinRoom to detect selection changes
@@ -4558,11 +4541,13 @@ catch { }
     try {
         w.statsOnMessage = (roomId) => recordMessage(roomId);
         w.statsOnOnline = (roomId, count) => recordOnline(roomId, count);
+        w.statsOnRoomClosed = () => { currentRoomId = null; setPanelVisible(false); scheduleRender(); };
     }
     catch { }
     // Initial mount
     try {
         ensureStatsPanel();
+        setPanelVisible(false);
         render();
     }
     catch { }

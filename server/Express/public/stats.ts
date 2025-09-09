@@ -69,6 +69,7 @@
       section.id = "stats-sidebar-panel";
       section.className = "room-section-card";
       section.style.marginTop = "12px";
+      section.style.display = "none"; // hidden by default
       section.innerHTML = `
         <button type="button" class="room-section-header" disabled style="cursor: default">
           📈 Stats en temps réel (client)
@@ -95,6 +96,11 @@
       }
     }
     return section;
+  }
+
+  function setPanelVisible(show: boolean) {
+    const panel = ensureStatsPanel();
+    if (panel) panel.style.display = show ? "" : "none";
   }
 
   function scheduleRender() {
@@ -140,11 +146,13 @@
     if (!label || !c1 || !c2) return;
     const rid = currentRoomId;
     if (!rid) {
+      setPanelVisible(false);
       label.textContent = "Aucune room sélectionnée";
       drawSparkline(c1, [], "#7f5af0");
       drawSparkline(c2, [], "#06d6a0");
       return;
     }
+    setPanelVisible(true);
     const b = ensureBuffers(rid);
     label.textContent = `Room sélectionnée: ${rid}`;
     drawSparkline(c1, b.msgPerMin.slice(), "#7f5af0");
@@ -156,6 +164,7 @@
     const rid = room?.id ? String(room.id) : null;
     currentRoomId = rid;
     ensureStatsPanel();
+    setPanelVisible(!!rid);
     scheduleRender();
   }
 
@@ -174,8 +183,9 @@
   try {
     w.statsOnMessage = (roomId: string) => recordMessage(roomId);
     w.statsOnOnline = (roomId: string, count: number) => recordOnline(roomId, count);
+    w.statsOnRoomClosed = () => { currentRoomId = null; setPanelVisible(false); scheduleRender(); };
   } catch {}
 
   // Initial mount
-  try { ensureStatsPanel(); render(); } catch {}
+  try { ensureStatsPanel(); setPanelVisible(false); render(); } catch {}
 })();
