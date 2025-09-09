@@ -2837,10 +2837,121 @@ window.socket = socket;
     let pendingAddLocal = false;
     let statsInterval = null;
     let lastBytes = {};
+    let hist = [];
+    let agg = null;
     // ---- Stats helpers (top-level) ----
     function getStatsBox() { return document.getElementById('call-stats'); }
     function showStats(show) { const el = getStatsBox(); if (el)
         el.style.display = show ? '' : 'none'; }
+    function getCanvas() { return document.getElementById('call-stats-canvas'); }
+    function resizeCanvas() {
+        var _a;
+        const c = getCanvas();
+        if (!c)
+            return;
+        const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+        const cssW = (((_a = c.parentElement) === null || _a === void 0 ? void 0 : _a.clientWidth) || c.clientWidth || 600);
+        const cssH = 100; // fixed CSS height
+        if (c.width !== cssW * dpr || c.height !== cssH * dpr) {
+            c.width = Math.max(300, Math.floor(cssW * dpr));
+            c.height = Math.floor(cssH * dpr);
+            const ctx = c.getContext('2d');
+            if (ctx)
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+    }
+    function setQualityDot(score) {
+        const box = getStatsBox();
+        if (!box)
+            return;
+        const dot = box.querySelector('.quality-dot');
+        if (!dot)
+            return;
+        let color = '#9ca3af';
+        if (score === 'Excellent')
+            color = '#10b981';
+        else if (score === 'Good')
+            color = '#f59e0b';
+        else if (score === 'Fair')
+            color = '#f97316';
+        else if (score === 'Poor')
+            color = '#ef4444';
+        dot.style.background = color;
+    }
+    function drawHistory() {
+        const c = getCanvas();
+        if (!c)
+            return;
+        resizeCanvas();
+        const ctx = c.getContext('2d');
+        if (!ctx)
+            return;
+        const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+        const W = Math.floor((c.width || 0) / dpr);
+        const H = Math.floor((c.height || 0) / dpr);
+        ctx.clearRect(0, 0, W, H);
+        // Axes/background
+        ctx.fillStyle = '#f9fafb';
+        ctx.fillRect(0, 0, W, H);
+        ctx.strokeStyle = '#e5e7eb';
+        ctx.lineWidth = 1;
+        for (let i = 1; i < 5; i++) {
+            const y = i * H / 5;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(W, y);
+            ctx.stroke();
+        }
+        // Map last 30s
+        const now = Date.now();
+        const windowMs = 30000;
+        const pts = hist.filter(p => now - p.t <= windowMs);
+        // Scales
+        const rttMax = 500; // ms
+        const lossMax = 20; // %
+        const brMax = 2500; // kbps total recv
+        function xOf(t) { return W - ((now - t) / windowMs) * W; }
+        function yOf(v, max) { return H - Math.max(0, Math.min(1, v / max)) * H; }
+        // Draw lines
+        function drawLine(getV, max, color) {
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            let first = true;
+            for (const p of pts) {
+                const x = xOf(p.t), y = yOf(getV(p), max);
+                if (first) {
+                    ctx.moveTo(x, y);
+                    first = false;
+                }
+                else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.stroke();
+        }
+        drawLine(p => p.rtt, rttMax, '#0ea5e9'); // blue
+        drawLine(p => p.lossPct, lossMax, '#ef4444'); // red
+        drawLine(p => p.brRecv, brMax, '#10b981'); // green
+        drawLine(p => p.brSend, brMax, '#8b5cf6'); // purple
+        // Optionally render fpsOut scaled to lossMax axis for a rough overlay
+        drawLine(p => p.fpsOut, 60, '#f59e0b'); // orange (0-60fps)
+        // Draw dots for visibility when sample count is small
+        function drawDots(getV, max, color) {
+            ctx.fillStyle = color;
+            for (const p of pts) {
+                const x = xOf(p.t), y = yOf(getV(p), max);
+                ctx.beginPath();
+                ctx.arc(x, y, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        drawDots(p => p.rtt, rttMax, '#0ea5e9');
+        drawDots(p => p.lossPct, lossMax, '#ef4444');
+        drawDots(p => p.brRecv, brMax, '#10b981');
+        drawDots(p => p.brSend, brMax, '#8b5cf6');
+        drawDots(p => p.fpsOut, 60, '#f59e0b');
+    }
     async function sampleStats() {
         try {
             if (!pc)
@@ -2855,9 +2966,12 @@ window.socket = socket;
             let bytesRecvV = 0;
             let bytesSentA = 0;
             let bytesSentV = 0;
+            let pktsRecvA = 0;
+            let pktsRecvV = 0;
             let fps = 0;
             let w = 0;
             let h = 0;
+            let fpsOut = 0;
             let now = Date.now();
             report.forEach((s) => {
                 if (s.type === 'candidate-pair' && s.nominated) {
@@ -2868,11 +2982,13 @@ window.socket = socket;
                         lossA = s.packetsLost || 0;
                         jitterA = Math.round((s.jitter || 0) * 1000);
                         bytesRecvA = s.bytesReceived || 0;
+                        pktsRecvA = s.packetsReceived || 0;
                     }
                     if (s.kind === 'video') {
                         lossV = s.packetsLost || 0;
                         jitterV = Math.round((s.jitter || 0) * 1000);
                         bytesRecvV = s.bytesReceived || 0;
+                        pktsRecvV = s.packetsReceived || 0;
                         fps = s.framesPerSecond || fps;
                         w = s.frameWidth || w;
                         h = s.frameHeight || h;
@@ -2884,6 +3000,7 @@ window.socket = socket;
                     }
                     if (s.kind === 'video') {
                         bytesSentV = s.bytesSent || 0;
+                        fpsOut = s.framesPerSecond || fpsOut;
                     }
                 }
             });
@@ -2892,7 +3009,15 @@ window.socket = socket;
             const brRecvV = lastBytes.vRecv != null ? Math.round(((bytesRecvV - (lastBytes.vRecv || 0)) * 8) / dt) : 0;
             const brSendA = lastBytes.aSend != null ? Math.round(((bytesSentA - (lastBytes.aSend || 0)) * 8) / dt) : 0;
             const brSendV = lastBytes.vSend != null ? Math.round(((bytesSentV - (lastBytes.vSend || 0)) * 8) / dt) : 0;
-            lastBytes = { aRecv: bytesRecvA, vRecv: bytesRecvV, aSend: bytesSentA, vSend: bytesSentV, t: now };
+            const brRecv = brRecvA + brRecvV;
+            const brSend = brSendA + brSendV;
+            // Loss percentage over last interval
+            const lostNow = (lossA + lossV);
+            const pktsNow = (pktsRecvA + pktsRecvV);
+            const dLost = lastBytes.aLost != null ? (lostNow - ((lastBytes.aLost || 0) + (lastBytes.vLost || 0))) : 0;
+            const dPkts = lastBytes.aPkts != null ? (pktsNow - ((lastBytes.aPkts || 0) + (lastBytes.vPkts || 0))) : 0;
+            const lossPct = dPkts > 0 ? Math.max(0, Math.min(100, (dLost / dPkts) * 100)) : 0;
+            lastBytes = { aRecv: bytesRecvA, vRecv: bytesRecvV, aSend: bytesSentA, vSend: bytesSentV, t: now, aPkts: pktsRecvA, vPkts: pktsRecvV, aLost: lossA, vLost: lossV };
             const qScore = (() => {
                 const lossPct = Math.min(100, ((lossA + lossV) / 200) * 100);
                 const r = rtt;
@@ -2905,6 +3030,14 @@ window.socket = socket;
                     return 'Fair';
                 return 'Poor';
             })();
+            if (agg) {
+                agg.sumRtt += rtt;
+                agg.sumLoss += lossPct;
+                agg.sumBrRecv += brRecv;
+                agg.sumBrSend += brSend;
+                agg.cnt += 1;
+                agg.lastQuality = qScore;
+            }
             const statsBox = getStatsBox();
             if (statsBox) {
                 const q = statsBox.querySelector('.quality');
@@ -2919,7 +3052,7 @@ window.socket = socket;
                 if (r)
                     r.textContent = `${rtt} ms`;
                 if (l)
-                    l.textContent = `${lossA}/${lossV}`;
+                    l.textContent = `${(lossPct).toFixed(1)}%`;
                 if (brR)
                     brR.textContent = `${brRecvA} + ${brRecvV} kbps`;
                 if (brS)
@@ -2928,16 +3061,52 @@ window.socket = socket;
                     j.textContent = `${jitterA}/${jitterV} ms`;
                 if (fr)
                     fr.textContent = fps ? `${fps} fps ${w}x${h}` : '-';
+                setQualityDot(qScore);
             }
+            // Push history and trim 30s
+            hist.push({ t: now, rtt, lossPct, brRecv, brSend, fpsOut });
+            const cutoff = now - 30000;
+            while (hist.length && hist[0].t < cutoff)
+                hist.shift();
+            drawHistory();
         }
         catch { }
     }
+    function attachCanvasEvents() {
+        const c = getCanvas();
+        const tip = document.getElementById('call-stats-tip');
+        if (!c || !tip)
+            return;
+        c.onmousemove = (e) => {
+            const rect = c.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const W = c.width;
+            const now = Date.now();
+            const windowMs = 30000;
+            const tAtX = now - ((W - x) / W) * windowMs;
+            let best = null;
+            let bestDt = Infinity;
+            for (const p of hist) {
+                const d = Math.abs(p.t - tAtX);
+                if (d < bestDt) {
+                    best = p;
+                    bestDt = d;
+                }
+            }
+            if (best) {
+                tip.style.display = '';
+                tip.textContent = `t-${Math.round((now - best.t) / 1000)}s | RTT ${best.rtt}ms | Loss ${best.lossPct.toFixed(1)}% | Recv ${best.brRecv} kbps | Send ${best.brSend} kbps | FPSout ${best.fpsOut}`;
+            }
+        };
+        c.onmouseleave = () => { if (tip)
+            tip.style.display = 'none'; };
+    }
     function startStats() { if (statsInterval)
-        return; lastBytes = {}; statsInterval = window.setInterval(sampleStats, 1000); showStats(true); }
+        return; lastBytes = {}; hist = []; agg = { start: Date.now(), sumRtt: 0, sumLoss: 0, sumBrRecv: 0, sumBrSend: 0, cnt: 0, lastQuality: '-' }; resizeCanvas(); statsInterval = window.setInterval(sampleStats, 1000); showStats(true); drawHistory(); attachCanvasEvents(); window.addEventListener('resize', resizeCanvas); }
     function stopStats() { if (statsInterval) {
         window.clearInterval(statsInterval);
         statsInterval = null;
-    } showStats(false); }
+    } showStats(false); hist = []; drawHistory(); window.removeEventListener('resize', resizeCanvas); }
     // UI elements
     function ensureCallsPanel() {
         let panel = document.getElementById('calls-panel');
@@ -2964,16 +3133,28 @@ window.socket = socket;
           <video id="webrtc-remote-video" autoplay playsinline style="max-width:48%;border-radius:8px;background:#111;aspect-ratio:16/9"></video>
         </div>
         <div id="call-stats" style="display:none;margin-top:8px;padding:8px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#111;">
-          <div style="font-weight:600;margin-bottom:6px;">Quality</div>
+          <div style="font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+            <span class="quality-dot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#9ca3af"></span>
+            <span>Quality</span>
+          </div>
           <div class="quality" style="margin-bottom:6px;">-</div>
           <div class="grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;font-size:12px;">
             <div>RTT: <span class="rtt">-</span></div>
-            <div>Loss A/V: <span class="loss">-</span></div>
+            <div>Loss: <span class="loss">-</span></div>
             <div>Bitrate recv A/V: <span class="br-recv">-</span></div>
             <div>Bitrate send A/V: <span class="br-send">-</span></div>
             <div>Jitter A/V: <span class="jitter">-</span></div>
             <div>FPS/Res recv: <span class="fps-res">-</span></div>
           </div>
+          <div class="legend" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;font-size:12px;align-items:center;">
+            <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:#0ea5e9"></span>RTT</span>
+            <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:#ef4444"></span>Loss %</span>
+            <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:#10b981"></span>Recv kbps</span>
+            <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:#8b5cf6"></span>Send kbps</span>
+            <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:#f59e0b"></span>Outbound FPS</span>
+          </div>
+          <canvas id="call-stats-canvas" width="600" height="100" style="width:100%;height:100px;margin-top:8px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;"></canvas>
+          <div id="call-stats-tip" style="position:relative;font-size:12px;color:#374151;margin-top:4px;display:none;"></div>
         </div>
         <ul id="call-log" style="list-style:disc;margin:8px 0 0 16px;"></ul>
       `;
@@ -3505,6 +3686,8 @@ window.socket = socket;
                     currentCallId = String((p === null || p === void 0 ? void 0 : p.callId) || '');
                 // Caller creates offer and sends
                 try {
+                    // As caller, we can start stats now
+                    startStats();
                     await getLocalMedia(requestedMedia);
                     await ensurePc();
                     if (!addedTracks && localStream) {
@@ -3667,6 +3850,24 @@ window.socket = socket;
         const active = document.getElementById('active-call');
         if (active)
             active.style.display = 'none';
+        // Persist last QA summary
+        try {
+            if (agg && agg.cnt > 0) {
+                const avgRtt = Math.round(agg.sumRtt / agg.cnt);
+                const avgLoss = +(agg.sumLoss / agg.cnt).toFixed(2);
+                const avgBrRecv = Math.round(agg.sumBrRecv / agg.cnt);
+                const avgBrSend = Math.round(agg.sumBrSend / agg.cnt);
+                const duration = Math.max(0, Math.round((Date.now() - agg.start) / 1000));
+                const summary = { ts: Date.now(), duration, avgRtt, avgLoss, avgBrRecv, avgBrSend, quality: agg.lastQuality };
+                const key = 'qa_call_summaries';
+                const arr = JSON.parse(localStorage.getItem(key) || '[]');
+                arr.push(summary);
+                while (arr.length > 20)
+                    arr.shift();
+                localStorage.setItem(key, JSON.stringify(arr));
+            }
+        }
+        catch { }
         stopStats();
     }
     // UI controls
