@@ -14,10 +14,6 @@
       sec.className = "top-active-block";
       sec.style.margin = "12px 0";
       sec.innerHTML = `
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-          <h3 style="margin:0; font-size:14px;">Récemment actives</h3>
-          <button id="btn-refresh-top" class="auth-btn" title="Rafraîchir">Rafraîchir</button>
-        </div>
         <ul id="top-active-list" class="room-list" style="max-height:160px; overflow:auto; margin:0; padding:0;"></ul>
       `;
       panel.appendChild(sec);

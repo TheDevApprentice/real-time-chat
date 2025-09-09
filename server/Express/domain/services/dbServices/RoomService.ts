@@ -50,4 +50,21 @@ export class RoomService implements IRoomService {
   getRoomsAndUsers(): Promise<{ room: Room; users: User[] }[]> {
     return this.roomsRepo.getRoomsAndUsers();
   }
+
+  async haveSharedRoom(userA: string, userB: string): Promise<boolean> {
+    try {
+      const [aRooms, bRooms] = await Promise.all([
+        this.roomsRepo.getRoomsForUser(userA),
+        this.roomsRepo.getRoomsForUser(userB),
+      ]);
+      if (!aRooms?.length || !bRooms?.length) return false;
+      const setA = new Set(aRooms.map((r) => r.id));
+      for (const r of bRooms) {
+        if (setA.has(r.id)) return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
 }

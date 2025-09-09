@@ -131,8 +131,17 @@ export class RedisService implements IRedisService {
     return await this.ensure().ttl(key);
   }
 
-  async incrBy(key: string, by: number = 1): Promise<number> {
-    return await this.ensure().incrBy(key, by);
+  async incrBy(key: string, by?: number): Promise<number> {
+    return await this.ensure().incrBy(key, by ?? 1);
+  }
+
+  async sMembers(key: string): Promise<string[]> {
+    // returns array of members ([]) if key missing
+    try {
+      return await (this.ensure() as any).sMembers(key);
+    } catch {
+      return [];
+    }
   }
 
   async publish(channel: string, message: string): Promise<number> {

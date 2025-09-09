@@ -265,6 +265,8 @@ if (closeChatBtn) {
       (window as any).selectedRoom = null;
       chatWindow.innerHTML = "";
       setTypingBanner("");
+      // Hide realtime stats panel if present
+      try { (window as any).statsOnRoomClosed?.(); } catch {}
       if (dmPresenceInterval) {
         window.clearInterval(dmPresenceInterval);
         dmPresenceInterval = null;

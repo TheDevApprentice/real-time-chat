@@ -59,12 +59,35 @@ function renderFriends(items: any[]) {
       li.className = "room-list-item";
       const name = it.name || "inconnu";
       li.innerHTML = `<span>${name}</span>`;
+      const actions = document.createElement("span");
+      actions.style.float = "right";
+
+      const callAudioBtn = document.createElement("button");
+      callAudioBtn.textContent = "Call (Audio)";
+      callAudioBtn.className = "chat-send-btn";
+      callAudioBtn.style.marginLeft = "8px";
+      callAudioBtn.onclick = () => {
+        try { (window as any).startCallAudio?.(it.userId || it.id); } catch {}
+      };
+
+      const callVideoBtn = document.createElement("button");
+      callVideoBtn.textContent = "Call (Video)";
+      callVideoBtn.className = "chat-send-btn";
+      callVideoBtn.style.marginLeft = "6px";
+      callVideoBtn.onclick = () => {
+        try { (window as any).startCallVideo?.(it.userId || it.id); } catch {}
+      };
+
       const msgBtn = document.createElement("button");
       msgBtn.textContent = "Message";
       msgBtn.className = "chat-send-btn";
-      msgBtn.style.float = "right";
+      msgBtn.style.marginLeft = "6px";
       msgBtn.onclick = () => startDM(it.userId || it.id, name);
-      li.appendChild(msgBtn);
+
+      actions.appendChild(callAudioBtn);
+      actions.appendChild(callVideoBtn);
+      actions.appendChild(msgBtn);
+      li.appendChild(actions);
       ul.appendChild(li);
     });
     friendsDropdown.appendChild(ul);

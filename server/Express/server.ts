@@ -101,6 +101,10 @@ class AppServer {
               process.env.FRONTEND_URL || "'self'",
               "ws:",
               "wss:",
+              // Some test UI pieces (e.g., data-URL shaders/workers) perform fetch/XHR to data/blob
+              // Allowing data: and blob: for connect-src is safe for our local test pages
+              "data:",
+              "blob:",
             ],
             objectSrc: ["'none'"],
             baseUri: ["'self'"],

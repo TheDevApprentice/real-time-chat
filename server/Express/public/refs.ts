@@ -16,4 +16,5 @@
 /// <reference path="./invites.ts" />
 /// <reference path="./sockets.ts" />
 /// <reference path="./analytics.ts" />
+/// <reference path="./calls.ts" />
 /// <reference path="./chat-client.ts" />

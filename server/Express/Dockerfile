@@ -43,7 +43,9 @@ ENV S3_BUCKET=chat-bucket
 ENV S3_USE_PATH_STYLE="true"
 # Base URL for public access from host (used to form public links)
 ENV S3_PUBLIC_URL_BASE=http://localhost:9000/chat-bucket
-
+ENV WEBRTC_STUN=stun:stun.l.google.com:19302
+# Call ring timeout (in seconds)
+ENV CALL_RING_TIMEOUT=20
 # Add a healthcheck
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
   CMD curl -f http://localhost:3080/health || exit 1

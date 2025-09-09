@@ -12,4 +12,7 @@ export interface IRoomService {
   getVisibleRoomsForUser(userId: string): Promise<Room[]>;
   getUsersForRoom(roomId: string): Promise<User[]>;
   getRoomsAndUsers(): Promise<{ room: Room; users: User[] }[]>;
+
+  // Returns true if users share at least one room (DM or group)
+  haveSharedRoom(userA: string, userB: string): Promise<boolean>;
 }

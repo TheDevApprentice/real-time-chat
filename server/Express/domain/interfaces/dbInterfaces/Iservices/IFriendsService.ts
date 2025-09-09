@@ -19,4 +19,7 @@ export interface IFriendsService {
     ): Promise<any>;
   
     listFriendsAndRequests(userId: string): Promise<any>;
+
+    // Returns true if both users are friends (accepted status)
+    areFriends(userId: string, otherUserId: string): Promise<boolean>;
   }
