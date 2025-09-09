@@ -13,6 +13,9 @@
   let requestedMedia: 'audio' | 'video' = 'audio';
   let localVideo: HTMLVideoElement | null = null;
   let remoteVideo: HTMLVideoElement | null = null;
+  let permissionsReady = false;
+  let remoteRenderStream: MediaStream | null = null;
+  let pendingAddLocal = false;
   // UI elements
   function ensureCallsPanel() {
     let panel = document.getElementById('calls-panel') as HTMLDivElement | null;
@@ -27,14 +30,6 @@
       panel.innerHTML = `
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
           <strong>Calls (test)</strong>
-          <input id="call-target" type="text" placeholder="Target userId" style="flex:1;padding:6px 8px;border:1px solid #ddd;border-radius:6px;" />
-          <button id="call-audio" style="padding:6px 10px;border:none;border-radius:6px;background:#3b82f6;color:#fff;cursor:pointer;">Call (Audio)</button>
-          <button id="call-video" style="padding:6px 10px;border:none;border-radius:6px;background:#8b5cf6;color:#fff;cursor:pointer;">Call (Video)</button>
-        </div>
-        <div id="incoming-call" style="display:none;padding:8px;border-radius:6px;background:#111827;color:#fff;">
-          <span class="txt"></span>
-          <button class="accept" style="margin-left:10px;padding:4px 8px;border:none;border-radius:6px;background:#10b981;color:#fff;cursor:pointer;">Accepter</button>
-          <button class="decline" style="margin-left:6px;padding:4px 8px;border:none;border-radius:6px;background:#ef4444;color:#fff;cursor:pointer;">Refuser</button>
         </div>
         <div id="active-call" style="display:none;margin-top:8px;padding:8px;border-radius:6px;background:#f3f4f6;color:#111;">
           <span class="status">Call active</span>
@@ -99,8 +94,13 @@
       card.innerHTML = `
         <div style="font-weight:600;margin-bottom:6px;">Appel entrant</div>
         <div class="txt" style="margin-bottom:12px;color:#374151"></div>
+        <div class="perm" style="font-size:12px;color:#6b7280;margin-bottom:10px;">
+          Autorisations requises: micro ${navigator?.mediaDevices ? '' : '(non supporté)'}<span class="vonly" style="display:none;"> + caméra</span>
+          <button class="grant" style="margin-left:8px;padding:4px 8px;border:none;border-radius:6px;background:#3b82f6;color:#fff;cursor:pointer;">Accorder</button>
+          <span class="pstat" style="margin-left:6px;color:#ef4444;">En attente…</span>
+        </div>
         <div>
-          <button class="accept" style="padding:6px 12px;border:none;border-radius:8px;background:#10b981;color:#fff;cursor:pointer;margin-right:8px;">Accepter</button>
+          <button class="accept" disabled style="padding:6px 12px;border:none;border-radius:8px;background:#10b981;color:#fff;cursor:not-allowed;opacity:0.7;margin-right:8px;">Accepter</button>
           <button class="decline" style="padding:6px 12px;border:none;border-radius:8px;background:#ef4444;color:#fff;cursor:pointer;">Refuser</button>
         </div>
       `;
@@ -122,17 +122,15 @@
     ensureCallsPanel();
     ensureCallsButton();
     ensureIncomingOverlay();
-    const input = document.getElementById('call-target') as HTMLInputElement | null;
-    const btnA = document.getElementById('call-audio') as HTMLButtonElement | null;
-    const btnV = document.getElementById('call-video') as HTMLButtonElement | null;
-    const incoming = document.getElementById('incoming-call') as HTMLDivElement | null;
-    const txt = incoming?.querySelector('.txt') as HTMLElement | null;
-    const acceptBtn = incoming?.querySelector('.accept') as HTMLButtonElement | null;
-    const declineBtn = incoming?.querySelector('.decline') as HTMLButtonElement | null;
+    // Note: input/btns removed; calls are now triggered from friends panel via global functions
     const overlay = ensureIncomingOverlay();
     const oTxt = overlay.querySelector('.txt') as HTMLElement | null;
     const oAccept = overlay.querySelector('.accept') as HTMLButtonElement | null;
     const oDecline = overlay.querySelector('.decline') as HTMLButtonElement | null;
+    const oPerm = overlay.querySelector('.perm') as HTMLDivElement | null;
+    const oGrant = overlay.querySelector('.grant') as HTMLButtonElement | null;
+    const oPstat = overlay.querySelector('.pstat') as HTMLSpanElement | null;
+    const oVonly = overlay.querySelector('.vonly') as HTMLSpanElement | null;
     const active = document.getElementById('active-call') as HTMLDivElement | null;
     const muteBtn = active?.querySelector('.mute') as HTMLButtonElement | null;
     const hangBtn = active?.querySelector('.hangup') as HTMLButtonElement | null;
@@ -220,29 +218,33 @@
       pc.ontrack = async (ev) => {
         try {
           const [stream] = ev.streams;
-          if (remoteAudio && stream) {
-            remoteAudio.srcObject = stream;
+          if (!stream) return;
+          const localTrackIds = new Set<string>(
+            (localStream?.getTracks() || []).map(t => t.id)
+          );
+          const isSelfTrack = localTrackIds.has(ev.track?.id || '');
+          log(`ontrack kind=${ev.track?.kind} stream.id=${stream?.id} self=${isSelfTrack}`);
+          if (isSelfTrack) return; // prevent rendering our own capture
+
+          if (!remoteRenderStream) remoteRenderStream = new MediaStream();
+          // Avoid adding duplicates
+          const already = remoteRenderStream.getTracks().some(t => t.id === ev.track.id);
+          if (!already) remoteRenderStream.addTrack(ev.track);
+
+          if (remoteAudio) {
+            remoteAudio.srcObject = remoteRenderStream;
             try { await remoteAudio.play(); } catch { if (audioGate) audioGate.style.display = ''; }
           }
-          // show remote video when available
-          if (remoteVideo && stream && requestedMedia === 'video') {
-            try { (remoteVideo as any).srcObject = stream; } catch {}
+          if (remoteVideo && requestedMedia === 'video') {
+            try { (remoteVideo as any).srcObject = remoteRenderStream; } catch {}
             const area = document.getElementById('video-area') as HTMLDivElement | null;
             if (area) area.style.display = '';
           }
         } catch {}
       };
       pc.onconnectionstatechange = () => log(`pc state: ${pc?.connectionState}`);
-      try {
-        // Ensure an audio transceiver exists to stabilize negotiation on some mobiles
-        if (pc.getTransceivers().length === 0) {
-          pc.addTransceiver('audio', { direction: 'sendrecv' } as any);
-        }
-        // Add video transceiver if needed
-        if (requestedMedia === 'video') {
-          try { pc.addTransceiver('video', { direction: 'sendrecv' } as any); } catch {}
-        }
-      } catch {}
+      // Note: We avoid manual addTransceiver to prevent duplicate m-lines.
+      // addTrack will create the needed transceivers.
       return pc;
     }
 
@@ -276,80 +278,70 @@
 
     function showActive(show: boolean) { if (active) active.style.display = show ? '' : 'none'; }
 
-    btnA && (btnA.onclick = () => {
-      const target = input?.value.trim();
+    // Buttons removed; expose helpers for friends panel
+    async function startCall(target: string, media: 'audio'|'video') {
       if (!target) { log('Target userId is required'); return; }
-      requestedMedia = 'audio';
-      try { w.socket.emit('callRequest', { targetUserId: target, media: 'audio' }, async (res: any) => {
+      requestedMedia = media;
+      // Enforce permissions before sending request
+      const ok = await ensurePermissions(media);
+      if (!ok) { log('Permissions not granted'); return; }
+      try { w.socket.emit('callRequest', { targetUserId: target, media }, async (res: any) => {
         if (res?.success) {
           currentCallId = String(res.callId);
-          log(`Outgoing call (audio) -> callId=${currentCallId}`);
-          // prepare local mic and pc, wait for acceptance to create offer
-          await getLocalMedia('audio'); await ensurePc();
-          if (!addedTracks && localStream) {
-            localStream.getTracks().forEach(t => pc!.addTrack(t, localStream!));
-            addedTracks = true;
-          }
-          try {
-            // Ensure an audio transceiver exists to stabilize negotiation on some mobiles
-            if (pc!.getTransceivers().length === 0) {
-              pc!.addTransceiver('audio', { direction: 'sendrecv' } as any);
-            }
-          } catch {}
-        }
-        else log(`callRequest failed: ${res?.error||'error'}`);
-      }); } catch {}
-    });
-    btnV && (btnV.onclick = () => {
-      const target = input?.value.trim();
-      if (!target) { log('Target userId is required'); return; }
-      requestedMedia = 'video';
-      try { w.socket.emit('callRequest', { targetUserId: target, media: 'video' }, async (res: any) => {
-        if (res?.success) {
-          currentCallId = String(res.callId);
-          log(`Outgoing call (video) -> callId=${currentCallId}`);
-          await getLocalMedia('video'); await ensurePc();
+          log(`Outgoing call (${media}) -> callId=${currentCallId}`);
+          await getLocalMedia(media); await ensurePc();
           if (!addedTracks && localStream) {
             localStream.getTracks().forEach(t => pc!.addTrack(t, localStream!));
             addedTracks = true;
           }
         } else log(`callRequest failed: ${res?.error||'error'}`);
       }); } catch {}
-    });
+    }
+    (window as any).startCallAudio = (userId: string) => startCall(userId, 'audio');
+    (window as any).startCallVideo = (userId: string) => startCall(userId, 'video');
+
+    function haveLocal(kind: 'audio'|'video') {
+      const hasAudio = !!localStream?.getAudioTracks()?.some(t => t.readyState !== 'ended');
+      const hasVideo = !!localStream?.getVideoTracks()?.some(t => t.readyState !== 'ended');
+      return kind === 'audio' ? hasAudio : (hasAudio && hasVideo);
+    }
+
+    async function ensurePermissions(kind: 'audio'|'video'): Promise<boolean> {
+      try {
+        if (haveLocal(kind)) { permissionsReady = true; return true; }
+        await getLocalMedia(kind);
+        permissionsReady = haveLocal(kind);
+        updatePermUI();
+        return permissionsReady;
+      } catch {
+        permissionsReady = false;
+        updatePermUI();
+        return false;
+      }
+    }
+
+    function updatePermUI() {
+      if (!oPerm) return;
+      if (permissionsReady) {
+        if (oPstat) { oPstat.textContent = 'OK'; oPstat.style.color = '#10b981'; }
+        if (oAccept) { oAccept.disabled = false; oAccept.style.cursor = 'pointer'; oAccept.style.opacity = '1'; }
+      } else {
+        if (oPstat) { oPstat.textContent = 'En attente…'; oPstat.style.color = '#ef4444'; }
+        if (oAccept) { oAccept.disabled = true; oAccept.style.cursor = 'not-allowed'; oAccept.style.opacity = '0.7'; }
+      }
+    }
 
     // Incoming ring
     try { w.socket.on('callIncoming', (p: any) => {
       log(`Incoming call from ${p?.fromUser?.name||p?.fromUser?.id||'?'} (media=${p?.media}) callId=${p?.callId}`);
       requestedMedia = (p?.media === 'video') ? 'video' : 'audio';
-      // Inline banner
-      if (incoming && txt) {
-        txt.textContent = `Appel entrant de ${p?.fromUser?.name||p?.fromUser?.id||'?'} (${p?.media})`;
-        incoming.style.display = '';
-        acceptBtn && (acceptBtn.onclick = () => {
-          try { w.socket.emit('callAccept', { callId: p.callId }, async (res: any) => {
-            if (res?.success) {
-              currentCallId = String(p.callId);
-              log(`Accepted callId=${currentCallId}`);
-              incoming.style.display = 'none';
-              // Callee prepares mic + pc and waits for offer
-              await getLocalMedia(requestedMedia); await ensurePc();
-              localStream!.getTracks().forEach(t => pc!.addTrack(t, localStream!));
-              showActive(true);
-            } else log(`callAccept failed: ${res?.error||'error'}`);
-          }); } catch {}
-        });
-        declineBtn && (declineBtn.onclick = () => {
-          try { w.socket.emit('callDecline', { callId: p.callId, reason: 'declined' }, (res: any) => {
-            if (res?.success) log(`Declined callId=${p.callId}`);
-            else log(`callDecline failed: ${res?.error||'error'}`);
-            incoming.style.display = 'none';
-          }); } catch {}
-        });
-      }
       // Overlay (centered)
       if (overlay && oTxt && oAccept && oDecline) {
         oTxt.textContent = `Appel entrant de ${p?.fromUser?.name||p?.fromUser?.id||'?'} (${p?.media})`;
         overlay.style.display = 'flex';
+        if (oVonly) oVonly.style.display = (requestedMedia === 'video') ? '' : 'none';
+        updatePermUI();
+        if (oGrant) oGrant.onclick = async () => { await ensurePermissions(requestedMedia); };
         oAccept.onclick = () => {
           try { w.socket.emit('callAccept', { callId: p.callId }, async (res: any) => {
             if (res?.success) {
@@ -357,7 +349,8 @@
               log(`Accepted callId=${currentCallId}`);
               overlay.style.display = 'none';
               await getLocalMedia(requestedMedia); await ensurePc();
-              localStream!.getTracks().forEach(t => pc!.addTrack(t, localStream!));
+              // Defer adding tracks until after remote offer is set
+              pendingAddLocal = true;
               showActive(true);
             } else log(`callAccept failed: ${res?.error||'error'}`);
           }); } catch {}
@@ -403,13 +396,21 @@
     }); } catch {}
     try { w.socket.on('callOffer', async (p: any) => {
       log(`callOffer ${p?.callId}`);
-      if (!pc) await ensurePc();
+      if (!currentCallId) currentCallId = String(p?.callId||'');
       try {
-        const desc = JSON.parse(p?.sdp||'{}');
-        await pc!.setRemoteDescription(desc);
+        await ensurePc();
+        const offer = JSON.parse(p?.sdp||'{}');
+        await pc!.setRemoteDescription(offer);
+        // If we deferred local tracks (callee), add them just before creating answer
+        if (pendingAddLocal && localStream && !addedTracks) {
+          localStream.getTracks().forEach(t => pc!.addTrack(t, localStream!));
+          addedTracks = true;
+          pendingAddLocal = false;
+        }
+        // Callee creates answer and sends
         const answer = await pc!.createAnswer();
         await pc!.setLocalDescription(answer);
-        w.socket.emit('callAnswer', { callId: currentCallId || String(p?.callId||''), sdp: JSON.stringify(answer) });
+        w.socket.emit('callAnswer', { callId: currentCallId, sdp: JSON.stringify(answer) });
       } catch (e: any) {
         const msg = e?.message || String(e);
         log(`answer error: ${msg}`);
@@ -455,6 +456,7 @@
     if (remoteAudio) remoteAudio.srcObject = null;
     if (localVideo) (localVideo as any).srcObject = null;
     if (remoteVideo) (remoteVideo as any).srcObject = null;
+    remoteRenderStream = null;
     const area = document.getElementById('video-area') as HTMLDivElement | null;
     if (area) area.style.display = 'none';
     currentCallId = null;
@@ -486,4 +488,5 @@
     setTimeout(() => waitSocket(attempt + 1), 500);
   }
   waitSocket();
+
 })();

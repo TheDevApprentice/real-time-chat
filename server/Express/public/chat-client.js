@@ -241,12 +241,39 @@ function renderFriends(items) {
             li.className = "room-list-item";
             const name = it.name || "inconnu";
             li.innerHTML = `<span>${name}</span>`;
+            const actions = document.createElement("span");
+            actions.style.float = "right";
+            const callAudioBtn = document.createElement("button");
+            callAudioBtn.textContent = "Call (Audio)";
+            callAudioBtn.className = "chat-send-btn";
+            callAudioBtn.style.marginLeft = "8px";
+            callAudioBtn.onclick = () => {
+                var _a, _b;
+                try {
+                    (_b = (_a = window).startCallAudio) === null || _b === void 0 ? void 0 : _b.call(_a, it.userId || it.id);
+                }
+                catch { }
+            };
+            const callVideoBtn = document.createElement("button");
+            callVideoBtn.textContent = "Call (Video)";
+            callVideoBtn.className = "chat-send-btn";
+            callVideoBtn.style.marginLeft = "6px";
+            callVideoBtn.onclick = () => {
+                var _a, _b;
+                try {
+                    (_b = (_a = window).startCallVideo) === null || _b === void 0 ? void 0 : _b.call(_a, it.userId || it.id);
+                }
+                catch { }
+            };
             const msgBtn = document.createElement("button");
             msgBtn.textContent = "Message";
             msgBtn.className = "chat-send-btn";
-            msgBtn.style.float = "right";
+            msgBtn.style.marginLeft = "6px";
             msgBtn.onclick = () => startDM(it.userId || it.id, name);
-            li.appendChild(msgBtn);
+            actions.appendChild(callAudioBtn);
+            actions.appendChild(callVideoBtn);
+            actions.appendChild(msgBtn);
+            li.appendChild(actions);
             ul.appendChild(li);
         });
         friendsDropdown.appendChild(ul);
@@ -2805,6 +2832,9 @@ window.socket = socket;
     let requestedMedia = 'audio';
     let localVideo = null;
     let remoteVideo = null;
+    let permissionsReady = false;
+    let remoteRenderStream = null;
+    let pendingAddLocal = false;
     // UI elements
     function ensureCallsPanel() {
         let panel = document.getElementById('calls-panel');
@@ -2819,14 +2849,6 @@ window.socket = socket;
             panel.innerHTML = `
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
           <strong>Calls (test)</strong>
-          <input id="call-target" type="text" placeholder="Target userId" style="flex:1;padding:6px 8px;border:1px solid #ddd;border-radius:6px;" />
-          <button id="call-audio" style="padding:6px 10px;border:none;border-radius:6px;background:#3b82f6;color:#fff;cursor:pointer;">Call (Audio)</button>
-          <button id="call-video" style="padding:6px 10px;border:none;border-radius:6px;background:#8b5cf6;color:#fff;cursor:pointer;">Call (Video)</button>
-        </div>
-        <div id="incoming-call" style="display:none;padding:8px;border-radius:6px;background:#111827;color:#fff;">
-          <span class="txt"></span>
-          <button class="accept" style="margin-left:10px;padding:4px 8px;border:none;border-radius:6px;background:#10b981;color:#fff;cursor:pointer;">Accepter</button>
-          <button class="decline" style="margin-left:6px;padding:4px 8px;border:none;border-radius:6px;background:#ef4444;color:#fff;cursor:pointer;">Refuser</button>
         </div>
         <div id="active-call" style="display:none;margin-top:8px;padding:8px;border-radius:6px;background:#f3f4f6;color:#111;">
           <span class="status">Call active</span>
@@ -2889,8 +2911,13 @@ window.socket = socket;
             card.innerHTML = `
         <div style="font-weight:600;margin-bottom:6px;">Appel entrant</div>
         <div class="txt" style="margin-bottom:12px;color:#374151"></div>
+        <div class="perm" style="font-size:12px;color:#6b7280;margin-bottom:10px;">
+          Autorisations requises: micro ${(navigator === null || navigator === void 0 ? void 0 : navigator.mediaDevices) ? '' : '(non supporté)'}<span class="vonly" style="display:none;"> + caméra</span>
+          <button class="grant" style="margin-left:8px;padding:4px 8px;border:none;border-radius:6px;background:#3b82f6;color:#fff;cursor:pointer;">Accorder</button>
+          <span class="pstat" style="margin-left:6px;color:#ef4444;">En attente…</span>
+        </div>
         <div>
-          <button class="accept" style="padding:6px 12px;border:none;border-radius:8px;background:#10b981;color:#fff;cursor:pointer;margin-right:8px;">Accepter</button>
+          <button class="accept" disabled style="padding:6px 12px;border:none;border-radius:8px;background:#10b981;color:#fff;cursor:not-allowed;opacity:0.7;margin-right:8px;">Accepter</button>
           <button class="decline" style="padding:6px 12px;border:none;border-radius:8px;background:#ef4444;color:#fff;cursor:pointer;">Refuser</button>
         </div>
       `;
@@ -2911,17 +2938,15 @@ window.socket = socket;
         ensureCallsPanel();
         ensureCallsButton();
         ensureIncomingOverlay();
-        const input = document.getElementById('call-target');
-        const btnA = document.getElementById('call-audio');
-        const btnV = document.getElementById('call-video');
-        const incoming = document.getElementById('incoming-call');
-        const txt = incoming === null || incoming === void 0 ? void 0 : incoming.querySelector('.txt');
-        const acceptBtn = incoming === null || incoming === void 0 ? void 0 : incoming.querySelector('.accept');
-        const declineBtn = incoming === null || incoming === void 0 ? void 0 : incoming.querySelector('.decline');
+        // Note: input/btns removed; calls are now triggered from friends panel via global functions
         const overlay = ensureIncomingOverlay();
         const oTxt = overlay.querySelector('.txt');
         const oAccept = overlay.querySelector('.accept');
         const oDecline = overlay.querySelector('.decline');
+        const oPerm = overlay.querySelector('.perm');
+        const oGrant = overlay.querySelector('.grant');
+        const oPstat = overlay.querySelector('.pstat');
+        const oVonly = overlay.querySelector('.vonly');
         const active = document.getElementById('active-call');
         const muteBtn = active === null || active === void 0 ? void 0 : active.querySelector('.mute');
         const hangBtn = active === null || active === void 0 ? void 0 : active.querySelector('.hangup');
@@ -3025,10 +3050,24 @@ window.socket = socket;
                 }
             };
             pc.ontrack = async (ev) => {
+                var _a, _b;
                 try {
                     const [stream] = ev.streams;
-                    if (remoteAudio && stream) {
-                        remoteAudio.srcObject = stream;
+                    if (!stream)
+                        return;
+                    const localTrackIds = new Set(((localStream === null || localStream === void 0 ? void 0 : localStream.getTracks()) || []).map(t => t.id));
+                    const isSelfTrack = localTrackIds.has(((_a = ev.track) === null || _a === void 0 ? void 0 : _a.id) || '');
+                    log(`ontrack kind=${(_b = ev.track) === null || _b === void 0 ? void 0 : _b.kind} stream.id=${stream === null || stream === void 0 ? void 0 : stream.id} self=${isSelfTrack}`);
+                    if (isSelfTrack)
+                        return; // prevent rendering our own capture
+                    if (!remoteRenderStream)
+                        remoteRenderStream = new MediaStream();
+                    // Avoid adding duplicates
+                    const already = remoteRenderStream.getTracks().some(t => t.id === ev.track.id);
+                    if (!already)
+                        remoteRenderStream.addTrack(ev.track);
+                    if (remoteAudio) {
+                        remoteAudio.srcObject = remoteRenderStream;
                         try {
                             await remoteAudio.play();
                         }
@@ -3037,10 +3076,9 @@ window.socket = socket;
                                 audioGate.style.display = '';
                         }
                     }
-                    // show remote video when available
-                    if (remoteVideo && stream && requestedMedia === 'video') {
+                    if (remoteVideo && requestedMedia === 'video') {
                         try {
-                            remoteVideo.srcObject = stream;
+                            remoteVideo.srcObject = remoteRenderStream;
                         }
                         catch { }
                         const area = document.getElementById('video-area');
@@ -3051,20 +3089,8 @@ window.socket = socket;
                 catch { }
             };
             pc.onconnectionstatechange = () => log(`pc state: ${pc === null || pc === void 0 ? void 0 : pc.connectionState}`);
-            try {
-                // Ensure an audio transceiver exists to stabilize negotiation on some mobiles
-                if (pc.getTransceivers().length === 0) {
-                    pc.addTransceiver('audio', { direction: 'sendrecv' });
-                }
-                // Add video transceiver if needed
-                if (requestedMedia === 'video') {
-                    try {
-                        pc.addTransceiver('video', { direction: 'sendrecv' });
-                    }
-                    catch { }
-                }
-            }
-            catch { }
+            // Note: We avoid manual addTransceiver to prevent duplicate m-lines.
+            // addTrack will create the needed transceivers.
             return pc;
         }
         async function getLocalMedia(kind) {
@@ -3104,52 +3130,25 @@ window.socket = socket;
         }
         function showActive(show) { if (active)
             active.style.display = show ? '' : 'none'; }
-        btnA && (btnA.onclick = () => {
-            const target = input === null || input === void 0 ? void 0 : input.value.trim();
+        // Buttons removed; expose helpers for friends panel
+        async function startCall(target, media) {
             if (!target) {
                 log('Target userId is required');
                 return;
             }
-            requestedMedia = 'audio';
-            try {
-                w.socket.emit('callRequest', { targetUserId: target, media: 'audio' }, async (res) => {
-                    if (res === null || res === void 0 ? void 0 : res.success) {
-                        currentCallId = String(res.callId);
-                        log(`Outgoing call (audio) -> callId=${currentCallId}`);
-                        // prepare local mic and pc, wait for acceptance to create offer
-                        await getLocalMedia('audio');
-                        await ensurePc();
-                        if (!addedTracks && localStream) {
-                            localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-                            addedTracks = true;
-                        }
-                        try {
-                            // Ensure an audio transceiver exists to stabilize negotiation on some mobiles
-                            if (pc.getTransceivers().length === 0) {
-                                pc.addTransceiver('audio', { direction: 'sendrecv' });
-                            }
-                        }
-                        catch { }
-                    }
-                    else
-                        log(`callRequest failed: ${(res === null || res === void 0 ? void 0 : res.error) || 'error'}`);
-                });
-            }
-            catch { }
-        });
-        btnV && (btnV.onclick = () => {
-            const target = input === null || input === void 0 ? void 0 : input.value.trim();
-            if (!target) {
-                log('Target userId is required');
+            requestedMedia = media;
+            // Enforce permissions before sending request
+            const ok = await ensurePermissions(media);
+            if (!ok) {
+                log('Permissions not granted');
                 return;
             }
-            requestedMedia = 'video';
             try {
-                w.socket.emit('callRequest', { targetUserId: target, media: 'video' }, async (res) => {
+                w.socket.emit('callRequest', { targetUserId: target, media }, async (res) => {
                     if (res === null || res === void 0 ? void 0 : res.success) {
                         currentCallId = String(res.callId);
-                        log(`Outgoing call (video) -> callId=${currentCallId}`);
-                        await getLocalMedia('video');
+                        log(`Outgoing call (${media}) -> callId=${currentCallId}`);
+                        await getLocalMedia(media);
                         await ensurePc();
                         if (!addedTracks && localStream) {
                             localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
@@ -3161,53 +3160,73 @@ window.socket = socket;
                 });
             }
             catch { }
-        });
+        }
+        window.startCallAudio = (userId) => startCall(userId, 'audio');
+        window.startCallVideo = (userId) => startCall(userId, 'video');
+        function haveLocal(kind) {
+            var _a, _b;
+            const hasAudio = !!((_a = localStream === null || localStream === void 0 ? void 0 : localStream.getAudioTracks()) === null || _a === void 0 ? void 0 : _a.some(t => t.readyState !== 'ended'));
+            const hasVideo = !!((_b = localStream === null || localStream === void 0 ? void 0 : localStream.getVideoTracks()) === null || _b === void 0 ? void 0 : _b.some(t => t.readyState !== 'ended'));
+            return kind === 'audio' ? hasAudio : (hasAudio && hasVideo);
+        }
+        async function ensurePermissions(kind) {
+            try {
+                if (haveLocal(kind)) {
+                    permissionsReady = true;
+                    return true;
+                }
+                await getLocalMedia(kind);
+                permissionsReady = haveLocal(kind);
+                updatePermUI();
+                return permissionsReady;
+            }
+            catch {
+                permissionsReady = false;
+                updatePermUI();
+                return false;
+            }
+        }
+        function updatePermUI() {
+            if (!oPerm)
+                return;
+            if (permissionsReady) {
+                if (oPstat) {
+                    oPstat.textContent = 'OK';
+                    oPstat.style.color = '#10b981';
+                }
+                if (oAccept) {
+                    oAccept.disabled = false;
+                    oAccept.style.cursor = 'pointer';
+                    oAccept.style.opacity = '1';
+                }
+            }
+            else {
+                if (oPstat) {
+                    oPstat.textContent = 'En attente…';
+                    oPstat.style.color = '#ef4444';
+                }
+                if (oAccept) {
+                    oAccept.disabled = true;
+                    oAccept.style.cursor = 'not-allowed';
+                    oAccept.style.opacity = '0.7';
+                }
+            }
+        }
         // Incoming ring
         try {
             w.socket.on('callIncoming', (p) => {
-                var _a, _b, _c, _d, _e, _f;
+                var _a, _b, _c, _d;
                 log(`Incoming call from ${((_a = p === null || p === void 0 ? void 0 : p.fromUser) === null || _a === void 0 ? void 0 : _a.name) || ((_b = p === null || p === void 0 ? void 0 : p.fromUser) === null || _b === void 0 ? void 0 : _b.id) || '?'} (media=${p === null || p === void 0 ? void 0 : p.media}) callId=${p === null || p === void 0 ? void 0 : p.callId}`);
                 requestedMedia = ((p === null || p === void 0 ? void 0 : p.media) === 'video') ? 'video' : 'audio';
-                // Inline banner
-                if (incoming && txt) {
-                    txt.textContent = `Appel entrant de ${((_c = p === null || p === void 0 ? void 0 : p.fromUser) === null || _c === void 0 ? void 0 : _c.name) || ((_d = p === null || p === void 0 ? void 0 : p.fromUser) === null || _d === void 0 ? void 0 : _d.id) || '?'} (${p === null || p === void 0 ? void 0 : p.media})`;
-                    incoming.style.display = '';
-                    acceptBtn && (acceptBtn.onclick = () => {
-                        try {
-                            w.socket.emit('callAccept', { callId: p.callId }, async (res) => {
-                                if (res === null || res === void 0 ? void 0 : res.success) {
-                                    currentCallId = String(p.callId);
-                                    log(`Accepted callId=${currentCallId}`);
-                                    incoming.style.display = 'none';
-                                    // Callee prepares mic + pc and waits for offer
-                                    await getLocalMedia(requestedMedia);
-                                    await ensurePc();
-                                    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-                                    showActive(true);
-                                }
-                                else
-                                    log(`callAccept failed: ${(res === null || res === void 0 ? void 0 : res.error) || 'error'}`);
-                            });
-                        }
-                        catch { }
-                    });
-                    declineBtn && (declineBtn.onclick = () => {
-                        try {
-                            w.socket.emit('callDecline', { callId: p.callId, reason: 'declined' }, (res) => {
-                                if (res === null || res === void 0 ? void 0 : res.success)
-                                    log(`Declined callId=${p.callId}`);
-                                else
-                                    log(`callDecline failed: ${(res === null || res === void 0 ? void 0 : res.error) || 'error'}`);
-                                incoming.style.display = 'none';
-                            });
-                        }
-                        catch { }
-                    });
-                }
                 // Overlay (centered)
                 if (overlay && oTxt && oAccept && oDecline) {
-                    oTxt.textContent = `Appel entrant de ${((_e = p === null || p === void 0 ? void 0 : p.fromUser) === null || _e === void 0 ? void 0 : _e.name) || ((_f = p === null || p === void 0 ? void 0 : p.fromUser) === null || _f === void 0 ? void 0 : _f.id) || '?'} (${p === null || p === void 0 ? void 0 : p.media})`;
+                    oTxt.textContent = `Appel entrant de ${((_c = p === null || p === void 0 ? void 0 : p.fromUser) === null || _c === void 0 ? void 0 : _c.name) || ((_d = p === null || p === void 0 ? void 0 : p.fromUser) === null || _d === void 0 ? void 0 : _d.id) || '?'} (${p === null || p === void 0 ? void 0 : p.media})`;
                     overlay.style.display = 'flex';
+                    if (oVonly)
+                        oVonly.style.display = (requestedMedia === 'video') ? '' : 'none';
+                    updatePermUI();
+                    if (oGrant)
+                        oGrant.onclick = async () => { await ensurePermissions(requestedMedia); };
                     oAccept.onclick = () => {
                         try {
                             w.socket.emit('callAccept', { callId: p.callId }, async (res) => {
@@ -3217,7 +3236,8 @@ window.socket = socket;
                                     overlay.style.display = 'none';
                                     await getLocalMedia(requestedMedia);
                                     await ensurePc();
-                                    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+                                    // Defer adding tracks until after remote offer is set
+                                    pendingAddLocal = true;
                                     showActive(true);
                                 }
                                 else
@@ -3287,14 +3307,22 @@ window.socket = socket;
             w.socket.on('callOffer', async (p) => {
                 var _a, _b;
                 log(`callOffer ${p === null || p === void 0 ? void 0 : p.callId}`);
-                if (!pc)
-                    await ensurePc();
+                if (!currentCallId)
+                    currentCallId = String((p === null || p === void 0 ? void 0 : p.callId) || '');
                 try {
-                    const desc = JSON.parse((p === null || p === void 0 ? void 0 : p.sdp) || '{}');
-                    await pc.setRemoteDescription(desc);
+                    await ensurePc();
+                    const offer = JSON.parse((p === null || p === void 0 ? void 0 : p.sdp) || '{}');
+                    await pc.setRemoteDescription(offer);
+                    // If we deferred local tracks (callee), add them just before creating answer
+                    if (pendingAddLocal && localStream && !addedTracks) {
+                        localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+                        addedTracks = true;
+                        pendingAddLocal = false;
+                    }
+                    // Callee creates answer and sends
                     const answer = await pc.createAnswer();
                     await pc.setLocalDescription(answer);
-                    w.socket.emit('callAnswer', { callId: currentCallId || String((p === null || p === void 0 ? void 0 : p.callId) || ''), sdp: JSON.stringify(answer) });
+                    w.socket.emit('callAnswer', { callId: currentCallId, sdp: JSON.stringify(answer) });
                 }
                 catch (e) {
                     const msg = (e === null || e === void 0 ? void 0 : e.message) || String(e);
@@ -3380,6 +3408,7 @@ window.socket = socket;
             localVideo.srcObject = null;
         if (remoteVideo)
             remoteVideo.srcObject = null;
+        remoteRenderStream = null;
         const area = document.getElementById('video-area');
         if (area)
             area.style.display = 'none';
