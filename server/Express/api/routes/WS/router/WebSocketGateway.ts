@@ -19,6 +19,7 @@ import {
   WsCallOfferSchema,
   WsCallAnswerSchema,
   WsCallIceSchema,
+  WsCallHangupSchema,
 } from "../../../middleware/validation";
 import { WsRouter } from "./WsRouter";
 import { AuthWsController } from "../controllers/AuthWsController";
@@ -124,6 +125,13 @@ export class WebSocketGateway {
       rateLimitPerSocket("call:ice", 600, 10_000),
       validate(WsCallIceSchema),
       async (ctx: WsContext<z.infer<typeof WsCallIceSchema>>) => this.callsCtrl.callIceCandidate(ctx)
+    );
+    this.router.register(
+      "callHangup",
+      requireAuth(),
+      rateLimitPerSocket("call:hangup", 120, 60_000),
+      validate(WsCallHangupSchema),
+      async (ctx: WsContext<z.infer<typeof WsCallHangupSchema>>) => this.callsCtrl.callHangup(ctx)
     );
 
     // TURN/STUN config for clients

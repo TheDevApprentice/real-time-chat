@@ -54,6 +54,7 @@ export class CallsWsController {
 
     // Create call session
     const callId = genId();
+    const ringTimeoutSec = Math.max(5, Math.min(300, Number(process.env.CALL_RING_TIMEOUT || TTL.callRinging)));
     const sess: CallSession = {
       callId,
       callerId,
@@ -62,9 +63,9 @@ export class CallsWsController {
       status: "ringing",
       createdAt: Date.now(),
     };
-    await jsonSet(redisService, K.callSession(callId), sess, TTL.callRinging);
-    try { await redisService.set(K.userCall(callerId), callId, { EX: TTL.callRinging }); } catch {}
-    try { await redisService.set(K.userCall(targetUserId), callId, { EX: TTL.callRinging }); } catch {}
+    await jsonSet(redisService, K.callSession(callId), sess, ringTimeoutSec);
+    try { await redisService.set(K.userCall(callerId), callId, { EX: ringTimeoutSec }); } catch {}
+    try { await redisService.set(K.userCall(targetUserId), callId, { EX: ringTimeoutSec }); } catch {}
 
     // Load basic user info for UI
     let caller: any = null;
@@ -78,6 +79,26 @@ export class CallsWsController {
         try { io.to(sid).emit("callIncoming", { callId, fromUser, media }); } catch {}
       }
     } catch {}
+
+    // Auto-timeout ring: if still ringing after TTL.callRinging, end and notify
+    setTimeout(async () => {
+      try {
+        const s = await jsonGet<CallSession>(redisService, K.callSession(callId));
+        if (s && s.status === "ringing") {
+          s.status = "ended";
+          await jsonSet(redisService, K.callSession(callId), s, 10);
+          const notify = async (uid: string) => {
+            try {
+              const devs = await redisService.sMembers(K.userSockets(uid));
+              for (const d of devs || []) io.to(d).emit("callDeclined", { callId, reason: "timeout" });
+            } catch {}
+          };
+          await notify(s.callerId);
+          await notify(s.calleeId);
+          await delMany(redisService, [K.userCall(s.callerId), K.userCall(s.calleeId), K.callSession(callId)]);
+        }
+      } catch {}
+    }, (ringTimeoutSec + 1) * 1000);
 
     return { success: true, callId };
   }
@@ -106,6 +127,30 @@ export class CallsWsController {
       for (const sid of sockets || []) io.to(sid).emit("callAccepted", { callId });
     } catch {}
 
+    return { success: true };
+  }
+
+  async callHangup(ctx: WsContext<{ callId: string }>) {
+    const { socket, io, services } = ctx;
+    const uid = (socket.data as any)?.userId as string | undefined;
+    if (!uid) return { success: false, error: "Not authenticated." };
+    const { callId } = (ctx.payload || {}) as any;
+    if (!callId) return { success: false, error: "Missing callId." };
+
+    const { redisService } = services as any;
+    const sess = await jsonGet<CallSession>(redisService, K.callSession(callId));
+    if (!sess) return { success: false, error: "Call not found." };
+    if (uid !== sess.callerId && uid !== sess.calleeId) return { success: false, error: "Not part of this call." };
+
+    // Mark ended and notify the peer
+    sess.status = "ended";
+    await jsonSet(redisService, K.callSession(callId), sess, 10);
+    const other = uid === sess.callerId ? sess.calleeId : sess.callerId;
+    try {
+      const sockets = await redisService.sMembers(K.userSockets(other));
+      for (const sid of sockets || []) io.to(sid).emit("callEnded", { callId });
+    } catch {}
+    try { await delMany(redisService, [K.userCall(sess.callerId), K.userCall(sess.calleeId), K.callSession(callId)]); } catch {}
     return { success: true };
   }
 

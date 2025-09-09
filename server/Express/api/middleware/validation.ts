@@ -117,6 +117,9 @@ export const WsCallDeclineSchema = z.object({
 export const WsCallCancelSchema = z.object({
   callId: z.string().min(6),
 });
+export const WsCallHangupSchema = z.object({
+  callId: z.string().min(6),
+});
 
 // Phase 2: SDP/ICE
 export const WsCallOfferSchema = z.object({

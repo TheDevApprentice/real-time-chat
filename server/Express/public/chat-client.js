@@ -2802,6 +2802,9 @@ window.socket = socket;
     let iceServers = null;
     let addedTracks = false;
     let makingOffer = false;
+    let requestedMedia = 'audio';
+    let localVideo = null;
+    let remoteVideo = null;
     // UI elements
     function ensureCallsPanel() {
         let panel = document.getElementById('calls-panel');
@@ -2829,6 +2832,10 @@ window.socket = socket;
           <span class="status">Call active</span>
           <button class="mute" style="margin-left:10px;padding:4px 8px;border:none;border-radius:6px;background:#6b7280;color:#fff;cursor:pointer;">Mute</button>
           <button class="hangup" style="margin-left:6px;padding:4px 8px;border:none;border-radius:6px;background:#ef4444;color:#fff;cursor:pointer;">Hang up</button>
+        </div>
+        <div id="video-area" style="display:none;margin-top:8px;gap:8px;align-items:center;justify-content:center;">
+          <video id="webrtc-local-video" autoplay muted playsinline style="max-width:48%;border-radius:8px;background:#111;aspect-ratio:16/9"></video>
+          <video id="webrtc-remote-video" autoplay playsinline style="max-width:48%;border-radius:8px;background:#111;aspect-ratio:16/9"></video>
         </div>
         <ul id="call-log" style="list-style:disc;margin:8px 0 0 16px;"></ul>
       `;
@@ -2918,7 +2925,7 @@ window.socket = socket;
         const active = document.getElementById('active-call');
         const muteBtn = active === null || active === void 0 ? void 0 : active.querySelector('.mute');
         const hangBtn = active === null || active === void 0 ? void 0 : active.querySelector('.hangup');
-        // prepare remote audio tag
+        // prepare media renderers
         remoteAudio = document.getElementById('webrtc-remote');
         if (!remoteAudio) {
             remoteAudio = document.createElement('audio');
@@ -2930,6 +2937,8 @@ window.socket = socket;
             catch { }
             document.body.appendChild(remoteAudio);
         }
+        localVideo = document.getElementById('webrtc-local-video');
+        remoteVideo = document.getElementById('webrtc-remote-video');
         // Wire mute/hang buttons here to guarantee actions
         if (muteBtn) {
             muteBtn.onclick = () => {
@@ -2946,11 +2955,16 @@ window.socket = socket;
         }
         if (hangBtn) {
             hangBtn.onclick = () => {
-                var _a, _b;
-                try { /* later: emit callHangup when available */ }
-                catch { }
-                // Local cleanup
-                (_b = (_a = window.console) === null || _a === void 0 ? void 0 : _a.log) === null || _b === void 0 ? void 0 : _b.call(_a, 'Ending call locally');
+                const id = currentCallId;
+                if (id) {
+                    try {
+                        w.socket.emit('callHangup', { callId: id }, (res) => {
+                            if (!(res === null || res === void 0 ? void 0 : res.success))
+                                log(`callHangup failed: ${(res === null || res === void 0 ? void 0 : res.error) || 'error'}`);
+                        });
+                    }
+                    catch { }
+                }
                 endCall();
             };
         }
@@ -3023,6 +3037,16 @@ window.socket = socket;
                                 audioGate.style.display = '';
                         }
                     }
+                    // show remote video when available
+                    if (remoteVideo && stream && requestedMedia === 'video') {
+                        try {
+                            remoteVideo.srcObject = stream;
+                        }
+                        catch { }
+                        const area = document.getElementById('video-area');
+                        if (area)
+                            area.style.display = '';
+                    }
                 }
                 catch { }
             };
@@ -3032,28 +3056,48 @@ window.socket = socket;
                 if (pc.getTransceivers().length === 0) {
                     pc.addTransceiver('audio', { direction: 'sendrecv' });
                 }
+                // Add video transceiver if needed
+                if (requestedMedia === 'video') {
+                    try {
+                        pc.addTransceiver('video', { direction: 'sendrecv' });
+                    }
+                    catch { }
+                }
             }
             catch { }
             return pc;
         }
-        async function getMic() {
+        async function getLocalMedia(kind) {
             var _a, _b;
             if (localStream)
                 return localStream;
             try {
-                localStream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true,
-                    },
-                });
+                if (kind === 'video') {
+                    localStream = await navigator.mediaDevices.getUserMedia({
+                        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+                        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+                    });
+                }
+                else {
+                    localStream = await navigator.mediaDevices.getUserMedia({
+                        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+                    });
+                }
+                // bind local preview if video
+                if (kind === 'video' && localVideo && localStream) {
+                    try {
+                        localVideo.srcObject = localStream;
+                    }
+                    catch { }
+                    const area = document.getElementById('video-area');
+                    if (area)
+                        area.style.display = '';
+                }
             }
             catch (e) {
                 const msg = (e === null || e === void 0 ? void 0 : e.message) || String(e);
                 log(`getUserMedia error: ${msg}`);
                 (_b = (_a = window.console) === null || _a === void 0 ? void 0 : _a.error) === null || _b === void 0 ? void 0 : _b.call(_a, 'getUserMedia error', e);
-                // Proceed without mic; transceiver will still allow negotiation
                 localStream = null;
             }
             return localStream;
@@ -3066,13 +3110,14 @@ window.socket = socket;
                 log('Target userId is required');
                 return;
             }
+            requestedMedia = 'audio';
             try {
                 w.socket.emit('callRequest', { targetUserId: target, media: 'audio' }, async (res) => {
                     if (res === null || res === void 0 ? void 0 : res.success) {
                         currentCallId = String(res.callId);
                         log(`Outgoing call (audio) -> callId=${currentCallId}`);
                         // prepare local mic and pc, wait for acceptance to create offer
-                        await getMic();
+                        await getLocalMedia('audio');
                         await ensurePc();
                         if (!addedTracks && localStream) {
                             localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
@@ -3098,10 +3143,19 @@ window.socket = socket;
                 log('Target userId is required');
                 return;
             }
+            requestedMedia = 'video';
             try {
-                w.socket.emit('callRequest', { targetUserId: target, media: 'video' }, (res) => {
-                    if (res === null || res === void 0 ? void 0 : res.success)
-                        log(`Outgoing call (video) -> callId=${res.callId}`);
+                w.socket.emit('callRequest', { targetUserId: target, media: 'video' }, async (res) => {
+                    if (res === null || res === void 0 ? void 0 : res.success) {
+                        currentCallId = String(res.callId);
+                        log(`Outgoing call (video) -> callId=${currentCallId}`);
+                        await getLocalMedia('video');
+                        await ensurePc();
+                        if (!addedTracks && localStream) {
+                            localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+                            addedTracks = true;
+                        }
+                    }
                     else
                         log(`callRequest failed: ${(res === null || res === void 0 ? void 0 : res.error) || 'error'}`);
                 });
@@ -3113,6 +3167,7 @@ window.socket = socket;
             w.socket.on('callIncoming', (p) => {
                 var _a, _b, _c, _d, _e, _f;
                 log(`Incoming call from ${((_a = p === null || p === void 0 ? void 0 : p.fromUser) === null || _a === void 0 ? void 0 : _a.name) || ((_b = p === null || p === void 0 ? void 0 : p.fromUser) === null || _b === void 0 ? void 0 : _b.id) || '?'} (media=${p === null || p === void 0 ? void 0 : p.media}) callId=${p === null || p === void 0 ? void 0 : p.callId}`);
+                requestedMedia = ((p === null || p === void 0 ? void 0 : p.media) === 'video') ? 'video' : 'audio';
                 // Inline banner
                 if (incoming && txt) {
                     txt.textContent = `Appel entrant de ${((_c = p === null || p === void 0 ? void 0 : p.fromUser) === null || _c === void 0 ? void 0 : _c.name) || ((_d = p === null || p === void 0 ? void 0 : p.fromUser) === null || _d === void 0 ? void 0 : _d.id) || '?'} (${p === null || p === void 0 ? void 0 : p.media})`;
@@ -3125,7 +3180,7 @@ window.socket = socket;
                                     log(`Accepted callId=${currentCallId}`);
                                     incoming.style.display = 'none';
                                     // Callee prepares mic + pc and waits for offer
-                                    await getMic();
+                                    await getLocalMedia(requestedMedia);
                                     await ensurePc();
                                     localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
                                     showActive(true);
@@ -3160,7 +3215,7 @@ window.socket = socket;
                                     currentCallId = String(p.callId);
                                     log(`Accepted callId=${currentCallId}`);
                                     overlay.style.display = 'none';
-                                    await getMic();
+                                    await getLocalMedia(requestedMedia);
                                     await ensurePc();
                                     localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
                                     showActive(true);
@@ -3196,7 +3251,7 @@ window.socket = socket;
                     currentCallId = String((p === null || p === void 0 ? void 0 : p.callId) || '');
                 // Caller creates offer and sends
                 try {
-                    await getMic();
+                    await getLocalMedia(requestedMedia);
                     await ensurePc();
                     if (!addedTracks && localStream) {
                         localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
@@ -3279,6 +3334,23 @@ window.socket = socket;
             });
         }
         catch { }
+        try {
+            w.socket.on('callEnded', (p) => {
+                log(`callEnded ${p === null || p === void 0 ? void 0 : p.callId}`);
+                endCall();
+            });
+        }
+        catch { }
+        // Ring timeout handling via callDeclined(reason=timeout)
+        try {
+            w.socket.on('callDeclined', (p) => {
+                if ((p === null || p === void 0 ? void 0 : p.reason) === 'timeout') {
+                    log(`call timed out callId=${p === null || p === void 0 ? void 0 : p.callId}`);
+                    endCall();
+                }
+            });
+        }
+        catch { }
     }
     // Expose minimal helpers for dev
     window.callCancel = function (callId) {
@@ -3304,6 +3376,13 @@ window.socket = socket;
         localStream = null;
         if (remoteAudio)
             remoteAudio.srcObject = null;
+        if (localVideo)
+            localVideo.srcObject = null;
+        if (remoteVideo)
+            remoteVideo.srcObject = null;
+        const area = document.getElementById('video-area');
+        if (area)
+            area.style.display = 'none';
         currentCallId = null;
         addedTracks = false;
         makingOffer = false;

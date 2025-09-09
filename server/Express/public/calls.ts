@@ -10,6 +10,9 @@
   let iceServers: IceServer[] | null = null;
   let addedTracks = false;
   let makingOffer = false;
+  let requestedMedia: 'audio' | 'video' = 'audio';
+  let localVideo: HTMLVideoElement | null = null;
+  let remoteVideo: HTMLVideoElement | null = null;
   // UI elements
   function ensureCallsPanel() {
     let panel = document.getElementById('calls-panel') as HTMLDivElement | null;
@@ -37,6 +40,10 @@
           <span class="status">Call active</span>
           <button class="mute" style="margin-left:10px;padding:4px 8px;border:none;border-radius:6px;background:#6b7280;color:#fff;cursor:pointer;">Mute</button>
           <button class="hangup" style="margin-left:6px;padding:4px 8px;border:none;border-radius:6px;background:#ef4444;color:#fff;cursor:pointer;">Hang up</button>
+        </div>
+        <div id="video-area" style="display:none;margin-top:8px;gap:8px;align-items:center;justify-content:center;">
+          <video id="webrtc-local-video" autoplay muted playsinline style="max-width:48%;border-radius:8px;background:#111;aspect-ratio:16/9"></video>
+          <video id="webrtc-remote-video" autoplay playsinline style="max-width:48%;border-radius:8px;background:#111;aspect-ratio:16/9"></video>
         </div>
         <ul id="call-log" style="list-style:disc;margin:8px 0 0 16px;"></ul>
       `;
@@ -130,7 +137,7 @@
     const muteBtn = active?.querySelector('.mute') as HTMLButtonElement | null;
     const hangBtn = active?.querySelector('.hangup') as HTMLButtonElement | null;
 
-    // prepare remote audio tag
+    // prepare media renderers
     remoteAudio = document.getElementById('webrtc-remote') as HTMLAudioElement | null;
     if (!remoteAudio) {
       remoteAudio = document.createElement('audio');
@@ -139,6 +146,8 @@
       try { remoteAudio.setAttribute('playsinline', 'true'); } catch {}
       document.body.appendChild(remoteAudio);
     }
+    localVideo = document.getElementById('webrtc-local-video') as HTMLVideoElement | null;
+    remoteVideo = document.getElementById('webrtc-remote-video') as HTMLVideoElement | null;
 
     // Wire mute/hang buttons here to guarantee actions
     if (muteBtn) {
@@ -155,9 +164,12 @@
     }
     if (hangBtn) {
       hangBtn.onclick = () => {
-        try { /* later: emit callHangup when available */ } catch {}
-        // Local cleanup
-        (window as any).console?.log?.('Ending call locally');
+        const id = currentCallId;
+        if (id) {
+          try { w.socket.emit('callHangup', { callId: id }, (res: any) => {
+            if (!res?.success) log(`callHangup failed: ${res?.error||'error'}`);
+          }); } catch {}
+        }
         endCall();
       };
     }
@@ -212,6 +224,12 @@
             remoteAudio.srcObject = stream;
             try { await remoteAudio.play(); } catch { if (audioGate) audioGate.style.display = ''; }
           }
+          // show remote video when available
+          if (remoteVideo && stream && requestedMedia === 'video') {
+            try { (remoteVideo as any).srcObject = stream; } catch {}
+            const area = document.getElementById('video-area') as HTMLDivElement | null;
+            if (area) area.style.display = '';
+          }
         } catch {}
       };
       pc.onconnectionstatechange = () => log(`pc state: ${pc?.connectionState}`);
@@ -220,25 +238,37 @@
         if (pc.getTransceivers().length === 0) {
           pc.addTransceiver('audio', { direction: 'sendrecv' } as any);
         }
+        // Add video transceiver if needed
+        if (requestedMedia === 'video') {
+          try { pc.addTransceiver('video', { direction: 'sendrecv' } as any); } catch {}
+        }
       } catch {}
       return pc;
     }
 
-    async function getMic() {
+    async function getLocalMedia(kind: 'audio'|'video') {
       if (localStream) return localStream;
       try {
-        localStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          } as any,
-        });
+        if (kind === 'video') {
+          localStream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } as any,
+            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } as any,
+          });
+        } else {
+          localStream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } as any,
+          });
+        }
+        // bind local preview if video
+        if (kind === 'video' && localVideo && localStream) {
+          try { (localVideo as any).srcObject = localStream; } catch {}
+          const area = document.getElementById('video-area') as HTMLDivElement | null;
+          if (area) area.style.display = '';
+        }
       } catch (e: any) {
         const msg = e?.message || String(e);
         log(`getUserMedia error: ${msg}`);
         (window as any).console?.error?.('getUserMedia error', e);
-        // Proceed without mic; transceiver will still allow negotiation
         localStream = null;
       }
       return localStream;
@@ -249,12 +279,13 @@
     btnA && (btnA.onclick = () => {
       const target = input?.value.trim();
       if (!target) { log('Target userId is required'); return; }
+      requestedMedia = 'audio';
       try { w.socket.emit('callRequest', { targetUserId: target, media: 'audio' }, async (res: any) => {
         if (res?.success) {
           currentCallId = String(res.callId);
           log(`Outgoing call (audio) -> callId=${currentCallId}`);
           // prepare local mic and pc, wait for acceptance to create offer
-          await getMic(); await ensurePc();
+          await getLocalMedia('audio'); await ensurePc();
           if (!addedTracks && localStream) {
             localStream.getTracks().forEach(t => pc!.addTrack(t, localStream!));
             addedTracks = true;
@@ -272,15 +303,24 @@
     btnV && (btnV.onclick = () => {
       const target = input?.value.trim();
       if (!target) { log('Target userId is required'); return; }
-      try { w.socket.emit('callRequest', { targetUserId: target, media: 'video' }, (res: any) => {
-        if (res?.success) log(`Outgoing call (video) -> callId=${res.callId}`);
-        else log(`callRequest failed: ${res?.error||'error'}`);
+      requestedMedia = 'video';
+      try { w.socket.emit('callRequest', { targetUserId: target, media: 'video' }, async (res: any) => {
+        if (res?.success) {
+          currentCallId = String(res.callId);
+          log(`Outgoing call (video) -> callId=${currentCallId}`);
+          await getLocalMedia('video'); await ensurePc();
+          if (!addedTracks && localStream) {
+            localStream.getTracks().forEach(t => pc!.addTrack(t, localStream!));
+            addedTracks = true;
+          }
+        } else log(`callRequest failed: ${res?.error||'error'}`);
       }); } catch {}
     });
 
     // Incoming ring
     try { w.socket.on('callIncoming', (p: any) => {
       log(`Incoming call from ${p?.fromUser?.name||p?.fromUser?.id||'?'} (media=${p?.media}) callId=${p?.callId}`);
+      requestedMedia = (p?.media === 'video') ? 'video' : 'audio';
       // Inline banner
       if (incoming && txt) {
         txt.textContent = `Appel entrant de ${p?.fromUser?.name||p?.fromUser?.id||'?'} (${p?.media})`;
@@ -292,7 +332,7 @@
               log(`Accepted callId=${currentCallId}`);
               incoming.style.display = 'none';
               // Callee prepares mic + pc and waits for offer
-              await getMic(); await ensurePc();
+              await getLocalMedia(requestedMedia); await ensurePc();
               localStream!.getTracks().forEach(t => pc!.addTrack(t, localStream!));
               showActive(true);
             } else log(`callAccept failed: ${res?.error||'error'}`);
@@ -316,7 +356,7 @@
               currentCallId = String(p.callId);
               log(`Accepted callId=${currentCallId}`);
               overlay.style.display = 'none';
-              await getMic(); await ensurePc();
+              await getLocalMedia(requestedMedia); await ensurePc();
               localStream!.getTracks().forEach(t => pc!.addTrack(t, localStream!));
               showActive(true);
             } else log(`callAccept failed: ${res?.error||'error'}`);
@@ -338,7 +378,7 @@
       if (!currentCallId) currentCallId = String(p?.callId||'');
       // Caller creates offer and sends
       try {
-        await getMic();
+        await getLocalMedia(requestedMedia);
         await ensurePc();
         if (!addedTracks && localStream) {
           localStream.getTracks().forEach(t => pc!.addTrack(t, localStream!));
@@ -389,6 +429,17 @@
       log(`callIceCandidate ${p?.callId}`);
       try { const cand = JSON.parse(p?.candidate||'{}'); await pc?.addIceCandidate(cand); } catch {}
     }); } catch {}
+    try { w.socket.on('callEnded', (p: any) => {
+      log(`callEnded ${p?.callId}`);
+      endCall();
+    }); } catch {}
+    // Ring timeout handling via callDeclined(reason=timeout)
+    try { w.socket.on('callDeclined', (p: any) => {
+      if (p?.reason === 'timeout') {
+        log(`call timed out callId=${p?.callId}`);
+        endCall();
+      }
+    }); } catch {}
   }
 
   // Expose minimal helpers for dev
@@ -402,6 +453,10 @@
     try { localStream?.getTracks().forEach(t => t.stop()); } catch {}
     localStream = null;
     if (remoteAudio) remoteAudio.srcObject = null;
+    if (localVideo) (localVideo as any).srcObject = null;
+    if (remoteVideo) (remoteVideo as any).srcObject = null;
+    const area = document.getElementById('video-area') as HTMLDivElement | null;
+    if (area) area.style.display = 'none';
     currentCallId = null;
     addedTracks = false;
     makingOffer = false;

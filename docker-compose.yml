@@ -48,6 +48,7 @@ services:
       # WEBRTC_TURN_URLS: turn:your-turn:3478
       # WEBRTC_TURN_USERNAME: 
       # WEBRTC_TURN_CREDENTIAL: 
+      CALL_RING_TIMEOUT: 20
     volumes:
       - sqlite_data:/data
       # - postgres_data:/var/lib/postgresql/data
