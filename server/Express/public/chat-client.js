@@ -2255,7 +2255,13 @@ function renderSearchResults(users) {
 // Assumes other helpers are available globally (renderRoomList, renderMsg, renderParticipants, requestFriendList)
 // and DOM helpers (showAuthPanel, syncLayoutVisibility, setTypingBanner, renderTypingBanner).
 // Create a single global socket and expose it
-var socket = window.socket || io();
+// Include CSRF token in the handshake auth for defense-in-depth
+var socket = window.socket ||
+    io({
+        auth: {
+            csrf: typeof getCookie === "function" ? getCookie("X-XSRF-TOKEN") : undefined,
+        },
+    });
 window.socket = socket;
 (function () {
     const w = window;

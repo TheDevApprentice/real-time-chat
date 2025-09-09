@@ -32,6 +32,7 @@ import { validate } from "../middlewares/validate";
 import { rateLimitPerSocket } from "../middlewares/rateLimit";
 import { requireAuth } from "../middlewares/requireAuth";
 import { bruteForce } from "../middlewares/bruteForce";
+import { requireCsrf } from "../middlewares/requireCsrf";
 import type { z } from "zod";
 import { getServices } from "../../../di/container";
 import { K, TTL } from "../../../cache/cacheKeys";
@@ -80,6 +81,7 @@ export class WebSocketGateway {
     this.router.register(
       "callRequest",
       requireAuth(),
+      requireCsrf(),
       rateLimitPerSocket("call:request", 20, 60_000),
       validate(WsCallRequestSchema),
       async (ctx: WsContext<z.infer<typeof WsCallRequestSchema>>) => this.callsCtrl.callRequest(ctx)
@@ -87,6 +89,7 @@ export class WebSocketGateway {
     this.router.register(
       "callAccept",
       requireAuth(),
+      requireCsrf(),
       rateLimitPerSocket("call:accept", 60, 60_000),
       validate(WsCallAcceptSchema),
       async (ctx: WsContext<z.infer<typeof WsCallAcceptSchema>>) => this.callsCtrl.callAccept(ctx)
@@ -94,6 +97,7 @@ export class WebSocketGateway {
     this.router.register(
       "callDecline",
       requireAuth(),
+      requireCsrf(),
       rateLimitPerSocket("call:decline", 60, 60_000),
       validate(WsCallDeclineSchema),
       async (ctx: WsContext<z.infer<typeof WsCallDeclineSchema>>) => this.callsCtrl.callDecline(ctx)
@@ -101,6 +105,7 @@ export class WebSocketGateway {
     this.router.register(
       "callCancel",
       requireAuth(),
+      requireCsrf(),
       rateLimitPerSocket("call:cancel", 60, 60_000),
       validate(WsCallCancelSchema),
       async (ctx: WsContext<z.infer<typeof WsCallCancelSchema>>) => this.callsCtrl.callCancel(ctx)
@@ -108,6 +113,7 @@ export class WebSocketGateway {
     this.router.register(
       "callOffer",
       requireAuth(),
+      requireCsrf(),
       rateLimitPerSocket("call:offer", 120, 60_000),
       validate(WsCallOfferSchema),
       async (ctx: WsContext<z.infer<typeof WsCallOfferSchema>>) => this.callsCtrl.callOffer(ctx)
@@ -115,6 +121,7 @@ export class WebSocketGateway {
     this.router.register(
       "callAnswer",
       requireAuth(),
+      requireCsrf(),
       rateLimitPerSocket("call:answer", 120, 60_000),
       validate(WsCallAnswerSchema),
       async (ctx: WsContext<z.infer<typeof WsCallAnswerSchema>>) => this.callsCtrl.callAnswer(ctx)
@@ -122,6 +129,7 @@ export class WebSocketGateway {
     this.router.register(
       "callIceCandidate",
       requireAuth(),
+      requireCsrf(),
       rateLimitPerSocket("call:ice", 600, 10_000),
       validate(WsCallIceSchema),
       async (ctx: WsContext<z.infer<typeof WsCallIceSchema>>) => this.callsCtrl.callIceCandidate(ctx)
@@ -129,6 +137,7 @@ export class WebSocketGateway {
     this.router.register(
       "callHangup",
       requireAuth(),
+      requireCsrf(),
       rateLimitPerSocket("call:hangup", 120, 60_000),
       validate(WsCallHangupSchema),
       async (ctx: WsContext<z.infer<typeof WsCallHangupSchema>>) => this.callsCtrl.callHangup(ctx)
@@ -204,13 +213,24 @@ export class WebSocketGateway {
     );
     this.router.register("logout", async (ctx: WsContext<{ token: string }>) => this.authCtrl.logout(ctx));
     this.router.register("getSessions", requireAuth(), async (ctx: WsContext) => this.authCtrl.getSessions(ctx));
-    this.router.register("revokeSession", requireAuth(), async (ctx: WsContext<{ token: string }>) => this.authCtrl.revokeSession(ctx));
-    this.router.register("logoutAll", requireAuth(), async (ctx: WsContext) => this.authCtrl.logoutAll(ctx));
+    this.router.register(
+      "revokeSession",
+      requireAuth(),
+      requireCsrf(),
+      async (ctx: WsContext<{ token: string }>) => this.authCtrl.revokeSession(ctx)
+    );
+    this.router.register(
+      "logoutAll",
+      requireAuth(),
+      requireCsrf(),
+      async (ctx: WsContext) => this.authCtrl.logoutAll(ctx)
+    );
 
     // Rooms events
     this.router.register(
       "createRoom",
       requireAuth(),
+      requireCsrf(),
       rateLimitPerSocket("chat:createRoom", 10, 60_000),
       validate(WsCreateRoomSchema),
       async (ctx: WsContext<z.infer<typeof WsCreateRoomSchema>>) => this.roomsCtrl.createRoom(ctx)
@@ -219,6 +239,7 @@ export class WebSocketGateway {
     this.router.register(
       "joinRoom",
       requireAuth(),
+      requireCsrf(),
       rateLimitPerSocket("chat:joinRoom", 20, 60_000),
       validate(WsJoinRoomSchema),
       async (ctx: WsContext<z.infer<typeof WsJoinRoomSchema>>) => this.roomsCtrl.joinRoom(ctx)
@@ -228,11 +249,13 @@ export class WebSocketGateway {
     this.router.register(
       "typingStart",
       requireAuth(),
+      requireCsrf(),
       async (ctx: WsContext<{ roomId: string }>) => this.roomsCtrl.typingStart(ctx)
     );
     this.router.register(
       "typingStop",
       requireAuth(),
+      requireCsrf(),
       async (ctx: WsContext<{ roomId: string }>) => this.roomsCtrl.typingStop(ctx)
     );
 
@@ -240,6 +263,7 @@ export class WebSocketGateway {
     this.router.register(
       "sendMessageToRoom",
       requireAuth(),
+      requireCsrf(),
       rateLimitPerSocket("chat:sendMessage", 60, 10_000),
       validate(WsSendMessageSchema),
       async (ctx: WsContext<z.infer<typeof WsSendMessageSchema>>) => this.messagesCtrl.sendMessageToRoom(ctx)
@@ -247,6 +271,7 @@ export class WebSocketGateway {
     this.router.register(
       "messageEdit",
       requireAuth(),
+      requireCsrf(),
       rateLimitPerSocket("chat:messageEdit", 60, 10_000),
       validate(WsMessageEditSchema),
       async (ctx: WsContext<z.infer<typeof WsMessageEditSchema>>) => this.messagesCtrl.messageEdit(ctx)
@@ -254,6 +279,7 @@ export class WebSocketGateway {
     this.router.register(
       "messageDelete",
       requireAuth(),
+      requireCsrf(),
       rateLimitPerSocket("chat:messageDelete", 60, 10_000),
       validate(WsMessageDeleteSchema),
       async (ctx: WsContext<z.infer<typeof WsMessageDeleteSchema>>) => this.messagesCtrl.messageDelete(ctx)
@@ -261,6 +287,7 @@ export class WebSocketGateway {
     this.router.register(
       "messageUndo",
       requireAuth(),
+      requireCsrf(),
       rateLimitPerSocket("chat:messageUndo", 60, 10_000),
       validate(WsMessageUndoSchema),
       async (ctx: WsContext<z.infer<typeof WsMessageUndoSchema>>) => this.messagesCtrl.messageUndo(ctx)
@@ -275,12 +302,14 @@ export class WebSocketGateway {
     this.router.register(
       "messageDelivered",
       requireAuth(),
+      requireCsrf(),
       rateLimitPerSocket("chat:msgDelivered", 120, 60_000),
       async (ctx: WsContext) => this.messagesCtrl.messageDelivered(ctx)
     );
     this.router.register(
       "messageRead",
       requireAuth(),
+      requireCsrf(),
       rateLimitPerSocket("chat:msgRead", 120, 60_000),
       async (ctx: WsContext) => this.messagesCtrl.messageRead(ctx)
     );
@@ -289,12 +318,14 @@ export class WebSocketGateway {
     this.router.register(
       "friendRequest",
       requireAuth(),
+      requireCsrf(),
       rateLimitPerSocket("friend:request", 30, 60_000),
       async (ctx: WsContext) => this.friendsCtrl.friendRequest(ctx)
     );
     this.router.register(
       "friendRespond",
       requireAuth(),
+      requireCsrf(),
       rateLimitPerSocket("friend:respond", 60, 60_000),
       async (ctx: WsContext) => this.friendsCtrl.friendRespond(ctx)
     );

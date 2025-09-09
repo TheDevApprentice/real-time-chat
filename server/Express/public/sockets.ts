@@ -5,7 +5,14 @@
 declare const io: any;
 
 // Create a single global socket and expose it
-var socket: any = (window as any).socket || io();
+// Include CSRF token in the handshake auth for defense-in-depth
+var socket: any =
+  (window as any).socket ||
+  io({
+    auth: {
+      csrf: typeof getCookie === "function" ? getCookie("X-XSRF-TOKEN") : undefined,
+    },
+  });
 (window as any).socket = socket;
 
 (function () {
