@@ -5667,35 +5667,16 @@ function installThemeToggle() {
         catch { }
     }
     // ---------------- Keyboard shortcuts ----------------
-    try {
-        window.addEventListener('keydown', (ev) => {
-            var _a;
-            if (ev.altKey || ev.ctrlKey || ev.metaKey)
-                return;
-            const k = ev.key.toLowerCase();
-            if (k === 'd') {
-                ev.preventDefault();
-                toggleDock();
-            }
-            if (k === 'r') {
-                ev.preventDefault();
-                try {
-                    (_a = w.socket) === null || _a === void 0 ? void 0 : _a.emit('getRooms');
-                }
-                catch { }
-            }
-            if (k === '/') {
-                ev.preventDefault();
-                const input = document.getElementById('user-search-input');
-                input === null || input === void 0 ? void 0 : input.focus();
-            }
-            if (k === 's') {
-                ev.preventDefault();
-                toggleStatsPanel();
-            }
-        });
-    }
-    catch { }
+    // try {
+    //   window.addEventListener('keydown', (ev) => {
+    //     if (ev.altKey || ev.ctrlKey || ev.metaKey) return;
+    //     const k = ev.key.toLowerCase();
+    //     if (k === 'd') { ev.preventDefault(); toggleDock(); }
+    //     if (k === 'r') { ev.preventDefault(); try { w.socket?.emit('getRooms'); } catch {} }
+    //     if (k === '/') { ev.preventDefault(); const input = document.getElementById('user-search-input') as HTMLInputElement | null; input?.focus(); }
+    //     if (k === 's') { ev.preventDefault(); toggleStatsPanel(); }
+    //   });
+    // } catch {}
     // Mount
     ensureQuickbar();
     // Restore persisted stats visibility after quickbar (panel is mounted by stats.ts)

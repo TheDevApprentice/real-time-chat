@@ -259,16 +259,16 @@
   }
 
   // ---------------- Keyboard shortcuts ----------------
-  try {
-    window.addEventListener('keydown', (ev) => {
-      if (ev.altKey || ev.ctrlKey || ev.metaKey) return;
-      const k = ev.key.toLowerCase();
-      if (k === 'd') { ev.preventDefault(); toggleDock(); }
-      if (k === 'r') { ev.preventDefault(); try { w.socket?.emit('getRooms'); } catch {} }
-      if (k === '/') { ev.preventDefault(); const input = document.getElementById('user-search-input') as HTMLInputElement | null; input?.focus(); }
-      if (k === 's') { ev.preventDefault(); toggleStatsPanel(); }
-    });
-  } catch {}
+  // try {
+  //   window.addEventListener('keydown', (ev) => {
+  //     if (ev.altKey || ev.ctrlKey || ev.metaKey) return;
+  //     const k = ev.key.toLowerCase();
+  //     if (k === 'd') { ev.preventDefault(); toggleDock(); }
+  //     if (k === 'r') { ev.preventDefault(); try { w.socket?.emit('getRooms'); } catch {} }
+  //     if (k === '/') { ev.preventDefault(); const input = document.getElementById('user-search-input') as HTMLInputElement | null; input?.focus(); }
+  //     if (k === 's') { ev.preventDefault(); toggleStatsPanel(); }
+  //   });
+  // } catch {}
 
   // Mount
   ensureQuickbar();
