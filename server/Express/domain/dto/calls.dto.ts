@@ -1,5 +1,6 @@
 export interface CallRequestDTO {
-  calleeId: string;
+  calleeId?: string;
+  targetUserId?: string;
   media: "audio" | "video";
 }
 
