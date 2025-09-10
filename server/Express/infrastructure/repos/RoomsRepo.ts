@@ -1,7 +1,7 @@
 import { CallbackDB } from "../adapters/callbackDb";
-import { User } from "../../../domain/entities/User";
-import { Room } from "../../../domain/entities/Room";
-import { IRoomRepo } from "../../../domain/interfaces/dbInterfaces/Irepos/IRoomRepo";
+import { User } from "../../domain/entities/User";
+import { Room } from "../../domain/entities/Room";
+import { IRoomRepo } from "../../domain/interfaces/dbInterfaces/Irepos/IRoomRepo";
 
 export class RoomsRepo implements IRoomRepo {
   constructor(private db: CallbackDB) {}

@@ -1,5 +1,5 @@
 import { CallbackDB, RunCb, GetCb, AllCb, EachRowCb } from "./callbackDb";
-import { Logger } from "../../../utils/LoggerUtil";
+import { Logger } from "../../utils/LoggerUtil";
 
 // Placeholder Postgres adapter that matches the CallbackDB interface but is not yet implemented.
 // Swap this with a real implementation using the 'pg' package when ready.

@@ -1,6 +1,6 @@
-import { IUserRepo } from "../../../domain/interfaces/dbInterfaces/Irepos/IUserRepo";
-import { User } from "../../../domain/entities/User";
-import { IRedisService } from "../../../domain/interfaces/cacheInterfaces/IRedisService";
+import { IUserRepo } from "../../domain/interfaces/dbInterfaces/Irepos/IUserRepo";
+import { User } from "../../domain/entities/User";
+import { IRedisService } from "../../domain/interfaces/cacheInterfaces/IRedisService";
 
 /**
  * Decorator repo that adds Redis cache for simple lookups.

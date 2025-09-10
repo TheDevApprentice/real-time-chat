@@ -1,7 +1,7 @@
 import { CallbackDB } from "../adapters/callbackDb";
-import { UserSession } from "../../../domain/entities/UserSession";
+import { UserSession } from "../../domain/entities/UserSession";
 import { UsersRepo } from "./UsersRepo";
-import { ISessionRepo } from "../../../domain/interfaces/dbInterfaces/Irepos/ISessionRepo";
+import { ISessionRepo } from "../../domain/interfaces/dbInterfaces/Irepos/ISessionRepo";
 
 export class SessionsRepo implements ISessionRepo {
   constructor(private db: CallbackDB, private usersRepo: UsersRepo) {}

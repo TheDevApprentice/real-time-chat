@@ -1,5 +1,5 @@
 import { CallbackDB } from "../adapters/callbackDb";
-import { IFriendRepo } from "../../../domain/interfaces/dbInterfaces/Irepos/IFriendRepo";
+import { IFriendRepo } from "../../domain/interfaces/dbInterfaces/Irepos/IFriendRepo";
 
 export class FriendsRepo implements IFriendRepo {
   constructor(private db: CallbackDB) {}

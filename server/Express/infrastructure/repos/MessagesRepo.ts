@@ -1,6 +1,6 @@
 import { CallbackDB } from "../adapters/callbackDb";
-import { Message } from "../../../domain/entities/Message";
-import { IMessageRepo } from "../../../domain/interfaces/dbInterfaces/Irepos/IMessageRepo";
+import { Message } from "../../domain/entities/Message";
+import { IMessageRepo } from "../../domain/interfaces/dbInterfaces/Irepos/IMessageRepo";
 
 export class MessagesRepo implements IMessageRepo {
   constructor(private db: CallbackDB) {}
