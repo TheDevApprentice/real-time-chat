@@ -1,10 +1,10 @@
-import { createCallbackDbFromEnv } from "../../infrastructure/db/factory";
-import { UsersRepo } from "../../infrastructure/db/repos/UsersRepo";
-import { CachedUsersRepo } from "../../infrastructure/db/repos/CachedUsersRepo";
-import { RoomsRepo } from "../../infrastructure/db/repos/RoomsRepo";
-import { MessagesRepo } from "../../infrastructure/db/repos/MessagesRepo";
-import { SessionsRepo } from "../../infrastructure/db/repos/SessionsRepo";
-import { FriendsRepo } from "../../infrastructure/db/repos/FriendsRepo";
+import { createCallbackDbFromEnv } from "../../infrastructure/factory";
+import { UsersRepo } from "../../infrastructure/repos/UsersRepo";
+import { CachedUsersRepo } from "../../infrastructure/repos/CachedUsersRepo";
+import { RoomsRepo } from "../../infrastructure/repos/RoomsRepo";
+import { MessagesRepo } from "../../infrastructure/repos/MessagesRepo";
+import { SessionsRepo } from "../../infrastructure/repos/SessionsRepo";
+import { FriendsRepo } from "../../infrastructure/repos/FriendsRepo";
 import { AuthService } from "../../domain/services/dbServices/AuthService";
 import { UserService } from "../../domain/services/dbServices/UserService";
 import { RoomService } from "../../domain/services/dbServices/RoomService";
