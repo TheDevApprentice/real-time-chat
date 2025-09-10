@@ -40,9 +40,15 @@ class AppServer {
     this.port = parseInt(portWanted, 10);
     this.setupMiddleware();
     this.setupRoutes();
-    const sqliteFile = process.env.SQLITE_FILE;
-    if (!sqliteFile) {
-      throw new Error("SQLITE_FILE environment variable is not defined");
+    const databaseDriver = process.env.DATABASE_DRIVER;
+    if (!databaseDriver) {
+      throw new Error("DATABASE_DRIVER environment variable is not defined");
+    }
+    if (databaseDriver === "sqlite") {
+      const sqliteFile = process.env.SQLITE_FILE;
+      if (!sqliteFile) {
+        throw new Error("SQLITE_FILE environment variable is not defined");
+      }
     }
     // Database schema is initialized by infrastructure/db/factory at connection time
 
