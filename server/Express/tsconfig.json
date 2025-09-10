@@ -22,8 +22,8 @@
     "domain/entities/Room.ts",
     "domain/entities/User.ts",
     "domain/entities/UserSession.ts",
-    "api/middleware/text.ts",
-    "api/middleware/validation.ts",
+    "utils/TextUtil.ts",
+    "utils/ValidationUtil.ts",
     
   ]
 }

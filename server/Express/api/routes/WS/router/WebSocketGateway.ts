@@ -1,6 +1,6 @@
 import { Server as HttpServer } from "http";
 import { Server as SocketServer, Socket } from "socket.io";
-import { Logger } from "../../../../utils/Logger";
+import { Logger } from "../../../../utils/LoggerUtil";
 import {
   WsAuthenticateSchema,
   WsLoginSchema,
@@ -20,7 +20,7 @@ import {
   WsCallAnswerSchema,
   WsCallIceSchema,
   WsCallHangupSchema,
-} from "../../../middleware/validation";
+} from "../../../../utils/ValidationUtil";
 import { WsRouter } from "./WsRouter";
 import { AuthWsController } from "../controllers/AuthWsController";
 import { RoomsWsController } from "../controllers/RoomsWsController";
@@ -28,11 +28,11 @@ import { MessagesWsController } from "../controllers/MessagesWsController";
 import { FriendsWsController } from "../controllers/FriendsWsController";
 import { CallsWsController } from "../controllers/CallsWsController";
 import { WsContext } from "./WsContext";
-import { validate } from "../middlewares/validate";
-import { rateLimitRedisPerUser, rateLimitRedisPerSocket, rateLimitRedisByIp } from "../middlewares/rateLimitRedis";
-import { requireAuth } from "../middlewares/requireAuth";
-import { bruteForceRedis } from "../middlewares/bruteForceRedis";
-import { requireCsrf } from "../middlewares/requireCsrf";
+import { validateWSMiddleware } from "../middlewares/validateWSMiddleware";
+import { rateLimitRedisPerUserWSMiddleware, rateLimitRedisPerSocketWSMiddleware, rateLimitRedisByIpWSMiddleware } from "../middlewares/rateLimitRedisWSMiddleware";
+import { requireAuthWSMiddleware } from "../middlewares/requireAuthWSMiddleware";
+import { bruteForceRedisWSMiddleware } from "../middlewares/bruteForceRedisWSMiddleware";
+import { requireCsrfWSMiddleware } from "../middlewares/requireCsrfWSMiddleware";
 import type { z } from "zod";
 import { getServices } from "../../../di/container";
 import { K, TTL } from "../../../cache/cacheKeys";
@@ -73,128 +73,128 @@ export class WebSocketGateway {
     // Auth events
     this.router.register(
       "authenticate",
-      validate(WsAuthenticateSchema),
+      validateWSMiddleware(WsAuthenticateSchema),
       async (ctx: WsContext<z.infer<typeof WsAuthenticateSchema>>) => this.authCtrl.authenticate(ctx)
     );
 
     // Calls (Phase 1: signaling scaffolding)
     this.router.register(
       "callRequest",
-      requireAuth(),
-      requireCsrf(),
-      rateLimitRedisPerUser("call:request", 20, 60),
-      validate(WsCallRequestSchema),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("call:request", 20, 60),
+      validateWSMiddleware(WsCallRequestSchema),
       async (ctx: WsContext<z.infer<typeof WsCallRequestSchema>>) => this.callsCtrl.callRequest(ctx)
     );
     this.router.register(
       "callAccept",
-      requireAuth(),
-      requireCsrf(),
-      rateLimitRedisPerUser("call:accept", 60, 60),
-      validate(WsCallAcceptSchema),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("call:accept", 60, 60),
+      validateWSMiddleware(WsCallAcceptSchema),
       async (ctx: WsContext<z.infer<typeof WsCallAcceptSchema>>) => this.callsCtrl.callAccept(ctx)
     );
     this.router.register(
       "callDecline",
-      requireAuth(),
-      requireCsrf(),
-      rateLimitRedisPerUser("call:decline", 60, 60),
-      validate(WsCallDeclineSchema),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("call:decline", 60, 60),
+      validateWSMiddleware(WsCallDeclineSchema),
       async (ctx: WsContext<z.infer<typeof WsCallDeclineSchema>>) => this.callsCtrl.callDecline(ctx)
     );
     this.router.register(
       "callCancel",
-      requireAuth(),
-      requireCsrf(),
-      rateLimitRedisPerUser("call:cancel", 60, 60),
-      validate(WsCallCancelSchema),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("call:cancel", 60, 60),
+      validateWSMiddleware(WsCallCancelSchema),
       async (ctx: WsContext<z.infer<typeof WsCallCancelSchema>>) => this.callsCtrl.callCancel(ctx)
     );
     this.router.register(
       "callOffer",
-      requireAuth(),
-      requireCsrf(),
-      rateLimitRedisPerUser("call:offer", 120, 60),
-      validate(WsCallOfferSchema),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("call:offer", 120, 60),
+      validateWSMiddleware(WsCallOfferSchema),
       async (ctx: WsContext<z.infer<typeof WsCallOfferSchema>>) => this.callsCtrl.callOffer(ctx)
     );
     this.router.register(
       "callAnswer",
-      requireAuth(),
-      requireCsrf(),
-      rateLimitRedisPerUser("call:answer", 120, 60),
-      validate(WsCallAnswerSchema),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("call:answer", 120, 60),
+      validateWSMiddleware(WsCallAnswerSchema),
       async (ctx: WsContext<z.infer<typeof WsCallAnswerSchema>>) => this.callsCtrl.callAnswer(ctx)
     );
     this.router.register(
       "callIceCandidate",
-      requireAuth(),
-      requireCsrf(),
-      rateLimitRedisPerUser("call:ice", 600, 10),
-      validate(WsCallIceSchema),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("call:ice", 600, 10),
+      validateWSMiddleware(WsCallIceSchema),
       async (ctx: WsContext<z.infer<typeof WsCallIceSchema>>) => this.callsCtrl.callIceCandidate(ctx)
     );
     this.router.register(
       "callHangup",
-      requireAuth(),
-      requireCsrf(),
-      rateLimitRedisPerUser("call:hangup", 120, 60),
-      validate(WsCallHangupSchema),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("call:hangup", 120, 60),
+      validateWSMiddleware(WsCallHangupSchema),
       async (ctx: WsContext<z.infer<typeof WsCallHangupSchema>>) => this.callsCtrl.callHangup(ctx)
     );
 
     // TURN/STUN config for clients
     this.router.register(
       "getTurnConfig",
-      requireAuth(),
-      rateLimitRedisPerUser("call:getTurnConfig", 60, 60),
+      requireAuthWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("call:getTurnConfig", 60, 60),
       async (ctx: WsContext) => this.callsCtrl.getTurnConfig(ctx)
     );
 
     // History pagination
     this.router.register(
       "loadRoomHistory",
-      requireAuth(),
-      rateLimitRedisPerUser("chat:loadHistory", 120, 60),
+      requireAuthWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("chat:loadHistory", 120, 60),
       async (ctx: WsContext<{ roomId: string; cursor?: number; size?: number }>) => this.roomsCtrl.loadRoomHistory(ctx)
     );
 
     // Aggregations: top active rooms
     this.router.register(
       "getTopActiveRooms",
-      requireAuth(),
-      rateLimitRedisPerUser("chat:topActive", 60, 60),
+      requireAuthWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("chat:topActive", 60, 60),
       async (ctx: WsContext<{ limit?: number }>) => this.roomsCtrl.getTopActiveRooms(ctx)
     );
 
     // Aggregations: last message for a room
     this.router.register(
       "getRoomLastMessage",
-      requireAuth(),
-      rateLimitRedisPerUser("chat:lastMessage", 240, 60),
+      requireAuthWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("chat:lastMessage", 240, 60),
       async (ctx: WsContext<{ roomId: string }>) => this.roomsCtrl.getRoomLastMessage(ctx)
     );
 
     // Leaderboard: active users top
     this.router.register(
       "getActiveUsersTop",
-      requireAuth(),
-      rateLimitRedisPerUser("chat:activeUsersTop", 60, 60),
+      requireAuthWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("chat:activeUsersTop", 60, 60),
       async (ctx: WsContext<{ limit?: number }>) => this.roomsCtrl.getActiveUsersTop(ctx)
     );
 
     // Aggregation: room message counts
     this.router.register(
       "getRoomMessageCounts",
-      requireAuth(),
-      rateLimitRedisPerUser("chat:roomMsgCounts", 120, 60),
+      requireAuthWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("chat:roomMsgCounts", 120, 60),
       async (ctx: WsContext<{ roomId: string; range?: 'hour' | 'day'; from?: number; to?: number }>) => this.roomsCtrl.getRoomMessageCounts(ctx)
     );
     this.router.register(
       "login",
-      rateLimitRedisByIp("auth:login", 10, 60),
-      validate(WsLoginSchema),
-      bruteForceRedis<z.infer<typeof WsLoginSchema>>({
+      rateLimitRedisByIpWSMiddleware("auth:login", 10, 60),
+      validateWSMiddleware(WsLoginSchema),
+      bruteForceRedisWSMiddleware<z.infer<typeof WsLoginSchema>>({
         action: "login",
         keyFrom: (ctx: WsContext<z.infer<typeof WsLoginSchema>>) => ctx.payload?.username || ctx.socket.data?.userId || "unknown",
         maxAttempts: 5,
@@ -203,9 +203,9 @@ export class WebSocketGateway {
     );
     this.router.register(
       "refreshToken",
-      rateLimitRedisByIp("auth:refresh", 20, 60),
-      validate(WsRefreshTokenSchema),
-      bruteForceRedis<z.infer<typeof WsRefreshTokenSchema>>({
+      rateLimitRedisByIpWSMiddleware("auth:refresh", 20, 60),
+      validateWSMiddleware(WsRefreshTokenSchema),
+      bruteForceRedisWSMiddleware<z.infer<typeof WsRefreshTokenSchema>>({
         action: "refresh",
         keyFrom: (ctx: WsContext<z.infer<typeof WsRefreshTokenSchema>>) =>
           ctx.payload?.refreshToken || (ctx.socket.data as any)?.userId || "unknown",
@@ -215,131 +215,131 @@ export class WebSocketGateway {
     );
     this.router.register(
       "logout",
-      requireAuth(),
-      requireCsrf(),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
       async (ctx: WsContext<{ token: string }>) => this.authCtrl.logout(ctx)
     );
-    this.router.register("getSessions", requireAuth(), async (ctx: WsContext) => this.authCtrl.getSessions(ctx));
+    this.router.register("getSessions", requireAuthWSMiddleware(), async (ctx: WsContext) => this.authCtrl.getSessions(ctx));
     this.router.register(
       "revokeSession",
-      requireAuth(),
-      requireCsrf(),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
       async (ctx: WsContext<{ token: string }>) => this.authCtrl.revokeSession(ctx)
     );
     this.router.register(
       "logoutAll",
-      requireAuth(),
-      requireCsrf(),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
       async (ctx: WsContext) => this.authCtrl.logoutAll(ctx)
     );
 
     // Rooms events
     this.router.register(
       "createRoom",
-      requireAuth(),
-      requireCsrf(),
-      rateLimitRedisPerUser("chat:createRoom", 10, 60),
-      validate(WsCreateRoomSchema),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("chat:createRoom", 10, 60),
+      validateWSMiddleware(WsCreateRoomSchema),
       async (ctx: WsContext<z.infer<typeof WsCreateRoomSchema>>) => this.roomsCtrl.createRoom(ctx)
     );
-    this.router.register("getRooms", requireAuth(), async (ctx: WsContext) => this.roomsCtrl.getRooms(ctx));
+    this.router.register("getRooms", requireAuthWSMiddleware(), async (ctx: WsContext) => this.roomsCtrl.getRooms(ctx));
     this.router.register(
       "joinRoom",
-      requireAuth(),
-      requireCsrf(),
-      rateLimitRedisPerUser("chat:joinRoom", 20, 60),
-      validate(WsJoinRoomSchema),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("chat:joinRoom", 20, 60),
+      validateWSMiddleware(WsJoinRoomSchema),
       async (ctx: WsContext<z.infer<typeof WsJoinRoomSchema>>) => this.roomsCtrl.joinRoom(ctx)
     );
 
     // Typing indicators
     this.router.register(
       "typingStart",
-      requireAuth(),
-      requireCsrf(),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
       async (ctx: WsContext<{ roomId: string }>) => this.roomsCtrl.typingStart(ctx)
     );
     this.router.register(
       "typingStop",
-      requireAuth(),
-      requireCsrf(),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
       async (ctx: WsContext<{ roomId: string }>) => this.roomsCtrl.typingStop(ctx)
     );
 
     // Messages events
     this.router.register(
       "sendMessageToRoom",
-      requireAuth(),
-      requireCsrf(),
-      rateLimitRedisPerUser("chat:sendMessage", 60, 10),
-      validate(WsSendMessageSchema),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("chat:sendMessage", 60, 10),
+      validateWSMiddleware(WsSendMessageSchema),
       async (ctx: WsContext<z.infer<typeof WsSendMessageSchema>>) => this.messagesCtrl.sendMessageToRoom(ctx)
     );
     this.router.register(
       "messageEdit",
-      requireAuth(),
-      requireCsrf(),
-      rateLimitRedisPerUser("chat:messageEdit", 60, 10),
-      validate(WsMessageEditSchema),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("chat:messageEdit", 60, 10),
+      validateWSMiddleware(WsMessageEditSchema),
       async (ctx: WsContext<z.infer<typeof WsMessageEditSchema>>) => this.messagesCtrl.messageEdit(ctx)
     );
     this.router.register(
       "messageDelete",
-      requireAuth(),
-      requireCsrf(),
-      rateLimitRedisPerUser("chat:messageDelete", 60, 10),
-      validate(WsMessageDeleteSchema),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("chat:messageDelete", 60, 10),
+      validateWSMiddleware(WsMessageDeleteSchema),
       async (ctx: WsContext<z.infer<typeof WsMessageDeleteSchema>>) => this.messagesCtrl.messageDelete(ctx)
     );
     this.router.register(
       "messageUndo",
-      requireAuth(),
-      requireCsrf(),
-      rateLimitRedisPerUser("chat:messageUndo", 60, 10),
-      validate(WsMessageUndoSchema),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("chat:messageUndo", 60, 10),
+      validateWSMiddleware(WsMessageUndoSchema),
       async (ctx: WsContext<z.infer<typeof WsMessageUndoSchema>>) => this.messagesCtrl.messageUndo(ctx)
     );
     this.router.register(
       "getUndoTTL",
-      requireAuth(),
-      rateLimitRedisPerUser("chat:getUndoTTL", 240, 10),
-      validate(WsUndoTtlSchema),
+      requireAuthWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("chat:getUndoTTL", 240, 10),
+      validateWSMiddleware(WsUndoTtlSchema),
       async (ctx: WsContext<z.infer<typeof WsUndoTtlSchema>>) => this.messagesCtrl.getUndoTTL(ctx)
     );
     this.router.register(
       "messageDelivered",
-      requireAuth(),
-      requireCsrf(),
-      rateLimitRedisPerUser("chat:msgDelivered", 120, 60),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("chat:msgDelivered", 120, 60),
       async (ctx: WsContext) => this.messagesCtrl.messageDelivered(ctx)
     );
     this.router.register(
       "messageRead",
-      requireAuth(),
-      requireCsrf(),
-      rateLimitRedisPerUser("chat:msgRead", 120, 60),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("chat:msgRead", 120, 60),
       async (ctx: WsContext) => this.messagesCtrl.messageRead(ctx)
     );
 
     // Friends events
     this.router.register(
       "friendRequest",
-      requireAuth(),
-      requireCsrf(),
-      rateLimitRedisPerUser("friend:request", 30, 60),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("friend:request", 30, 60),
       async (ctx: WsContext) => this.friendsCtrl.friendRequest(ctx)
     );
     this.router.register(
       "friendRespond",
-      requireAuth(),
-      requireCsrf(),
-      rateLimitRedisPerUser("friend:respond", 60, 60),
+      requireAuthWSMiddleware(),
+      requireCsrfWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("friend:respond", 60, 60),
       async (ctx: WsContext) => this.friendsCtrl.friendRespond(ctx)
     );
     this.router.register(
       "friendList",
-      requireAuth(),
-      rateLimitRedisPerUser("friend:list", 60, 60),
+      requireAuthWSMiddleware(),
+      rateLimitRedisPerUserWSMiddleware("friend:list", 60, 60),
       async (ctx: WsContext) => this.friendsCtrl.friendList(ctx)
     );
 

@@ -1,16 +1,9 @@
 import { WsMiddleware } from "../router/WsRouter";
 import type { WsContext } from "../router/WsContext";
 import { K, TTL, incrWithTtl } from "../../../cache/cacheKeys";
+import { getClientIp } from "../utils/NetUtil";
 
-function getClientIp(ctx: WsContext<any>): string {
-  const trustProxyEnv = process.env.TRUST_PROXY;
-  const trustProxy = trustProxyEnv === "true" || (!!trustProxyEnv && trustProxyEnv !== "false");
-  const xff = (ctx.socket.handshake.headers as any)["x-forwarded-for"] as string | undefined;
-  const ip = trustProxy && xff ? xff.split(",")[0].trim() : (ctx.socket.handshake.address as any) || "unknown";
-  return String(ip || "unknown");
-}
-
-export function bruteForceRedis<T = any>(options: {
+export function bruteForceRedisWSMiddleware<T = any>(options: {
   action: string;
   keyFrom: (ctx: WsContext<T>) => string;
   maxAttempts?: number; // default 5
@@ -22,7 +15,7 @@ export function bruteForceRedis<T = any>(options: {
   const penaltySec = typeof options.penaltySec === 'number' ? options.penaltySec : TTL.bruteForcePenaltySec;
   const windowSec = typeof options.windowSec === 'number' ? options.windowSec : TTL.bruteForceWindowSec;
 
-  return (next) => async (ctx) => {
+  return (next) => async (ctx: WsContext<T>) => {
     const ip = getClientIp(ctx);
     const keyVal = keyFrom(ctx) || "unknown";
     const blockedIpKey = K.bfBlockedIp(ip);

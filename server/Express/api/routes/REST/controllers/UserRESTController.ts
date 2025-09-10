@@ -1,25 +1,25 @@
-import { AuthenticatedRequest, authMiddleware } from "../../../middleware/auth";
+import { AuthenticatedRequest, authRESTMiddleware } from "../middleware/authRESTMiddleware";
 import { Router, Request, Response } from "express";
 import { User } from "../../../../domain/entities/User";
-import { rateLimitRedis } from "../../../middleware/rateLimitRedis";
+import { rateLimitRedisRESTMiddleware } from "../middleware/rateLimitRedisRESTMiddleware";
 import { TTL } from "../../../cache/cacheKeys";
-import { asyncHandler } from "../middleware/asyncHandler";
-import { validateParams } from "../middleware/validate";
-import { SessionTokenParamsSchema } from "../../../middleware/validation";
+import { asyncHandlerRESTMiddleware } from "../middleware/asyncHandlerRESTMiddleware";
+import { validateRESTMiddlewareParams } from "../middleware/validateRESTMiddleware";
+import { SessionTokenParamsSchema } from "../../../../utils/ValidationUtil";
 import { getServices } from "../../../di/container";
-import { bruteForceRedis } from "../../../middleware/bruteForceRedis";
+import { bruteForceRedisRESTMiddleware } from "../middleware/bruteForceRedisRESTMiddleware";
 
 const router = Router();
 
 // Redis-backed, cluster-safe rate limiter
-const rateLimit = (routeKey: string, maxReq = 50, windowSec = TTL.rateWindowAuth) =>
-  rateLimitRedis(routeKey, maxReq, windowSec);
+const rateLimitMiddleware = (routeKey: string, maxReq = 50, windowSec = TTL.rateWindowAuth) =>
+  rateLimitRedisRESTMiddleware(routeKey, maxReq, windowSec);
 
 // Get all users
 router.get(
   "/users",
-  rateLimit("user:getUsers", 200),
-  asyncHandler(async (_req: Request, res: Response) => {
+  rateLimitMiddleware("user:getUsers", 200),
+  asyncHandlerRESTMiddleware(async (_req: Request, res: Response) => {
     const { userService } = getServices();
     const users: User[] = await userService.getUsers();
     res.json(users.map((u: User) => u.toJSON()));
@@ -29,9 +29,9 @@ router.get(
 // Lister toutes les sessions utilisateur courant
 router.get(
   "/sessions",
-  authMiddleware,
-  rateLimit("user:getSessions", 60),
-  asyncHandler(async (req: AuthenticatedRequest, res) => {
+  authRESTMiddleware,
+  rateLimitMiddleware("user:getSessions", 60),
+  asyncHandlerRESTMiddleware(async (req: AuthenticatedRequest, res) => {
     const { authService } = getServices();
     if (!req.user) return res.status(401).json({ error: "Not authenticated." });
     const sessions = await authService.getUserSessionsByUserId(req.user.id);
@@ -42,14 +42,14 @@ router.get(
 // Récupérer une session par token
 router.get(
   "/sessions/:token",
-  rateLimit("user:getSessionByToken", 120),
-  bruteForceRedis({
+  rateLimitMiddleware("user:getSessionByToken", 120),
+  bruteForceRedisRESTMiddleware({
     action: "getSessionByToken",
     keyFrom: (req) => String(req.params.token || req.ip || "unknown"),
     maxAttempts: 20,
   }),
-  validateParams(SessionTokenParamsSchema),
-  asyncHandler(async (req, res) => {
+  validateRESTMiddlewareParams(SessionTokenParamsSchema),
+  asyncHandlerRESTMiddleware(async (req, res) => {
     const { authService } = getServices();
     const session = await authService.getUserSessionByToken(req.params.token);
     if (!session) return res.status(404).json({ error: "Session not found." });
@@ -60,15 +60,15 @@ router.get(
 // Supprimer une session par token (si elle appartient à l'utilisateur)
 router.delete(
   "/sessions/:token",
-  authMiddleware,
-  rateLimit("user:deleteSession", 30),
-  bruteForceRedis({
+  authRESTMiddleware,
+  rateLimitMiddleware("user:deleteSession", 30),
+  bruteForceRedisRESTMiddleware({
     action: "deleteSession",
     keyFrom: (req) => String(req.params.token || req.ip || "unknown"),
     maxAttempts: 20,
   }),
-  validateParams(SessionTokenParamsSchema),
-  asyncHandler(async (req: AuthenticatedRequest, res) => {
+  validateRESTMiddlewareParams(SessionTokenParamsSchema),
+  asyncHandlerRESTMiddleware(async (req: AuthenticatedRequest, res) => {
     const { authService } = getServices();
     if (!req.user) return res.status(401).json({ error: "Not authenticated." });
     const session = await authService.getUserSessionByToken(req.params.token);
@@ -104,14 +104,14 @@ router.delete(
 // Supprimer toutes les sessions de l'utilisateur courant (logout all)
 router.delete(
   "/sessions",
-  authMiddleware,
-  rateLimit("user:deleteAllSessions", 10),
-  bruteForceRedis({
+  authRESTMiddleware,
+  rateLimitMiddleware("user:deleteAllSessions", 10),
+  bruteForceRedisRESTMiddleware({
     action: "deleteAllSessions",
     keyFrom: (req) => String((req as any)?.user?.id || req.ip || "unknown"),
     maxAttempts: 10,
   }),
-  asyncHandler(async (req: AuthenticatedRequest, res) => {
+  asyncHandlerRESTMiddleware(async (req: AuthenticatedRequest, res) => {
     const { authService } = getServices();
     if (!req.user) return res.status(401).json({ error: "Not authenticated." });
     await authService.deleteAllUserSessionsByUserId(req.user.id);
@@ -135,8 +135,8 @@ router.delete(
 // Presence / last-seen (public minimal endpoint)
 router.get(
   "/presence/:userId",
-  rateLimit("user:getPresence", 300),
-  asyncHandler(async (req: Request, res: Response) => {
+  rateLimitMiddleware("user:getPresence", 300),
+  asyncHandlerRESTMiddleware(async (req: Request, res: Response) => {
     const { redisService } = getServices();
     const userId = String(req.params.userId || "");
     if (!userId) return res.status(400).json({ error: "Missing userId" });

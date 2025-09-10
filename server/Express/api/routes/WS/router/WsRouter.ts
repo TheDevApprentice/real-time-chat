@@ -42,7 +42,7 @@ export class WsRouter {
           route.event,
           async (payload: any, callback?: (resp: any) => void) => {
             try {
-              const ctx = makeContext(socket);
+              const ctx: WsContext = makeContext(socket);
               // Allow middleware to set ctx.payload if a validator is used
               (ctx as any).payload = payload;
               const result = await route.handler(ctx);

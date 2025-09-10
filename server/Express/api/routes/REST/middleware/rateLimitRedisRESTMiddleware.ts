@@ -1,14 +1,14 @@
 import type { Request, Response, NextFunction } from "express";
-import { getServices } from "../di/container";
-import { K } from "../cache/cacheKeys";
-import { incrWithTtl } from "../cache/cacheKeys";
+import { getServices } from "../../../di/container";
+import { K } from "../../../cache/cacheKeys";
+import { incrWithTtl } from "../../../cache/cacheKeys";
 
 // Cluster-safe rate limiter using Redis counters with TTL
 // routeKey: logical name of the endpoint, e.g., 'auth:register'
 // limit: max requests allowed within windowSec
 // windowSec: size of the sliding window in seconds
 // keyFn: optional function to derive a fingerprint (default: req.ip)
-export function rateLimitRedis(
+export function rateLimitRedisRESTMiddleware(
   routeKey: string,
   limit: number,
   windowSec: number,

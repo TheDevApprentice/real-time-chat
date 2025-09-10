@@ -1,8 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
-import { K, TTL, incrWithTtl } from "../cache/cacheKeys";
-import { getServices } from "../di/container";
+import { K, TTL, incrWithTtl } from "../../../cache/cacheKeys";
+import { getServices } from "../../../di/container";
 
-export function bruteForceRedis(options: {
+export function bruteForceRedisRESTMiddleware(options: {
   action: string;
   keyFrom: (req: Request) => string; // e.g., username, refreshToken, userId, or req.ip
   maxAttempts?: number; // default 5

@@ -1,5 +1,5 @@
 import { CallbackDB, RunCb, GetCb, AllCb, EachRowCb } from "./callbackDb";
-import { Logger } from "../../../utils/Logger";
+import { Logger } from "../../../utils/LoggerUtil";
 
 // Placeholder MySQL adapter that matches the CallbackDB interface but is not yet implemented.
 // Swap this with a real implementation using the 'mysql2' package when ready.

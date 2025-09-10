@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 import { WsContext } from "../router/WsContext";
 import { User, UserSession } from "../../../../domain/entities";
-import { Logger } from "../../../../utils/Logger";
+import { Logger } from "../../../../utils/LoggerUtil";
 
 export class AuthWsController {
   // authenticate via token (auto-login)

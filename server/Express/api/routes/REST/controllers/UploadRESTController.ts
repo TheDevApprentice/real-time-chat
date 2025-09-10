@@ -2,11 +2,11 @@ import { Router, Response, Request } from "express";
 import multer from "multer";
 import path from "path";
 import { randomUUID } from "crypto";
-import { authMiddleware, AuthenticatedRequest } from "../../../middleware/auth";
-import { rateLimitRedis } from "../../../middleware/rateLimitRedis";
-import { bruteForceRedis } from "../../../middleware/bruteForceRedis";
+import { authRESTMiddleware, AuthenticatedRequest } from "../middleware/authRESTMiddleware";
+import { rateLimitRedisRESTMiddleware } from "../middleware/rateLimitRedisRESTMiddleware";
+import { bruteForceRedisRESTMiddleware } from "../middleware/bruteForceRedisRESTMiddleware";
 import { TTL } from "../../../cache/cacheKeys";
-import { asyncHandler } from "../middleware/asyncHandler";
+import { asyncHandlerRESTMiddleware } from "../middleware/asyncHandlerRESTMiddleware";
 import { getServices } from "../../../di/container";
 
 const router = Router();
@@ -21,22 +21,22 @@ const upload = multer({
 });
 
 // Redis-backed, cluster-safe rate limiter
-const rateLimit = (routeKey: string, maxReq = 60, windowSec = TTL.rateWindowAuth) =>
-  rateLimitRedis(routeKey, maxReq, windowSec);
+const rateLimitMiddleware = (routeKey: string, maxReq = 60, windowSec = TTL.rateWindowAuth) =>
+  rateLimitRedisRESTMiddleware(routeKey, maxReq, windowSec);
 
 // Require auth for uploads
-router.use(authMiddleware);
+router.use(authRESTMiddleware);
 
 router.post(
   "/",
-  rateLimit("upload:file", 60),
-  bruteForceRedis({
+  rateLimitMiddleware("upload:file", 60),
+  bruteForceRedisRESTMiddleware({
     action: "upload:file",
     keyFrom: (req) => String((req as any)?.user?.id || req.ip || "unknown"),
     maxAttempts: 120,
   }),
   upload.single("file"),
-  asyncHandler(async (
+  asyncHandlerRESTMiddleware(async (
     req: AuthenticatedRequest & { file?: Express.Multer.File },
     res: Response
   ) => {
@@ -90,13 +90,13 @@ router.post(
 // Delete temporary uploads (cleanup when message is canceled)
 router.delete(
   "/",
-  rateLimit("upload:delete", 60),
-  bruteForceRedis({
+  rateLimitMiddleware("upload:delete", 60),
+  bruteForceRedisRESTMiddleware({
     action: "upload:delete",
     keyFrom: (req) => String((req as any)?.user?.id || req.ip || "unknown"),
     maxAttempts: 120,
   }),
-  asyncHandler(async (req: AuthenticatedRequest & Request, res: Response) => {
+  asyncHandlerRESTMiddleware(async (req: AuthenticatedRequest & Request, res: Response) => {
     const { s3Service } = getServices() as any;
     const userId = req.user?.id || "anonymous";
     const body = (req as any).body as { keys?: string[] } | undefined;

@@ -1,14 +1,13 @@
 import { Router, Request, Response } from "express";
-import { rateLimitRedis } from "../../../middleware/rateLimitRedis";
-import { bruteForceRedis } from "../../../middleware/bruteForceRedis";
-import { authMiddleware, AuthenticatedRequest } from "../../../middleware/auth";
+import { rateLimitRedisRESTMiddleware } from "../middleware/rateLimitRedisRESTMiddleware";
+import { bruteForceRedisRESTMiddleware } from "../middleware/bruteForceRedisRESTMiddleware";
+import { authRESTMiddleware, AuthenticatedRequest } from "../middleware/authRESTMiddleware";
 import {
   SearchUsersQuerySchema,
-} from "../../../middleware/validation";
-import { validateQuery, RequestWithValidated, validateBody } from "../middleware/validate";
-import { asyncHandler } from "../middleware/asyncHandler";
-import { validateParams } from "../middleware/validate";
-import { RoomIdParamsSchema, InviteCreateBodySchema, MessageIdParamsSchema, MessageEditBodySchema, MessageDeleteBodySchema, MessageUndoBodySchema } from "../../../middleware/validation";
+} from "../../../../utils/ValidationUtil";
+import { validateRESTMiddlewareQuery, RequestWithValidated, validateRESTMiddlewareBody, validateRESTMiddlewareParams } from "../middleware/validateRESTMiddleware";
+import { asyncHandlerRESTMiddleware } from "../middleware/asyncHandlerRESTMiddleware";
+import { RoomIdParamsSchema, InviteCreateBodySchema, MessageIdParamsSchema, MessageEditBodySchema, MessageDeleteBodySchema, MessageUndoBodySchema } from "../../../../utils/ValidationUtil";
 import { getServices } from "../../../di/container";
 import { K, TTL, incrWithTtl, jsonGet } from "../../../cache/cacheKeys";
 import { Message, User } from "../../../../domain/entities";
@@ -18,24 +17,24 @@ import { randomUUID } from "crypto";
 const router = Router();
 
 // Redis-backed, cluster-safe rate limiter
-const rateLimit = (routeKey: string, maxReq = 50, windowSec = TTL.rateWindowAuth) =>
-  rateLimitRedis(routeKey, maxReq, windowSec);
+const rateLimitMiddleware = (routeKey: string, maxReq = 50, windowSec = TTL.rateWindowAuth) =>
+  rateLimitRedisRESTMiddleware(routeKey, maxReq, windowSec);
 
 // Require authentication for all chat routes
-router.use(authMiddleware);
+router.use(authRESTMiddleware);
 
 // Undo last edit/delete if a snapshot exists for this user (10 min window)
 router.post(
   "/messages/:messageId/undo",
-  rateLimit("chat:undoMessage", 120),
-  bruteForceRedis({
+  rateLimitMiddleware("chat:undoMessage", 120),
+  bruteForceRedisRESTMiddleware({
     action: "chat:undoMessage",
     keyFrom: (req) => String((req as any)?.user?.id || req.ip || "unknown"),
     maxAttempts: 60,
   }),
-  validateParams(MessageIdParamsSchema),
-  validateBody(MessageUndoBodySchema),
-  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  validateRESTMiddlewareParams(MessageIdParamsSchema),
+  validateRESTMiddlewareBody(MessageUndoBodySchema),
+  asyncHandlerRESTMiddleware(async (req: AuthenticatedRequest, res: Response) => {
     const { messageService, redisService } = getServices() as any;
     const me = (req as any).user as { id: string } | undefined;
     if (!me?.id) return res.status(401).json({ error: "Not authenticated" });
@@ -54,20 +53,20 @@ router.post(
   })
 );
 
-// (rateLimit and authMiddleware defined above)
+// (rateLimit and authRESTMiddleware defined above)
 
 // Edit a message (author only)
 router.patch(
   "/messages/:messageId",
-  rateLimit("chat:editMessage", 100),
-  bruteForceRedis({
+  rateLimitMiddleware("chat:editMessage", 100),
+  bruteForceRedisRESTMiddleware({
     action: "chat:editMessage",
     keyFrom: (req) => String((req as any)?.user?.id || req.ip || "unknown"),
     maxAttempts: 100,
   }),
-  validateParams(MessageIdParamsSchema),
-  validateBody(MessageEditBodySchema),
-  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  validateRESTMiddlewareParams(MessageIdParamsSchema),
+  validateRESTMiddlewareBody(MessageEditBodySchema),
+  asyncHandlerRESTMiddleware(async (req: AuthenticatedRequest, res: Response) => {
     const { messageService, roomService } = getServices() as any;
     const me = (req as any).user as { id: string } | undefined;
     if (!me?.id) return res.status(401).json({ error: "Not authenticated" });
@@ -86,15 +85,15 @@ router.patch(
 // Delete a message (author or room owner)
 router.delete(
   "/messages/:messageId",
-  rateLimit("chat:deleteMessage", 100),
-  bruteForceRedis({
+  rateLimitMiddleware("chat:deleteMessage", 100),
+  bruteForceRedisRESTMiddleware({
     action: "chat:deleteMessage",
     keyFrom: (req) => String((req as any)?.user?.id || req.ip || "unknown"),
     maxAttempts: 100,
   }),
-  validateParams(MessageIdParamsSchema),
-  validateBody(MessageDeleteBodySchema),
-  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  validateRESTMiddlewareParams(MessageIdParamsSchema),
+  validateRESTMiddlewareBody(MessageDeleteBodySchema),
+  asyncHandlerRESTMiddleware(async (req: AuthenticatedRequest, res: Response) => {
     const { messageService, roomService } = getServices() as any;
     const me = (req as any).user as { id: string } | undefined;
     if (!me?.id) return res.status(401).json({ error: "Not authenticated" });
@@ -113,13 +112,13 @@ router.delete(
   })
 );
 
-// (moved rateLimit and authMiddleware to top so they apply to all routes)
+// (moved rateLimit and authRESTMiddleware to top so they apply to all routes)
 
 // Get all rooms
 router.get(
   "/rooms",
-  rateLimit("chat:getRooms", 200),
-  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  rateLimitMiddleware("chat:getRooms", 200),
+  asyncHandlerRESTMiddleware(async (req: AuthenticatedRequest, res: Response) => {
     const { roomService } = getServices();
     const rooms = await roomService.getRooms();
     res.json(rooms.map((r) => r.toJSON()));
@@ -129,14 +128,14 @@ router.get(
 // Search users by name (for search bar)
 router.get(
   "/users/search",
-  rateLimit("chat:searchUsers", 150),
-  bruteForceRedis({
+  rateLimitMiddleware("chat:searchUsers", 150),
+  bruteForceRedisRESTMiddleware({
     action: "chat:searchUsers",
     keyFrom: (req) => String((req as any)?.user?.id || req.ip || "unknown"),
     maxAttempts: 200,
   }),
-  validateQuery(SearchUsersQuerySchema),
-  asyncHandler(async (
+  validateRESTMiddlewareQuery(SearchUsersQuerySchema),
+  asyncHandlerRESTMiddleware(async (
     req: RequestWithValidated<any, any, any>,
     res: Response
   ) => {
@@ -177,9 +176,9 @@ router.get(
 // Get messages for a room
 router.get(
   "/rooms/:roomId/messages",
-  rateLimit("chat:getMessages", 200),
-  validateParams(RoomIdParamsSchema),
-  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  rateLimitMiddleware("chat:getMessages", 200),
+  validateRESTMiddlewareParams(RoomIdParamsSchema),
+  asyncHandlerRESTMiddleware(async (req: AuthenticatedRequest, res: Response) => {
     const { messageService } = getServices();
     const { roomId } = req.params;
     const messages = await messageService.getMessagesForRoom(roomId);
@@ -190,9 +189,9 @@ router.get(
 // Get users for a room
 router.get(
   "/rooms/:roomId/users",
-  rateLimit("chat:getRoomUsers", 200),
-  validateParams(RoomIdParamsSchema),
-  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  rateLimitMiddleware("chat:getRoomUsers", 200),
+  validateRESTMiddlewareParams(RoomIdParamsSchema),
+  asyncHandlerRESTMiddleware(async (req: AuthenticatedRequest, res: Response) => {
     const { roomService } = getServices();
     const { roomId } = req.params;
     const users = await roomService.getUsersForRoom(roomId);
@@ -204,14 +203,14 @@ router.get(
 // Create an invite token with minimal payload stored in Redis (EX 600s)
 router.post(
   "/invite",
-  rateLimit("chat:createInvite", 60),
-  bruteForceRedis({
+  rateLimitMiddleware("chat:createInvite", 60),
+  bruteForceRedisRESTMiddleware({
     action: "chat:createInvite",
     keyFrom: (req) => String((req as any)?.user?.id || req.ip || "unknown"),
     maxAttempts: 60,
   }),
-  validateBody(InviteCreateBodySchema),
-  asyncHandler(async (req: RequestWithValidated<{ roomId: string; invitedUserId?: string; role?: string }>, res: Response) => {
+  validateRESTMiddlewareBody(InviteCreateBodySchema),
+  asyncHandlerRESTMiddleware(async (req: RequestWithValidated<{ roomId: string; invitedUserId?: string; role?: string }>, res: Response) => {
     const { redisService, roomService } = getServices() as any;
     const { roomId, invitedUserId, role } = (req.validated!.body as any);
     const me = (req as any).user as { id: string } | undefined;
@@ -237,13 +236,13 @@ router.post(
 // Consume an invite token (one-time): returns the stored payload and deletes the key
 router.get(
   "/invite/:token",
-  rateLimit("chat:consumeInvite", 120),
-  bruteForceRedis({
+  rateLimitMiddleware("chat:consumeInvite", 120),
+  bruteForceRedisRESTMiddleware({
     action: "chat:consumeInvite",
     keyFrom: (req) => String(req.params.token || req.ip || "unknown"),
     maxAttempts: 120,
   }),
-  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  asyncHandlerRESTMiddleware(async (req: AuthenticatedRequest, res: Response) => {
     const { redisService, roomService } = getServices() as any;
     const token = String(req.params.token || "");
     if (!token) return res.status(400).json({ error: "Missing token" });

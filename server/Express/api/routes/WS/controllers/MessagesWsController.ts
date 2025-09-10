@@ -1,6 +1,6 @@
 import { WsContext } from "../router/WsContext";
 import { Message, User } from "../../../../domain/entities";
-import { sanitizeText } from "../../../middleware/text";
+import { sanitizeText } from "../../../../utils/TextUtil";
 import { K, TTL, incrWithTtl, Channels, jsonSet, jsonGet } from "../../../cache/cacheKeys";
 import path from "path";
 import { randomUUID } from "crypto";

@@ -4,33 +4,33 @@ import { Router, Request, Response } from "express";
 import { User } from "../../../../domain/entities/User";
 import { getServices } from "../../../di/container";
 
-import { bruteForceRedis } from "../../../middleware/bruteForceRedis";
-import { rateLimitRedis } from "../../../middleware/rateLimitRedis";
+import { bruteForceRedisRESTMiddleware } from "../middleware/bruteForceRedisRESTMiddleware";
+import { rateLimitRedisRESTMiddleware } from "../middleware/rateLimitRedisRESTMiddleware";
 import { TTL } from "../../../cache/cacheKeys";
-import { authMiddleware, AuthenticatedRequest } from "../../../middleware/auth";
+import { authRESTMiddleware, AuthenticatedRequest } from "../middleware/authRESTMiddleware";
 import {
   RegisterSchema,
   RefreshTokenSchema
-} from "../../../middleware/validation";
-import { validateBody, RequestWithValidated } from "../middleware/validate";
-import { asyncHandler } from "../middleware/asyncHandler";
+} from "../../../../utils/ValidationUtil";
+import { validateRESTMiddlewareBody, RequestWithValidated } from "../middleware/validateRESTMiddleware";
+import { asyncHandlerRESTMiddleware } from "../middleware/asyncHandlerRESTMiddleware";
 
 const router = Router();
 
 // Redis-backed, cluster-safe rate limiter for auth endpoints
-const rateLimit = (routeKey: string, maxReq = 50, windowSec = TTL.rateWindowAuth) =>
-  rateLimitRedis(routeKey, maxReq, windowSec);
+const rateLimitMiddleware = (routeKey: string, maxReq = 50, windowSec = TTL.rateWindowAuth) =>
+  rateLimitRedisRESTMiddleware(routeKey, maxReq, windowSec);
 
 // Registration endpoint
 router.post(
   "/register",
-  rateLimit("auth:register", 20),
-  bruteForceRedis({
+  rateLimitMiddleware("auth:register", 20),
+  bruteForceRedisRESTMiddleware({
     action: "register",
     keyFrom: (req) => String((req.body as any)?.username || "unknown"),
   }),
-  validateBody(RegisterSchema),
-  asyncHandler(async (req: RequestWithValidated<any>, res) => {
+  validateRESTMiddlewareBody(RegisterSchema),
+  asyncHandlerRESTMiddleware(async (req: RequestWithValidated<any>, res) => {
     const { username, password } = (req.validated!.body as any)!;
     const { userService } = getServices();
     const users = await userService.getUsers();
@@ -49,8 +49,8 @@ router.post(
 // Allows frontend to exchange a bare token (obtained via WebSocket auth) for a secure HttpOnly cookie.
 router.post(
   "/session-cookie",
-  rateLimit("auth:sessionCookie", 60),
-  bruteForceRedis({
+  rateLimitMiddleware("auth:sessionCookie", 60),
+  bruteForceRedisRESTMiddleware({
     action: "sessionCookie",
     keyFrom: (req) => String((req.body as any)?.token || req.ip || "unknown"),
   }),
@@ -91,7 +91,7 @@ router.post(
 // --- CURRENT USER FROM COOKIE ---
 router.get(
   "/me",
-  authMiddleware,
+  authRESTMiddleware,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       if (!req.user)
@@ -106,13 +106,13 @@ router.get(
 // --- REFRESH TOKEN ENDPOINT ---
 router.post(
   "/refresh-token",
-  rateLimit("auth:refresh", 60),
-  bruteForceRedis({
+  rateLimitMiddleware("auth:refresh", 60),
+  bruteForceRedisRESTMiddleware({
     action: "refresh",
     keyFrom: (req) => String((req.body as any)?.refreshToken || req.ip || "unknown"),
   }),
-  validateBody(RefreshTokenSchema),
-  asyncHandler(async (req: RequestWithValidated<any>, res) => {
+  validateRESTMiddlewareBody(RefreshTokenSchema),
+  asyncHandlerRESTMiddleware(async (req: RequestWithValidated<any>, res) => {
     const { refreshToken } = (req.validated!.body as any)!;
     const { authService } = getServices();
     // Lookup direct par refresh token

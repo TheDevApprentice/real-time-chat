@@ -11,7 +11,7 @@ export interface RequestWithValidated<TBody = any, TParams = any, TQuery = any>
   };
 }
 
-export function validateBody<T>(schema: Schema<T>) {
+export function validateRESTMiddlewareBody<T>(schema: Schema<T>) {
   return (req: RequestWithValidated<T>, _res: Response, next: NextFunction) => {
     try {
       const parsed = schema.parse(req.body);
@@ -23,7 +23,7 @@ export function validateBody<T>(schema: Schema<T>) {
   };
 }
 
-export function validateParams<T>(schema: Schema<T>) {
+export function validateRESTMiddlewareParams<T>(schema: Schema<T>) {
   return (
     req: RequestWithValidated<any, T>,
     _res: Response,
@@ -39,7 +39,7 @@ export function validateParams<T>(schema: Schema<T>) {
   };
 }
 
-export function validateQuery<T>(schema: Schema<T>) {
+export function validateRESTMiddlewareQuery<T>(schema: Schema<T>) {
   return (
     req: RequestWithValidated<any, any, T>,
     _res: Response,

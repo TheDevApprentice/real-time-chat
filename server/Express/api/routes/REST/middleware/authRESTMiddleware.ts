@@ -1,12 +1,12 @@
 import { Request, Response, NextFunction } from "express";
-import { getServices } from "../di/container";
+import { getServices } from "../../../di/container";
 
 export interface AuthenticatedRequest extends Request {
   user?: any;
   session?: any;
 }
 
-export async function authMiddleware(
+export async function authRESTMiddleware(
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction

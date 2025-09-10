@@ -1,3 +1,3 @@
-import router from "./router/router";
+import routerREST from "./router/routerREST";
 
-export default router;
+export default routerREST;

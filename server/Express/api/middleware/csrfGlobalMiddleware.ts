@@ -9,7 +9,7 @@ function isSafeMethod(method?: string): boolean {
   return m === "GET" || m === "HEAD" || m === "OPTIONS";
 }
 
-export function issueCsrfCookie(
+export function issueCsrfCookieGlobalMiddleware(
   req: Request,
   res: Response,
   next: NextFunction

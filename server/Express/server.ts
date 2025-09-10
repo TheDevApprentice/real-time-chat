@@ -3,11 +3,11 @@ import cors from "cors";
 import http from "http";
 import path from "path";
 import cookieParser from "cookie-parser";
-import router from "./api/routes/REST/index";
-import { issueCsrfCookie, verifyCsrfToken } from "./api/middleware/csrf";
+import routerREST from "./api/routes/REST/index";
+import { issueCsrfCookieGlobalMiddleware, verifyCsrfToken } from "./api/middleware/csrfGlobalMiddleware";
 import helmet from "helmet";
 import { WebSocketGateway } from "./api/routes/WS/index";
-import { Logger } from "./utils/Logger";
+import { Logger } from "./utils/LoggerUtil";
 import { RedisService } from "./domain/services/cacheServices/RedisService";
 
 require("@dotenvx/dotenvx").config();
@@ -116,7 +116,7 @@ class AppServer {
       })
     );
     // Issue CSRF token cookie on safe requests (double-submit pattern)
-    this.app.use(issueCsrfCookie);
+    this.app.use(issueCsrfCookieGlobalMiddleware);
     this.app.use(express.static(path.join(__dirname, "public")));
     this.app.disable("x-powered-by");
   }
@@ -134,7 +134,7 @@ class AppServer {
     });
     // Verify CSRF token for mutating API requests
     this.app.use("/api", verifyCsrfToken);
-    this.app.use("/api", router);
+    this.app.use("/api", routerREST);
   }
 
   public start(): void {
