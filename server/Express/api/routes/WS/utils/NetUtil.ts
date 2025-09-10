@@ -1,4 +1,4 @@
-import { WsContext } from "..";
+import type { WsContext } from "../router/WsContext";
 
 export function getClientIp(ctx: WsContext<any>): string {
   const trustProxyEnv = process.env.TRUST_PROXY;
