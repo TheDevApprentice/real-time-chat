@@ -1,8 +1,7 @@
 import { CallbackDB, RunCb, GetCb, AllCb, EachRowCb } from "./callbackDb";
 import { Logger } from "../../utils/LoggerUtil";
 
-// Placeholder Postgres adapter that matches the CallbackDB interface but is not yet implemented.
-// Swap this with a real implementation using the 'pg' package when ready.
+// Concrete Postgres adapter using 'pg', translating '?' to $1..$n placeholders
 export function createPostgresCallbackDb(config: {
   host: string;
   port: number;
@@ -11,46 +10,121 @@ export function createPostgresCallbackDb(config: {
   password?: string;
   ssl?: boolean;
 }): CallbackDB {
-  Logger.info(
-    `createPostgresCallbackDb planned (not implemented): host=${
-      config.host
-    } port=${config.port} db=${config.database} user=${
-      config.user
-    } ssl=${!!config.ssl}`
-  );
-  const notImpl = (method: string) => () => {
-    throw new Error(
-      `Postgres adapter not implemented. Missing method: ${method}`
+  let pg: any;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    pg = require("pg");
+  } catch (e) {
+    const err = new Error(
+      "pg package is required to use Postgres adapter. Please install it: npm i pg"
     );
-  };
+    Logger.error(err.message);
+    throw err;
+  }
+
+  const pool = new pg.Pool({
+    host: config.host,
+    port: config.port,
+    user: config.user,
+    password: config.password,
+    database: config.database,
+    ssl: config.ssl ? { rejectUnauthorized: false } : undefined,
+    max: 10,
+  });
+
+  Logger.info(
+    `Postgres pool created host=${config.host} port=${config.port} db=${config.database} user=${config.user} ssl=${!!config.ssl}`
+  );
+
+  function toPg(sql: string, params?: any[]): { text: string; values?: any[] } {
+    if (!params || !Array.isArray(params) || params.length === 0) {
+      return { text: sql };
+    }
+    let i = 0;
+    const text = sql.replace(/\?/g, () => {
+      i += 1;
+      return `$${i}`;
+    });
+    return { text, values: params };
+  }
+
   return {
     serialize(cb: () => void): void {
-      // Postgres does not expose serialize semantics; call directly for API compatibility
-      cb();
+      try { cb(); } catch {}
     },
-    run: (_sql: string, _params: any[] | undefined, cb: RunCb) => {
-      cb(new Error("Postgres adapter not implemented: run"));
+    run(sql: string, params: any[] | undefined, cb: RunCb) {
+      try {
+        const { text, values } = toPg(sql, params);
+        pool.query(text, values, (err: any) => cb(err || null));
+      } catch (e: any) {
+        cb(e instanceof Error ? e : new Error(String(e)));
+      }
     },
-    get: <T = any>(_sql: string, _params: any[] | undefined, cb: GetCb<T>) => {
-      cb(new Error("Postgres adapter not implemented: get"));
+    get<T = any>(sql: string, params: any[] | undefined, cb: GetCb<T>) {
+      try {
+        const { text, values } = toPg(sql, params);
+        pool.query(text, values, (err: any, result: any) => {
+          if (err) return cb(err);
+          const row = result && result.rows && result.rows[0] ? (result.rows[0] as T) : undefined;
+          return cb(null, row);
+        });
+      } catch (e: any) {
+        cb(e instanceof Error ? e : new Error(String(e)));
+      }
     },
-    all: <T = any>(_sql: string, _params: any[] | undefined, cb: AllCb<T>) => {
-      cb(new Error("Postgres adapter not implemented: all"));
+    all<T = any>(sql: string, params: any[] | undefined, cb: AllCb<T>) {
+      try {
+        const { text, values } = toPg(sql, params);
+        pool.query(text, values, (err: any, result: any) => {
+          if (err) return cb(err);
+          const rows = (result && Array.isArray(result.rows)) ? (result.rows as T[]) : ([] as T[]);
+          return cb(null, rows);
+        });
+      } catch (e: any) {
+        cb(e instanceof Error ? e : new Error(String(e)));
+      }
     },
-    exec: (_sql: string, cb: RunCb) => {
-      cb(new Error("Postgres adapter not implemented: exec"));
+    exec(sql: string, cb: RunCb) {
+      try {
+        pool.query(sql, (err: any) => cb(err || null));
+      } catch (e: any) {
+        cb(e instanceof Error ? e : new Error(String(e)));
+      }
     },
-    close: (cb: RunCb) => {
-      cb(new Error("Postgres adapter not implemented: close"));
+    close(cb: RunCb) {
+      try {
+        pool.end((err: any) => cb(err || null));
+      } catch (e: any) {
+        cb(e instanceof Error ? e : new Error(String(e)));
+      }
     },
-    each: <T = any>(
-      _sql: string,
-      _params: any[] | undefined,
-      _rowCb: EachRowCb<T>,
+    each<T = any>(
+      sql: string,
+      params: any[] | undefined,
+      rowCb: EachRowCb<T>,
       completeCb?: RunCb
-    ) => {
-      if (completeCb)
-        completeCb(new Error("Postgres adapter not implemented: each"));
+    ) {
+      try {
+        const { text, values } = toPg(sql, params);
+        pool.query(text, values, (err: any, result: any) => {
+          if (err) {
+            if (completeCb) completeCb(err);
+            else try { rowCb(err); } catch {}
+            return;
+          }
+          try {
+            const rows: any[] = (result && Array.isArray(result.rows)) ? result.rows : [];
+            for (const r of rows) {
+              try { rowCb(null, r as T); } catch {}
+            }
+            if (completeCb) completeCb(null);
+          } catch (e: any) {
+            if (completeCb) completeCb(e instanceof Error ? e : new Error(String(e)));
+          }
+        });
+      } catch (e: any) {
+        if (completeCb) completeCb(e instanceof Error ? e : new Error(String(e)));
+      }
     },
   };
 }
