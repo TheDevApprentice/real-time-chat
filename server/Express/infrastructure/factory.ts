@@ -29,7 +29,7 @@ export function createCallbackDbFromEnv(
       }
       Logger.info(`DatabaseFactory using SQLite file: ${file}`);
       const db = createSqliteCallbackDb(file);
-      initializeSchema(db);
+      initializeSchema(db, "sqlite");
       return db;
     }
     case "postgres": {
@@ -51,7 +51,7 @@ export function createCallbackDbFromEnv(
         password,
         ssl,
       });
-      initializeSchema(db);
+      initializeSchema(db, "postgres");
       return db;
     }
     case "mysql": {
@@ -73,7 +73,7 @@ export function createCallbackDbFromEnv(
         password,
         ssl,
       });
-      initializeSchema(db);
+      initializeSchema(db, "mysql");
       return db;
     }
     default:
