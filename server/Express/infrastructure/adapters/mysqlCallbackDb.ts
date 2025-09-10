@@ -47,11 +47,14 @@ export function createMysqlCallbackDb(config: {
     },
     run(sql: string, params: any[] | undefined, cb: RunCb) {
       try {
-        if (Array.isArray(params)) {
-          pool.query(sql, params, (err: any) => cb(err || null));
-        } else {
-          pool.query(sql, (err: any) => cb(err || null));
-        }
+        const handler = (err: any, results?: any) => {
+          if (results && typeof results.insertId !== 'undefined') {
+            try { (cb as any).call({ lastID: results.insertId }, err || null); return; } catch {}
+          }
+          cb(err || null);
+        };
+        if (Array.isArray(params)) pool.query(sql, params, handler);
+        else pool.query(sql, handler);
       } catch (e: any) {
         cb(e instanceof Error ? e : new Error(String(e)));
       }
