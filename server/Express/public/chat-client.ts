@@ -466,7 +466,13 @@ loginForm.addEventListener("submit", function (e) {
       authError.style.display = "block";
       return;
     }
-    currentUser = { id: res.id, name: res.name };
+    const u = res?.user || {};
+    currentUser = { id: u.id, name: u.name };
+    try {
+      const showAuthDebug = (window as any).showAuthDebug as undefined | ((msg?: string) => void);
+      if (!u || !u.id || !u.name) showAuthDebug?.('[DEBUG] Login OK mais user manquant dans la réponse (UI lit res.user.*)');
+      else showAuthDebug?.();
+    } catch {}
     // Stocke le token de session dans un cookie pour les futures requêtes HTTP (REST, etc.)
     if (res.token) {
       document.cookie = `session_token=${res.token}; path=/; SameSite=Lax`;

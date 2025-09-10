@@ -33,9 +33,45 @@ var socket: any =
     const token =
       typeof getCookie === "function" ? getCookie("session_token") : null;
     if (token) {
+      // Helper: small auth debug banner
+      if (!w.showAuthDebug) {
+        w.showAuthDebug = function showAuthDebug(msg?: string) {
+          try {
+            let el = document.getElementById('auth-debug-banner') as HTMLDivElement | null;
+            if (!msg) {
+              if (el) el.remove();
+              return;
+            }
+            if (!el) {
+              el = document.createElement('div');
+              el.id = 'auth-debug-banner';
+              el.style.position = 'fixed';
+              el.style.top = '0';
+              el.style.left = '0';
+              el.style.right = '0';
+              el.style.zIndex = '9999';
+              el.style.background = '#fff3cd';
+              el.style.color = '#856404';
+              el.style.border = '1px solid #ffeeba';
+              el.style.padding = '6px 10px';
+              el.style.fontSize = '12px';
+              el.style.textAlign = 'center';
+              document.body.appendChild(el);
+            }
+            el.textContent = msg;
+          } catch {}
+        };
+      }
+
       socket.emit("authenticate", { token }, (res: any) => {
         if (res && res.success) {
-          w.currentUser = { id: res.id, name: res.name };
+          const u = res.user || {};
+          w.currentUser = { id: u.id, name: u.name };
+          if (!u || !u.id || !u.name) {
+            w.showAuthDebug?.("[DEBUG] Auth OK mais user manquant dans la réponse (UI lit res.user.*)");
+          } else {
+            w.showAuthDebug?.(); // clear
+          }
           if (typeof showAuthPanel === "function") showAuthPanel(false);
           socket.emit("getRooms");
           if (typeof requestFriendList === "function") requestFriendList();
@@ -168,6 +204,108 @@ var socket: any =
     }
   });
 
+  // Ensure a "Load earlier" button exists at the top of the chat window
+  function ensureLoadMoreBtn() {
+    try {
+      const chatWindow = document.getElementById("chat-window") as HTMLElement | null;
+      if (!chatWindow) return;
+      let host = document.getElementById('chat-load-more-host') as HTMLDivElement | null;
+      if (!host) {
+        host = document.createElement('div');
+        host.id = 'chat-load-more-host';
+        host.style.display = 'flex';
+        host.style.justifyContent = 'center';
+        host.style.margin = '8px 0';
+        chatWindow.parentElement?.insertBefore(host, chatWindow); // place above chatWindow
+      }
+      let btn = document.getElementById('btn-load-earlier') as HTMLButtonElement | null;
+      if (!btn) {
+        btn = document.createElement('button');
+        btn.id = 'btn-load-earlier';
+        btn.className = 'icon-btn';
+        btn.textContent = 'Charger les messages précédents';
+        btn.onclick = onLoadMoreClicked;
+        host.appendChild(btn);
+      }
+    } catch {}
+  }
+
+  // Click handler: request older messages using loadRoomHistory
+  function onLoadMoreClicked(ev: MouseEvent) {
+    try { ev.preventDefault(); } catch {}
+    const btn = document.getElementById('btn-load-earlier') as HTMLButtonElement | null;
+    const room = (window as any).selectedRoom;
+    if (!room || !room.id) return;
+    const roomId = String(room.id);
+    const cursor = Number(((window as any).__historyCursorByRoom || {})[roomId] ?? 0) || 0;
+    const size = 50;
+    if (btn) { btn.disabled = true; btn.textContent = 'Chargement…'; }
+    try {
+      socket.emit('loadRoomHistory', { roomId, cursor, size }, (res: any) => {
+        try {
+          const page = (res && res.success) ? res.page : null;
+          const items = page && Array.isArray(page.items) ? page.items : [];
+          if (items.length > 0) prependMessages(items);
+          // Update cursor
+          (window as any).__historyCursorByRoom = (window as any).__historyCursorByRoom || {};
+          (window as any).__historyCursorByRoom[roomId] = cursor + items.length;
+          const hasMore = !!(page && page.nextCursor != null);
+          if (btn) {
+            btn.disabled = !hasMore;
+            btn.textContent = hasMore ? 'Charger les messages précédents' : 'Aucun message supplémentaire';
+          }
+        } finally {
+          try { if (btn && !btn.disabled) btn.blur(); } catch {}
+        }
+      });
+    } catch {
+      if (btn) { btn.disabled = false; btn.textContent = 'Charger les messages précédents'; }
+    }
+  }
+
+  // Prepend an array of MessageDTO into the chat window
+  function prependMessages(msgs: any[]) {
+    try {
+      const chatWindow = document.getElementById('chat-window') as HTMLElement | null;
+      if (!chatWindow || !Array.isArray(msgs) || msgs.length === 0) return;
+      const first = chatWindow.firstChild as Node | null;
+      for (const m of msgs) {
+        const el = buildMsgEl(m);
+        if (first) chatWindow.insertBefore(el, first);
+        else chatWindow.appendChild(el);
+      }
+      // Keep scroll near the previous first item
+      try { chatWindow.scrollTop = 0; } catch {}
+    } catch {}
+  }
+
+  // Minimal message renderer for prepending (aligned with chat-client.ts)
+  function buildMsgEl(msg: any): HTMLElement {
+    const w = window as any;
+    const authorName = msg?.author?.name || '???';
+    const content = String(msg?.content || '');
+    const timestamp = typeof msg?.timestamp === 'number' ? msg.timestamp : Date.now();
+    const isMine = !!(w.currentUser && authorName === w.currentUser.name);
+    const div = document.createElement('div');
+    let classes = 'message';
+    classes += isMine ? ' mine' : '';
+    div.className = classes;
+    if (msg && msg.id != null) {
+      try { (div as any).dataset.messageId = String(msg.id); } catch {}
+    }
+    const time = new Date(timestamp).toLocaleTimeString();
+    const statusText = '';
+    div.innerHTML = `
+      <div class="msg-meta-row">
+        <span class="msg-author">${authorName}</span>
+        <span class="msg-time">${time}</span>
+      </div>
+      <div class="msg-content">${content}</div>
+      ${isMine ? `<span class="msg-status" aria-label="status">${statusText}</span>` : ''}
+    `;
+    return div;
+  }
+
   // --- PARTICIPANTS IN ROOM ---
   socket.on("roomUsers", (payload: any) => {
     if (!w.selectedRoom || !payload || payload.roomId !== w.selectedRoom.id)
@@ -196,6 +334,13 @@ var socket: any =
     (data.messages || []).forEach((m: any) => {
       if (typeof w.renderMsg === "function") w.renderMsg(m);
     });
+    // Pagination support: initialize cursor and show load-more button
+    try {
+      w.__historyCursorByRoom = w.__historyCursorByRoom || {};
+      const count = Array.isArray(data.messages) ? data.messages.length : 0;
+      w.__historyCursorByRoom[data.roomId] = count;
+      ensureLoadMoreBtn();
+    } catch {}
     // Mark as delivered/read upon viewing history
     try {
       const now = Date.now();

@@ -2566,9 +2566,48 @@ window.socket = socket;
     try {
         const token = typeof getCookie === "function" ? getCookie("session_token") : null;
         if (token) {
+            // Helper: small auth debug banner
+            if (!w.showAuthDebug) {
+                w.showAuthDebug = function showAuthDebug(msg) {
+                    try {
+                        let el = document.getElementById('auth-debug-banner');
+                        if (!msg) {
+                            if (el)
+                                el.remove();
+                            return;
+                        }
+                        if (!el) {
+                            el = document.createElement('div');
+                            el.id = 'auth-debug-banner';
+                            el.style.position = 'fixed';
+                            el.style.top = '0';
+                            el.style.left = '0';
+                            el.style.right = '0';
+                            el.style.zIndex = '9999';
+                            el.style.background = '#fff3cd';
+                            el.style.color = '#856404';
+                            el.style.border = '1px solid #ffeeba';
+                            el.style.padding = '6px 10px';
+                            el.style.fontSize = '12px';
+                            el.style.textAlign = 'center';
+                            document.body.appendChild(el);
+                        }
+                        el.textContent = msg;
+                    }
+                    catch { }
+                };
+            }
             socket.emit("authenticate", { token }, (res) => {
+                var _a, _b;
                 if (res && res.success) {
-                    w.currentUser = { id: res.id, name: res.name };
+                    const u = res.user || {};
+                    w.currentUser = { id: u.id, name: u.name };
+                    if (!u || !u.id || !u.name) {
+                        (_a = w.showAuthDebug) === null || _a === void 0 ? void 0 : _a.call(w, "[DEBUG] Auth OK mais user manquant dans la réponse (UI lit res.user.*)");
+                    }
+                    else {
+                        (_b = w.showAuthDebug) === null || _b === void 0 ? void 0 : _b.call(w); // clear
+                    }
                     if (typeof showAuthPanel === "function")
                         showAuthPanel(false);
                     socket.emit("getRooms");
@@ -2709,6 +2748,136 @@ window.socket = socket;
             catch { }
         }
     });
+    // Ensure a "Load earlier" button exists at the top of the chat window
+    function ensureLoadMoreBtn() {
+        var _a;
+        try {
+            const chatWindow = document.getElementById("chat-window");
+            if (!chatWindow)
+                return;
+            let host = document.getElementById('chat-load-more-host');
+            if (!host) {
+                host = document.createElement('div');
+                host.id = 'chat-load-more-host';
+                host.style.display = 'flex';
+                host.style.justifyContent = 'center';
+                host.style.margin = '8px 0';
+                (_a = chatWindow.parentElement) === null || _a === void 0 ? void 0 : _a.insertBefore(host, chatWindow); // place above chatWindow
+            }
+            let btn = document.getElementById('btn-load-earlier');
+            if (!btn) {
+                btn = document.createElement('button');
+                btn.id = 'btn-load-earlier';
+                btn.className = 'icon-btn';
+                btn.textContent = 'Charger les messages précédents';
+                btn.onclick = onLoadMoreClicked;
+                host.appendChild(btn);
+            }
+        }
+        catch { }
+    }
+    // Click handler: request older messages using loadRoomHistory
+    function onLoadMoreClicked(ev) {
+        var _a;
+        try {
+            ev.preventDefault();
+        }
+        catch { }
+        const btn = document.getElementById('btn-load-earlier');
+        const room = window.selectedRoom;
+        if (!room || !room.id)
+            return;
+        const roomId = String(room.id);
+        const cursor = Number((_a = (window.__historyCursorByRoom || {})[roomId]) !== null && _a !== void 0 ? _a : 0) || 0;
+        const size = 50;
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Chargement…';
+        }
+        try {
+            socket.emit('loadRoomHistory', { roomId, cursor, size }, (res) => {
+                try {
+                    const page = (res && res.success) ? res.page : null;
+                    const items = page && Array.isArray(page.items) ? page.items : [];
+                    if (items.length > 0)
+                        prependMessages(items);
+                    // Update cursor
+                    window.__historyCursorByRoom = window.__historyCursorByRoom || {};
+                    window.__historyCursorByRoom[roomId] = cursor + items.length;
+                    const hasMore = !!(page && page.nextCursor != null);
+                    if (btn) {
+                        btn.disabled = !hasMore;
+                        btn.textContent = hasMore ? 'Charger les messages précédents' : 'Aucun message supplémentaire';
+                    }
+                }
+                finally {
+                    try {
+                        if (btn && !btn.disabled)
+                            btn.blur();
+                    }
+                    catch { }
+                }
+            });
+        }
+        catch {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Charger les messages précédents';
+            }
+        }
+    }
+    // Prepend an array of MessageDTO into the chat window
+    function prependMessages(msgs) {
+        try {
+            const chatWindow = document.getElementById('chat-window');
+            if (!chatWindow || !Array.isArray(msgs) || msgs.length === 0)
+                return;
+            const first = chatWindow.firstChild;
+            for (const m of msgs) {
+                const el = buildMsgEl(m);
+                if (first)
+                    chatWindow.insertBefore(el, first);
+                else
+                    chatWindow.appendChild(el);
+            }
+            // Keep scroll near the previous first item
+            try {
+                chatWindow.scrollTop = 0;
+            }
+            catch { }
+        }
+        catch { }
+    }
+    // Minimal message renderer for prepending (aligned with chat-client.ts)
+    function buildMsgEl(msg) {
+        var _a;
+        const w = window;
+        const authorName = ((_a = msg === null || msg === void 0 ? void 0 : msg.author) === null || _a === void 0 ? void 0 : _a.name) || '???';
+        const content = String((msg === null || msg === void 0 ? void 0 : msg.content) || '');
+        const timestamp = typeof (msg === null || msg === void 0 ? void 0 : msg.timestamp) === 'number' ? msg.timestamp : Date.now();
+        const isMine = !!(w.currentUser && authorName === w.currentUser.name);
+        const div = document.createElement('div');
+        let classes = 'message';
+        classes += isMine ? ' mine' : '';
+        div.className = classes;
+        if (msg && msg.id != null) {
+            try {
+                div.dataset.messageId = String(msg.id);
+            }
+            catch { }
+        }
+        const time = new Date(timestamp).toLocaleTimeString();
+        const statusText = '';
+        div.innerHTML = `
+      <div class="msg-meta-row">
+        <span class="msg-author">${authorName}</span>
+        <span class="msg-time">${time}</span>
+      </div>
+      <div class="msg-content">${content}</div>
+      ${isMine ? `<span class="msg-status" aria-label="status">${statusText}</span>` : ''}
+    `;
+        return div;
+    }
     // --- PARTICIPANTS IN ROOM ---
     socket.on("roomUsers", (payload) => {
         if (!w.selectedRoom || !payload || payload.roomId !== w.selectedRoom.id)
@@ -2736,6 +2905,14 @@ window.socket = socket;
             if (typeof w.renderMsg === "function")
                 w.renderMsg(m);
         });
+        // Pagination support: initialize cursor and show load-more button
+        try {
+            w.__historyCursorByRoom = w.__historyCursorByRoom || {};
+            const count = Array.isArray(data.messages) ? data.messages.length : 0;
+            w.__historyCursorByRoom[data.roomId] = count;
+            ensureLoadMoreBtn();
+        }
+        catch { }
         // Mark as delivered/read upon viewing history
         try {
             const now = Date.now();
@@ -4863,7 +5040,16 @@ loginForm.addEventListener("submit", function (e) {
             authError.style.display = "block";
             return;
         }
-        currentUser = { id: res.id, name: res.name };
+        const u = (res === null || res === void 0 ? void 0 : res.user) || {};
+        currentUser = { id: u.id, name: u.name };
+        try {
+            const showAuthDebug = window.showAuthDebug;
+            if (!u || !u.id || !u.name)
+                showAuthDebug === null || showAuthDebug === void 0 ? void 0 : showAuthDebug('[DEBUG] Login OK mais user manquant dans la réponse (UI lit res.user.*)');
+            else
+                showAuthDebug === null || showAuthDebug === void 0 ? void 0 : showAuthDebug();
+        }
+        catch { }
         // Stocke le token de session dans un cookie pour les futures requêtes HTTP (REST, etc.)
         if (res.token) {
             document.cookie = `session_token=${res.token}; path=/; SameSite=Lax`;
