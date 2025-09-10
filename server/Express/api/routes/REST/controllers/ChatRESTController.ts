@@ -11,6 +11,7 @@ import { RoomIdParamsSchema, InviteCreateBodySchema, MessageIdParamsSchema, Mess
 import { getServices } from "../../../di/container";
 import { K, TTL, incrWithTtl, jsonGet } from "../../../cache/cacheKeys";
 import { Message, User } from "../../../../domain/entities";
+import { mapUserToDTO, mapRoomToDTO, mapMessageToDTO } from "../../../../domain/dto";
 import { randomUUID } from "crypto";
 // Note: invites use Redis-only tokens (no cross-instance signing)
 
@@ -121,7 +122,7 @@ router.get(
   asyncHandlerRESTMiddleware(async (req: AuthenticatedRequest, res: Response) => {
     const { roomService } = getServices();
     const rooms = await roomService.getRooms();
-    res.json(rooms.map((r) => r.toJSON()));
+    res.json(rooms.map((r) => mapRoomToDTO(r)));
   })
 );
 
@@ -164,7 +165,7 @@ router.get(
     } catch {}
 
     const users = await userService.searchUsersByName(q, lim);
-    const payload = users.map((u: User) => u.toJSON());
+    const payload = users.map((u: User) => mapUserToDTO(u));
     try {
       await redisService?.set?.(key, JSON.stringify(payload), { EX: TTL.searchShort });
     } catch {}
@@ -182,7 +183,7 @@ router.get(
     const { messageService } = getServices();
     const { roomId } = req.params;
     const messages = await messageService.getMessagesForRoom(roomId);
-    res.json(messages.map((m: Message) => m.toJSON()));
+    res.json(messages.map((m: Message) => mapMessageToDTO(m)));
   })
 );
 
@@ -195,7 +196,7 @@ router.get(
     const { roomService } = getServices();
     const { roomId } = req.params;
     const users = await roomService.getUsersForRoom(roomId);
-    res.json(users.map((u: User) => u.toJSON()));
+    res.json(users.map((u: User) => mapUserToDTO(u)));
   })
 );
 

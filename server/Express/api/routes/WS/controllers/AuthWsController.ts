@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { WsContext } from "../router/WsContext";
 import { User, UserSession } from "../../../../domain/entities";
 import { Logger } from "../../../../utils/LoggerUtil";
+import { mapSessionToDTO, mapUserToDTO } from "../../../../domain/dto";
 
 export class AuthWsController {
   // authenticate via token (auto-login)
@@ -20,7 +21,14 @@ export class AuthWsController {
       const counts = await messageService.getUnreadCountsForUser(session.user.id);
       ctx.socket.emit("unreadCounts", { counts });
     } catch {}
-    return { success: true, id: session.user.id, name: session.user.name };
+    return {
+      success: true,
+      // New DTO field
+      user: mapUserToDTO(session.user),
+      // Backward-compat fields
+      id: session.user.id,
+      name: session.user.name,
+    };
   }
 
   // login
@@ -57,10 +65,14 @@ export class AuthWsController {
     await authService.addUserSession(session);
 
     return {
-      id: user.id,
-      name: user.name,
+      // New DTO fields
+      user: mapUserToDTO(user),
       token: sessionToken,
       refreshToken,
+      expiresAt,
+      // Backward-compat fields
+      id: user.id,
+      name: user.name,
       refreshTokenExpiresAt,
     };
   }
@@ -95,10 +107,14 @@ export class AuthWsController {
     );
     await authService.addUserSession(newSession);
     return {
-      id: session.userId,
-      name: session.user?.name,
+      // New DTO fields
+      user: session.user ? mapUserToDTO(session.user) : undefined,
       token: newToken,
       refreshToken: newRefreshToken,
+      expiresAt: newExpiresAt,
+      // Backward-compat fields
+      id: session.userId,
+      name: session.user?.name,
       refreshTokenExpiresAt: newRefreshTokenExpiresAt,
     };
   }
@@ -124,7 +140,7 @@ export class AuthWsController {
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const sessions = await authService.getUserSessionsByUserId(userId);
-    return { success: true, sessions: sessions.map((s: UserSession) => s.toJSON()) };
+    return { success: true, sessions: sessions.map((s: UserSession) => mapSessionToDTO(s)) };
   }
 
   async revokeSession(ctx: WsContext<{ token: string }>) {

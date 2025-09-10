@@ -1,6 +1,7 @@
 import { WsContext } from "../router/WsContext";
 import { Room, Message, User } from "../../../../domain/entities";
 import { K, TTL } from "../../../cache/cacheKeys";
+import { mapRoomToDTO, mapUserToDTO, mapMessageToDTO } from "../../../../domain/dto";
 
 export class RoomsWsController {
   async createRoom(
@@ -63,10 +64,7 @@ export class RoomsWsController {
       const uid = (s.data as any)?.userId as string | undefined;
       if (!uid) continue;
       const vis = await roomService.getVisibleRoomsForUser(uid);
-      s.emit(
-        "rooms",
-        vis.map((r: Room) => r.toJSON())
-      );
+      s.emit("rooms", vis.map((r: Room) => mapRoomToDTO(r)));
     }
     return { success: true };
   }
@@ -90,7 +88,7 @@ export class RoomsWsController {
 
     if (!roomsJson) {
       const rooms = await roomService.getVisibleRoomsForUser(userId);
-      roomsJson = rooms.map((r: Room) => r.toJSON());
+      roomsJson = rooms.map((r: Room) => mapRoomToDTO(r));
       // Extra safety: enforce private visibility server-side
       try {
         roomsJson = (roomsJson || []).filter((r: any) => {
@@ -181,7 +179,7 @@ export class RoomsWsController {
     } catch {}
     if (!historyJson) {
       const messages = await messageService.getMessagesForRoom(roomId);
-      historyJson = messages.map((m: Message) => m.toJSON());
+      historyJson = messages.map((m: Message) => mapMessageToDTO(m));
       try {
         await redisService?.set?.(historyKey, JSON.stringify(historyJson), { EX: 60 });
       } catch {}
@@ -191,7 +189,7 @@ export class RoomsWsController {
     const users = await roomService.getUsersForRoom(roomId);
     ctx.io
       .to(roomId)
-      .emit("roomUsers", { roomId, users: users.map((u: User) => u.toJSON()) });
+      .emit("roomUsers", { roomId, users: users.map((u: User) => mapUserToDTO(u)) });
 
     return { success: true };
   }
@@ -278,7 +276,7 @@ export class RoomsWsController {
     const sliced = all
       .sort((a: Message, b: Message) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
       .slice(cursor, cursor + size)
-      .map((m: Message) => m.toJSON());
+      .map((m: Message) => mapMessageToDTO(m));
     try { await redisService.set(pageKey, JSON.stringify(sliced), { EX: TTL.roomHistoryPage }); } catch {}
     return { success: true, roomId, cursor, size, ver, messages: sliced };
   }
@@ -294,7 +292,7 @@ export class RoomsWsController {
       const roomIds: string[] = Array.isArray(items) ? items.map((x: any) => x.value ?? x) : [];
       // Optional: fetch basic room data to return names
       const rooms = await Promise.all(roomIds.map((rid) => roomService.getRoomById(rid)));
-      return { success: true, items: rooms.filter(Boolean).map((r: any) => r.toJSON()) };
+      return { success: true, items: rooms.filter(Boolean).map((r: Room) => mapRoomToDTO(r as Room)) };
     } catch {
       return { success: true, items: [] };
     }
@@ -318,7 +316,7 @@ export class RoomsWsController {
     try {
       const all = await messageService.getMessagesForRoom(roomId);
       const last = all.sort((a: Message,b: Message)=> (a.timestamp??0)-(b.timestamp??0)).at(-1);
-      if (last) return { success: true, roomId, message: last.toJSON() };
+      if (last) return { success: true, roomId, message: mapMessageToDTO(last) };
     } catch {}
     return { success: true, roomId, message: null };
   }

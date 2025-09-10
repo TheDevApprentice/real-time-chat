@@ -2,6 +2,7 @@ import { WsContext } from "../router/WsContext";
 import { Message, User } from "../../../../domain/entities";
 import { sanitizeText } from "../../../../utils/TextUtil";
 import { K, TTL, incrWithTtl, Channels, jsonSet, jsonGet } from "../../../cache/cacheKeys";
+import { mapMessageToDTO } from "../../../../domain/dto";
 import path from "path";
 import { randomUUID } from "crypto";
 
@@ -119,7 +120,7 @@ export class MessagesWsController {
       // Bump history version so any paginated caches can be considered stale
       try { await redisService.incrBy(K.historyVer(roomId), 1); } catch {}
       // Cache last message for the room (short TTL)
-      try { await redisService.set(K.roomLastMessage(roomId), JSON.stringify(msgObj.toJSON()), { EX: TTL.roomHistoryPage }); } catch {}
+      try { await redisService.set(K.roomLastMessage(roomId), JSON.stringify(mapMessageToDTO(msgObj)), { EX: TTL.roomHistoryPage }); } catch {}
       // Mark room as active in a ZSET scored by timestamp
       try { await redisService.zAdd(K.roomsActiveZ(), Date.now(), roomId); } catch {}
       // Increment message counters (hour/day buckets) with retention
@@ -134,7 +135,7 @@ export class MessagesWsController {
       // Leaderboard: active users (increment by 1 per message)
       try { await redisService.zIncrBy(K.lbActiveUsers(), 1, userId); } catch {}
       // Publish light-weight event for internal consumers
-      try { await redisService.publish(Channels.messageCreated, JSON.stringify({ roomId, message: msgObj.toJSON() })); } catch {}
+      try { await redisService.publish(Channels.messageCreated, JSON.stringify({ roomId, message: mapMessageToDTO(msgObj) })); } catch {}
     } catch {}
 
     // Emit to all sockets of room members (not only joined sockets)
@@ -145,7 +146,7 @@ export class MessagesWsController {
       for (const s of sockets) {
         const uid = (s.data as any)?.userId as string | undefined;
         if (uid && memberIds.has(uid)) {
-          s.emit("message", { roomId, message: msgObj.toJSON() });
+          s.emit("message", { roomId, message: mapMessageToDTO(msgObj) });
         }
       }
       // Invalidate room history cache
@@ -158,13 +159,13 @@ export class MessagesWsController {
         await (redisService?.del?.(keysToDel) ?? Promise.resolve(0));
       } catch {}
     } catch {
-      ctx.io.to(roomId).emit("message", { roomId, message: msgObj.toJSON() });
+      ctx.io.to(roomId).emit("message", { roomId, message: mapMessageToDTO(msgObj) });
     }
 
     return {
       success: true,
       finalUrls: (safeContent || '').split('\n').filter(u => /^https?:\/\//.test(u)),
-      message: msgObj.toJSON?.() ?? undefined,
+      message: mapMessageToDTO(msgObj),
       normalizedKeys,
       copyFailed,
     };

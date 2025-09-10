@@ -1,6 +1,7 @@
 import { AuthenticatedRequest, authRESTMiddleware } from "../middleware/authRESTMiddleware";
 import { Router, Request, Response } from "express";
 import { User } from "../../../../domain/entities/User";
+import { mapUserToDTO, mapSessionToDTO } from "../../../../domain/dto";
 import { rateLimitRedisRESTMiddleware } from "../middleware/rateLimitRedisRESTMiddleware";
 import { TTL } from "../../../cache/cacheKeys";
 import { asyncHandlerRESTMiddleware } from "../middleware/asyncHandlerRESTMiddleware";
@@ -22,7 +23,7 @@ router.get(
   asyncHandlerRESTMiddleware(async (_req: Request, res: Response) => {
     const { userService } = getServices();
     const users: User[] = await userService.getUsers();
-    res.json(users.map((u: User) => u.toJSON()));
+    res.json(users.map((u: User) => mapUserToDTO(u)));
   })
 );
 
@@ -35,7 +36,7 @@ router.get(
     const { authService } = getServices();
     if (!req.user) return res.status(401).json({ error: "Not authenticated." });
     const sessions = await authService.getUserSessionsByUserId(req.user.id);
-    res.json(sessions.map((s) => s.toJSON()));
+    res.json(sessions.map((s) => mapSessionToDTO(s)));
   })
 );
 
@@ -53,7 +54,7 @@ router.get(
     const { authService } = getServices();
     const session = await authService.getUserSessionByToken(req.params.token);
     if (!session) return res.status(404).json({ error: "Session not found." });
-    res.json(session.toJSON());
+    res.json(mapSessionToDTO(session));
   })
 );
 

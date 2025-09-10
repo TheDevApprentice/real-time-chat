@@ -1,5 +1,6 @@
 import { WsContext } from "../router/WsContext";
 import { K } from "../../../cache/cacheKeys";
+import type { FriendDTO } from "../../../../domain/dto";
 
 export class FriendsWsController {
   async friendRequest(ctx: WsContext<{ targetUserId: string }>) {
@@ -25,10 +26,10 @@ export class FriendsWsController {
     const sockets = await ctx.io.fetchSockets();
     for (const s of sockets) {
       if ((s.data as any)?.userId === targetUserId) {
-        s.emit("friendUpdated", { type: "request", data: fr });
+        s.emit("friendUpdated", { type: "request", data: fr as FriendDTO });
       }
     }
-    return { success: true, request: fr };
+    return { success: true, request: fr as FriendDTO };
   }
 
   async friendRespond(
@@ -56,10 +57,10 @@ export class FriendsWsController {
     for (const s of sockets) {
       const uid = (s.data as any)?.userId as string | undefined;
       if (uid === userId || uid === otherUserId) {
-        s.emit("friendUpdated", { type: "respond", data: res, action });
+        s.emit("friendUpdated", { type: "respond", data: res as FriendDTO, action });
       }
     }
-    return { success: true, result: res };
+    return { success: true, result: res as FriendDTO };
   }
 
   async friendList(ctx: WsContext) {
