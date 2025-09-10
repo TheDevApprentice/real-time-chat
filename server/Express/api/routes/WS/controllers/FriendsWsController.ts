@@ -1,9 +1,9 @@
 import { WsContext } from "../router/WsContext";
 import { K } from "../../../cache/cacheKeys";
-import type { FriendDTO } from "../../../../domain/dto";
+import type { FriendDTO, FriendListItemDTO, FriendRequestDTO, FriendRespondDTO } from "../../../../domain/dto";
 
 export class FriendsWsController {
-  async friendRequest(ctx: WsContext<{ targetUserId: string }>) {
+  async friendRequest(ctx: WsContext<FriendRequestDTO>) {
     const { friendService } = ctx.services;
     const { redisService } = ctx.services as any;
     const requesterId = (ctx.socket.data as any)?.userId as string | undefined;
@@ -33,7 +33,7 @@ export class FriendsWsController {
   }
 
   async friendRespond(
-    ctx: WsContext<{ otherUserId: string; action: "accept" | "reject" }>
+    ctx: WsContext<FriendRespondDTO>
   ) {
     const { friendService } = ctx.services;
     const { redisService } = ctx.services as any;
@@ -72,7 +72,7 @@ export class FriendsWsController {
     try {
       const cached = await redisService?.get?.(key);
       if (cached) {
-        const items = JSON.parse(cached);
+        const items = JSON.parse(cached) as FriendListItemDTO[];
         try { await redisService.incrBy(K.statsHit('friendsList')); } catch {}
         return { success: true, items };
       } else {
@@ -83,6 +83,6 @@ export class FriendsWsController {
     try {
       await redisService?.set?.(key, JSON.stringify(list), { EX: 300 });
     } catch {}
-    return { success: true, items: list };
+    return { success: true, items: list as FriendListItemDTO[] };
   }
 }

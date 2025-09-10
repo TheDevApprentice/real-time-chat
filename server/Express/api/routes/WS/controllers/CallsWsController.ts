@@ -1,5 +1,6 @@
 import type { WsContext } from "../router/WsContext";
 import { K, TTL, jsonGet, jsonSet, delMany } from "../../../cache/cacheKeys";
+import type { CallRequestDTO, CallAcceptDTO, CallDeclineDTO, CallCancelDTO, CallOfferDTO, CallAnswerDTO, CallIceCandidateDTO, CallHangupDTO } from "../../../../domain/dto";
 
 function genId(): string {
   // Lightweight UUID-ish id (not for crypto) e.g. ab12cd34-... length ~ 24
@@ -17,13 +18,15 @@ interface CallSession {
 
 export class CallsWsController {
   async callRequest(
-    ctx: WsContext<{ targetUserId: string; media: "audio" | "video"; roomId?: string }>
+    ctx: WsContext<CallRequestDTO & { targetUserId?: string; roomId?: string }>
   ) {
     const { socket, io, services } = ctx;
     const callerId = (socket.data as any)?.userId as string | undefined;
     if (!callerId) return { success: false, error: "Not authenticated." };
 
-    const { targetUserId, media } = (ctx.payload || {}) as any;
+    const payload = (ctx.payload || {}) as any;
+    const targetUserId = payload.targetUserId || payload.calleeId;
+    const media = payload.media as "audio" | "video";
     if (!targetUserId || (media !== "audio" && media !== "video")) {
       return { success: false, error: "Invalid payload." };
     }
@@ -103,7 +106,7 @@ export class CallsWsController {
     return { success: true, callId };
   }
 
-  async callAccept(ctx: WsContext<{ callId: string }>) {
+  async callAccept(ctx: WsContext<CallAcceptDTO>) {
     const { socket, io, services } = ctx;
     const uid = (socket.data as any)?.userId as string | undefined;
     if (!uid) return { success: false, error: "Not authenticated." };
@@ -130,7 +133,7 @@ export class CallsWsController {
     return { success: true };
   }
 
-  async callHangup(ctx: WsContext<{ callId: string }>) {
+  async callHangup(ctx: WsContext<CallHangupDTO>) {
     const { socket, io, services } = ctx;
     const uid = (socket.data as any)?.userId as string | undefined;
     if (!uid) return { success: false, error: "Not authenticated." };
@@ -154,7 +157,7 @@ export class CallsWsController {
     return { success: true };
   }
 
-  async callDecline(ctx: WsContext<{ callId: string; reason?: string }>) {
+  async callDecline(ctx: WsContext<CallDeclineDTO>) {
     const { socket, io, services } = ctx;
     const uid = (socket.data as any)?.userId as string | undefined;
     if (!uid) return { success: false, error: "Not authenticated." };
@@ -182,7 +185,7 @@ export class CallsWsController {
     return { success: true };
   }
 
-  async callCancel(ctx: WsContext<{ callId: string }>) {
+  async callCancel(ctx: WsContext<CallCancelDTO>) {
     const { socket, io, services } = ctx;
     const uid = (socket.data as any)?.userId as string | undefined;
     if (!uid) return { success: false, error: "Not authenticated." };
@@ -209,7 +212,7 @@ export class CallsWsController {
     return { success: true };
   }
 
-  async callOffer(ctx: WsContext<{ callId: string; sdp: string }>) {
+  async callOffer(ctx: WsContext<CallOfferDTO>) {
     const { socket, io, services } = ctx;
     const uid = (socket.data as any)?.userId as string | undefined;
     if (!uid) return { success: false, error: "Not authenticated." };
@@ -227,7 +230,7 @@ export class CallsWsController {
     return { success: true };
   }
 
-  async callAnswer(ctx: WsContext<{ callId: string; sdp: string }>) {
+  async callAnswer(ctx: WsContext<CallAnswerDTO>) {
     const { socket, io, services } = ctx;
     const uid = (socket.data as any)?.userId as string | undefined;
     if (!uid) return { success: false, error: "Not authenticated." };
@@ -245,7 +248,7 @@ export class CallsWsController {
     return { success: true };
   }
 
-  async callIceCandidate(ctx: WsContext<{ callId: string; candidate: string }>) {
+  async callIceCandidate(ctx: WsContext<CallIceCandidateDTO>) {
     const { socket, io, services } = ctx;
     const uid = (socket.data as any)?.userId as string | undefined;
     if (!uid) return { success: false, error: "Not authenticated." };

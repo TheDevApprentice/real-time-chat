@@ -2,6 +2,7 @@ import { WsContext } from "../router/WsContext";
 import { Room, Message, User } from "../../../../domain/entities";
 import { K, TTL } from "../../../cache/cacheKeys";
 import { mapRoomToDTO, mapUserToDTO, mapMessageToDTO } from "../../../../domain/dto";
+import type { RoomHistoryQueryDTO, PageDTO } from "../../../../domain/dto";
 
 export class RoomsWsController {
   async createRoom(
@@ -234,7 +235,7 @@ export class RoomsWsController {
   }
 
   // Paginated history loader with versioned cache pages
-  async loadRoomHistory(ctx: WsContext<{ roomId: string; cursor?: number; size?: number }>) {
+  async loadRoomHistory(ctx: WsContext<RoomHistoryQueryDTO>) {
     const { messageService, roomService, redisService } = ctx.services as any;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
@@ -257,7 +258,8 @@ export class RoomsWsController {
       if (cached) {
         const data = JSON.parse(cached);
         try { await redisService.incrBy(K.statsHit('roomHistoryPage')); } catch {}
-        return { success: true, roomId, cursor, size, ver, messages: data };
+        const page: PageDTO<ReturnType<typeof mapMessageToDTO>> = { items: data, nextCursor: undefined };
+        return { success: true, roomId, cursor, size, ver, messages: data, nextCursor: undefined, page };
       } else {
         try { await redisService.incrBy(K.statsMiss('roomHistoryPage')); } catch {}
       }
@@ -278,7 +280,9 @@ export class RoomsWsController {
       .slice(cursor, cursor + size)
       .map((m: Message) => mapMessageToDTO(m));
     try { await redisService.set(pageKey, JSON.stringify(sliced), { EX: TTL.roomHistoryPage }); } catch {}
-    return { success: true, roomId, cursor, size, ver, messages: sliced };
+    const nextCursor = cursor + size < all.length ? cursor + size : undefined;
+    const page: PageDTO<ReturnType<typeof mapMessageToDTO>> = { items: sliced, nextCursor };
+    return { success: true, roomId, cursor, size, ver, messages: sliced, nextCursor, page };
   }
 
   // Top active rooms (by recent activity timestamp)

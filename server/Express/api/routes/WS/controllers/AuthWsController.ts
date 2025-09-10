@@ -4,6 +4,7 @@ import { WsContext } from "../router/WsContext";
 import { User, UserSession } from "../../../../domain/entities";
 import { Logger } from "../../../../utils/LoggerUtil";
 import { mapSessionToDTO, mapUserToDTO } from "../../../../domain/dto";
+import type { LoginRequestDTO, RefreshTokenRequestDTO } from "../../../../domain/dto";
 
 export class AuthWsController {
   // authenticate via token (auto-login)
@@ -32,7 +33,7 @@ export class AuthWsController {
   }
 
   // login
-  async login(ctx: WsContext<{ username: string; password: string }>) {
+  async login(ctx: WsContext<LoginRequestDTO>) {
     const { userService, authService } = ctx.services;
     const { username, password } = ctx.payload!;
 
@@ -78,7 +79,7 @@ export class AuthWsController {
   }
 
   // refresh token
-  async refreshToken(ctx: WsContext<{ refreshToken: string }>) {
+  async refreshToken(ctx: WsContext<RefreshTokenRequestDTO>) {
     const { authService } = ctx.services;
     const { refreshToken } = ctx.payload!;
     const session = await authService.getUserSessionByRefreshToken(refreshToken);

@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { Router, Request, Response } from "express";
 import { User } from "../../../../domain/entities/User";
+import { mapUserToDTO } from "../../../../domain/dto";
 import { getServices } from "../../../di/container";
 
 import { bruteForceRedisRESTMiddleware } from "../middleware/bruteForceRedisRESTMiddleware";
@@ -41,7 +42,8 @@ router.post(
     const hashed = await bcrypt.hash(password, isNaN(cost) ? 12 : cost);
     const newUser = new User(randomUUID(), username, hashed);
     await userService.addUser(newUser);
-    res.status(201).json({ id: newUser.id, name: newUser.name });
+    // Return both DTO and legacy fields for compatibility
+    res.status(201).json({ user: mapUserToDTO(newUser), id: newUser.id, name: newUser.name });
   })
 );
 
@@ -96,7 +98,8 @@ router.get(
     try {
       if (!req.user)
         return res.status(401).json({ error: "Not authenticated." });
-      return res.json({ id: req.user.id, name: req.user.name });
+      // Return both DTO and legacy fields for compatibility
+      return res.json({ user: mapUserToDTO(req.user as any), id: req.user.id, name: req.user.name });
     } catch (err) {
       return res.status(500).json({ error: "Failed to resolve current user." });
     }
@@ -163,11 +166,14 @@ router.post(
         path: "/",
       });
     }
+    // Return both DTO and legacy fields for compatibility
     res.json({
+      user: session.user ? mapUserToDTO(session.user) : undefined,
       id: session.userId,
       name: session.user?.name,
       refreshToken: newRefreshToken,
       refreshTokenExpiresAt: newRefreshTokenExpiresAt,
+      expiresAt: newExpiresAt,
     });
   })
 );

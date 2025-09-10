@@ -5,10 +5,11 @@ import { K, TTL, incrWithTtl, Channels, jsonSet, jsonGet } from "../../../cache/
 import { mapMessageToDTO } from "../../../../domain/dto";
 import path from "path";
 import { randomUUID } from "crypto";
+import type { CreateMessageDTO, EditMessageDTO, DeleteMessageDTO, MessageDeliveryReceiptDTO, MessageReadReceiptDTO } from "../../../../domain/dto";
 
 export class MessagesWsController {
   async sendMessageToRoom(
-    ctx: WsContext<{ roomId: string; content?: string; timestamp?: number; clientMsgId?: string; attachments?: string[] }>
+    ctx: WsContext<CreateMessageDTO & { timestamp?: number; attachments?: string[] }>
   ) {
     const { userService, messageService, roomService } = ctx.services;
     const { redisService, s3Service } = ctx.services as any;
@@ -172,7 +173,7 @@ export class MessagesWsController {
   }
 
   async messageDelivered(
-    ctx: WsContext<{ messageId: number; roomId: string; timestamp?: number }>
+    ctx: WsContext<MessageDeliveryReceiptDTO & { timestamp?: number }>
   ) {
     const { messageService, roomService } = ctx.services;
     const { redisService } = ctx.services as any;
@@ -215,7 +216,7 @@ export class MessagesWsController {
   }
 
   async messageRead(
-    ctx: WsContext<{ messageId: number; roomId: string; timestamp?: number }>
+    ctx: WsContext<MessageReadReceiptDTO & { timestamp?: number }>
   ) {
     const {   messageService, roomService } = ctx.services;
     const { redisService } = ctx.services as any;
@@ -265,7 +266,7 @@ export class MessagesWsController {
   }
 
   async messageEdit(
-    ctx: WsContext<{ roomId: string; messageId: number; newContent: string }>
+    ctx: WsContext<EditMessageDTO>
   ) {
     const { messageService, roomService, redisService } = ctx.services as any;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
@@ -295,7 +296,7 @@ export class MessagesWsController {
   }
 
   async messageDelete(
-    ctx: WsContext<{ roomId: string; messageId: number }>
+    ctx: WsContext<DeleteMessageDTO>
   ) {
     const { messageService, roomService, redisService } = ctx.services as any;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
@@ -327,7 +328,7 @@ export class MessagesWsController {
   }
 
   async messageUndo(
-    ctx: WsContext<{ roomId: string; messageId: number }>
+    ctx: WsContext<DeleteMessageDTO>
   ) {
     const { messageService, redisService } = ctx.services as any;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
@@ -345,7 +346,7 @@ export class MessagesWsController {
   }
 
   async getUndoTTL(
-    ctx: WsContext<{ roomId: string; messageId: number }>
+    ctx: WsContext<DeleteMessageDTO>
   ) {
     const { redisService } = ctx.services as any;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
