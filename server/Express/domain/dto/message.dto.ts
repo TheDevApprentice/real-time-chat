@@ -15,27 +15,27 @@ export interface MessageDTO {
 
 export interface CreateMessageDTO {
   roomId: string;
-  content: string;
+  content?: string;
   clientMsgId?: string;
 }
 
 export interface EditMessageDTO {
   roomId: string;
-  messageId: string;
-  content: string;
+  messageId: number;
+  newContent: string;
 }
 
 export interface DeleteMessageDTO {
   roomId: string;
-  messageId: string;
+  messageId: number;
 }
 
 export interface MessageDeliveryReceiptDTO {
   roomId: string;
-  messageId: string;
+  messageId: number;
 }
 
 export interface MessageReadReceiptDTO {
   roomId: string;
-  messageId: string;
+  messageId: number;
 }

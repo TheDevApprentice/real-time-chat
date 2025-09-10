@@ -11,10 +11,18 @@ export interface FriendDTO {
 }
 
 export interface FriendRequestDTO {
-  toUserId: string;
+  targetUserId: string;
 }
 
 export interface FriendRespondDTO {
-  requestId: string;
-  action: "accept" | "decline";
+  otherUserId: string;
+  action: "accept" | "reject";
+}
+
+export interface FriendListItemDTO {
+  id: string;
+  userId: string;
+  name: string;
+  status: "pending" | "accepted";
+  isRequester: boolean;
 }
