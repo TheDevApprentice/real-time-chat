@@ -42,8 +42,7 @@ router.post(
     const hashed = await bcrypt.hash(password, isNaN(cost) ? 12 : cost);
     const newUser = new User(randomUUID(), username, hashed);
     await userService.addUser(newUser);
-    // Return both DTO and legacy fields for compatibility
-    res.status(201).json({ user: mapUserToDTO(newUser), id: newUser.id, name: newUser.name });
+    res.status(201).json({ user: mapUserToDTO(newUser) });
   })
 );
 
@@ -98,8 +97,7 @@ router.get(
     try {
       if (!req.user)
         return res.status(401).json({ error: "Not authenticated." });
-      // Return both DTO and legacy fields for compatibility
-      return res.json({ user: mapUserToDTO(req.user as any), id: req.user.id, name: req.user.name });
+      return res.json({ user: mapUserToDTO(req.user as any) });
     } catch (err) {
       return res.status(500).json({ error: "Failed to resolve current user." });
     }
@@ -166,11 +164,8 @@ router.post(
         path: "/",
       });
     }
-    // Return both DTO and legacy fields for compatibility
     res.json({
       user: session.user ? mapUserToDTO(session.user) : undefined,
-      id: session.userId,
-      name: session.user?.name,
       refreshToken: newRefreshToken,
       refreshTokenExpiresAt: newRefreshTokenExpiresAt,
       expiresAt: newExpiresAt,

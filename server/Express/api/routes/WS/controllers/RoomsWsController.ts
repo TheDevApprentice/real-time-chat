@@ -259,7 +259,7 @@ export class RoomsWsController {
         const data = JSON.parse(cached);
         try { await redisService.incrBy(K.statsHit('roomHistoryPage')); } catch {}
         const page: PageDTO<ReturnType<typeof mapMessageToDTO>> = { items: data, nextCursor: undefined };
-        return { success: true, roomId, cursor, size, ver, messages: data, nextCursor: undefined, page };
+        return { success: true, roomId, cursor, size, ver, page };
       } else {
         try { await redisService.incrBy(K.statsMiss('roomHistoryPage')); } catch {}
       }
@@ -282,7 +282,7 @@ export class RoomsWsController {
     try { await redisService.set(pageKey, JSON.stringify(sliced), { EX: TTL.roomHistoryPage }); } catch {}
     const nextCursor = cursor + size < all.length ? cursor + size : undefined;
     const page: PageDTO<ReturnType<typeof mapMessageToDTO>> = { items: sliced, nextCursor };
-    return { success: true, roomId, cursor, size, ver, messages: sliced, nextCursor, page };
+    return { success: true, roomId, cursor, size, ver, page };
   }
 
   // Top active rooms (by recent activity timestamp)

@@ -24,11 +24,7 @@ export class AuthWsController {
     } catch {}
     return {
       success: true,
-      // New DTO field
       user: mapUserToDTO(session.user),
-      // Backward-compat fields
-      id: session.user.id,
-      name: session.user.name,
     };
   }
 
@@ -66,14 +62,10 @@ export class AuthWsController {
     await authService.addUserSession(session);
 
     return {
-      // New DTO fields
       user: mapUserToDTO(user),
       token: sessionToken,
       refreshToken,
       expiresAt,
-      // Backward-compat fields
-      id: user.id,
-      name: user.name,
       refreshTokenExpiresAt,
     };
   }
@@ -108,14 +100,10 @@ export class AuthWsController {
     );
     await authService.addUserSession(newSession);
     return {
-      // New DTO fields
       user: session.user ? mapUserToDTO(session.user) : undefined,
       token: newToken,
       refreshToken: newRefreshToken,
       expiresAt: newExpiresAt,
-      // Backward-compat fields
-      id: session.userId,
-      name: session.user?.name,
       refreshTokenExpiresAt: newRefreshTokenExpiresAt,
     };
   }
