@@ -22,6 +22,15 @@ export function createPostgresCallbackDb(config: {
     throw err;
   }
 
+  // Ensure BIGINT (int8) comes back as number for timestamps/ids
+  try {
+    const types = pg.types || (pg.default && pg.default.types);
+    if (types && typeof types.setTypeParser === 'function') {
+      // OID 20 = INT8/BIGINT
+      types.setTypeParser(20, (val: string) => (val === null ? null as any : parseInt(val, 10)));
+    }
+  } catch {}
+
   const pool = new pg.Pool({
     host: config.host,
     port: config.port,
