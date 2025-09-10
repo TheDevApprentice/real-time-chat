@@ -28,9 +28,9 @@ services:
       # Base URL for public access from host (used to form public links)
       S3_PUBLIC_URL_BASE: http://localhost:9000/chat-bucket
       # Database configuration
-      DATABASE_DRIVER: sqlite
+      DATABASE_DRIVER: mysql
       # SQLite configuration
-      SQLITE_FILE: /data/chat.sqlite
+      # SQLITE_FILE: /data/chat.sqlite
       # PostgreSQL configuration
       # POSTGRES_HOST: postgres
       # POSTGRES_PORT: 5432
@@ -39,12 +39,12 @@ services:
       # POSTGRES_PASSWORD: chat
       # POSTGRES_SSL: false
       # MySQL configuration
-      # MYSQL_HOST: mysql
-      # MYSQL_PORT: 3306
-      # MYSQL_DB: chat
-      # MYSQL_USER: chat
-      # MYSQL_PASSWORD: chat
-      # MYSQL_SSL: false
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: chat
+      MYSQL_USER: chat
+      MYSQL_PASSWORD: chat
+      MYSQL_SSL: false
       WEBRTC_STUN: stun:stun.l.google.com:19302
       # Point to the local TURN (coturn) service below; replace with public DNS when deployed
       WEBRTC_TURN_URLS: turn:turn:3478
@@ -52,16 +52,20 @@ services:
       WEBRTC_TURN_CREDENTIAL: devpass
       CALL_RING_TIMEOUT: 20
     volumes:
-      - sqlite_data:/data
+      # - sqlite_data:/data
       # - postgres_data:/var/lib/postgresql/data
-      # - mysql_data:/var/lib/mysql
+      - mysql_data:/var/lib/mysql
     depends_on:
-      - sqlite
-      - redis
-      - minio
-      - turn
+      # - sqlite
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+      turn:
+        condition: service_started
       # - postgres
-      # - mysql
+      mysql:
+        condition: service_healthy
     restart: unless-stopped
 
   # TURN/STUN server (coturn)
@@ -127,15 +131,15 @@ services:
       - redis_data:/data
     restart: unless-stopped
 
-  sqlite:
-    build:
-      context: ./server/Database/SqlLite
-      dockerfile: Dockerfile
-    image: realtime-chat-sqlite:latest
-    container_name: chat-sqlite
-    volumes:
-      - sqlite_data:/data
-    restart: unless-stopped
+  # sqlite:
+  #   build:
+  #     context: ./server/Database/SqlLite
+  #     dockerfile: Dockerfile
+  #   image: realtime-chat-sqlite:latest
+  #   container_name: chat-sqlite
+  #   volumes:
+  #     - sqlite_data:/data
+  #   restart: unless-stopped
 
   # postgres:
   #   build:
@@ -153,56 +157,62 @@ services:
   #     - postgres_data:/var/lib/postgresql/data
   #   restart: unless-stopped
 
-  # mysql:
-  #   build:
-  #     context: ./server/Database/MySql
-  #     dockerfile: Dockerfile
-  #   image: realtime-chat-mysql:latest
-  #   container_name: chat-mysql
-  #   environment:
-  #     MYSQL_DATABASE: chat
-  #     MYSQL_USER: chat
-  #     MYSQL_PASSWORD: chat
-  #     MYSQL_ROOT_PASSWORD: root
-  #   ports:
-  #     - "3306:3306"
-  #   volumes:
-  #     - mysql_data:/var/lib/mysql
-  #   restart: unless-stopped
+  mysql:
+    build:
+      context: ./server/Database/MySql
+      dockerfile: Dockerfile
+    image: realtime-chat-mysql:latest
+    container_name: chat-mysql
+    environment:
+      MYSQL_DATABASE: chat
+      MYSQL_USER: chat
+      MYSQL_PASSWORD: chat
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -proot || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
 
   # Web UI's for dev debugging
   
   # Web UI for browsing the SQLite database
-  sqlite-web:
-    image: coleifer/sqlite-web:latest
-    container_name: chat-sqlite-web
-    command: ["sqlite_web", "-H", "0.0.0.0", "/data/chat.sqlite"]
-    ports:
-      - "8080:8080"
-    volumes:
-      - sqlite_data:/data
-    depends_on:
-      - sqlite
-    restart: unless-stopped
+  # sqlite-web:
+  #   image: coleifer/sqlite-web:latest
+  #   container_name: chat-sqlite-web
+  #   command: ["sqlite_web", "-H", "0.0.0.0", "/data/chat.sqlite"]
+  #   ports:
+  #     - "8080:8080"
+  #   volumes:
+  #     - sqlite_data:/data
+  #   depends_on:
+  #     - sqlite
+  #   restart: unless-stopped
 
-  redis-commander:
-    image: rediscommander/redis-commander:latest
-    container_name: chat-redis-commander-web
-    restart: unless-stopped
-    ports:
-      - "8081:8081"
-    environment:
-      - REDIS_HOSTS=local:redis:6379:0:changeme
-      - HTTP_USER=admin
-      - HTTP_PASSWORD=secret
-    depends_on:
-      - redis
-    profiles:
-      - tools  # Utilise docker-compose --profile tools up pour inclure ce service
+  # redis-commander:
+  #   image: rediscommander/redis-commander:latest
+  #   container_name: chat-redis-commander-web
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8081:8081"
+  #   environment:
+  #     - REDIS_HOSTS=local:redis:6379:0:changeme
+  #     - HTTP_USER=admin
+  #     - HTTP_PASSWORD=secret
+  #   depends_on:
+  #     - redis
+  #   profiles:
+  #     - tools  # Utilise docker-compose --profile tools up pour inclure ce service
 
 volumes:
-  sqlite_data:
+  # sqlite_data:
   redis_data:
   minio_data:
   # postgres_data:
-  # mysql_data:
+  mysql_data:
