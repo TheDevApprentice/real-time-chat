@@ -4,7 +4,7 @@ import {
   createPostgresCallbackDb,
   createMysqlCallbackDb,
 } from "./adapters";
-import { Logger } from "../../utils/LoggerUtil";
+import { Logger } from "../utils/LoggerUtil";
 import { initializeSchema } from "./migrations/initializeSchema";
 
 export type SupportedDrivers = "sqlite" | "postgres" | "mysql";

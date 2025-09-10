@@ -1,6 +1,6 @@
 import { CallbackDB } from "../adapters/callbackDb";
-import { User } from "../../../domain/entities/User";
-import { IUserRepo } from "../../../domain/interfaces/dbInterfaces/Irepos/IUserRepo";
+import { User } from "../../domain/entities/User";
+import { IUserRepo } from "../../domain/interfaces/dbInterfaces/Irepos/IUserRepo";
 
 export class UsersRepo implements IUserRepo {
   constructor(private db: CallbackDB) {}

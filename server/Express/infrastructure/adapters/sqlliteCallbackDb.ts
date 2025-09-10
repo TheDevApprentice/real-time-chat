@@ -1,6 +1,6 @@
 // Concrete sqlite-backed implementation
 import sqlite3 from "sqlite3";
-import { Logger } from "../../../utils/LoggerUtil";
+import { Logger } from "../../utils/LoggerUtil";
 import { AllCb, CallbackDB, EachRowCb, GetCb, RunCb } from "./callbackDb";
 
 export function createSqliteCallbackDb(filePath: string): CallbackDB {
