@@ -6,27 +6,58 @@ export class MessagesRepo implements IMessageRepo {
   constructor(private db: CallbackDB) {}
 
   addMessageToRoom(message: Message, roomId: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.db.run(
-        `INSERT INTO messages (authorId, authorName, content, timestamp, roomId, status, sentAt) VALUES (?, ?, ?, ?, ?, 'sent', ?)`,
-        [
-          message.author.id,
-          message.author.name,
-          message.content,
-          message.timestamp,
-          roomId,
-          message.timestamp,
-        ],
-        function (this: any, err) {
-          if (err) return reject(err);
-          try {
-            if (this && typeof this.lastID !== "undefined")
-              message.id = String(this.lastID);
-          } catch {}
-          resolve();
-        }
-      );
-    });
+    const driver = String(process.env.DATABASE_DRIVER || '').toLowerCase();
+    switch (driver) {
+      case 'postgres': {
+        // Use INSERT ... RETURNING id to capture the serial id
+        return new Promise((resolve, reject) => {
+          this.db.get<{ id: number }>(
+            `INSERT INTO messages (authorId, authorName, content, timestamp, roomId, status, sentAt)
+             VALUES (?, ?, ?, ?, ?, 'sent', ?)
+             RETURNING id`,
+            [
+              message.author.id,
+              message.author.name,
+              message.content,
+              message.timestamp,
+              roomId,
+              message.timestamp,
+            ],
+            (err, row) => {
+              if (err) return reject(err);
+              try { if (row && typeof row.id !== 'undefined') message.id = String(row.id); } catch {}
+              resolve();
+            }
+          );
+        });
+      }
+      case 'mysql':
+      case 'sqlite':
+      default: {
+        // sqlite/mysql path: rely on callback context lastID (sqlite) or adapter-provided insertId (mysql)
+        return new Promise((resolve, reject) => {
+          this.db.run(
+            `INSERT INTO messages (authorId, authorName, content, timestamp, roomId, status, sentAt) VALUES (?, ?, ?, ?, ?, 'sent', ?)`,
+            [
+              message.author.id,
+              message.author.name,
+              message.content,
+              message.timestamp,
+              roomId,
+              message.timestamp,
+            ],
+            function (this: any, err) {
+              if (err) return reject(err);
+              try {
+                if (this && typeof this.lastID !== "undefined")
+                  message.id = String(this.lastID);
+              } catch {}
+              resolve();
+            }
+          );
+        });
+      }
+    }
   }
 
   getMessageById(messageId: number): Promise<Message | null> {

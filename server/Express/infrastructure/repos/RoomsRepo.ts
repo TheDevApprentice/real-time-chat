@@ -8,6 +8,18 @@ export class RoomsRepo implements IRoomRepo {
 
   addRoom(room: Room): Promise<Room> {
     return new Promise((resolve, reject) => {
+      const driver = String(process.env.DATABASE_DRIVER || '').toLowerCase();
+      let isPublicVal: any;
+      switch (driver) {
+        case 'postgres':
+          isPublicVal = !!room.isPublic;
+          break;
+        case 'mysql':
+        case 'sqlite':
+        default:
+          isPublicVal = room.isPublic ? 1 : 0;
+          break;
+      }
       this.db.run(
         `INSERT INTO rooms (id, name, creatorId, createdAt, type, isPublic) VALUES (?, ?, ?, ?, ?, ?)`,
         [
@@ -16,7 +28,7 @@ export class RoomsRepo implements IRoomRepo {
           room.creatorId,
           room.createdAt,
           room.type,
-          room.isPublic ? 1 : 0,
+          isPublicVal,
         ],
         (err) => {
           if (err) return reject(err);
@@ -79,15 +91,25 @@ export class RoomsRepo implements IRoomRepo {
   }
 
   addUserToRoom(userId: string, roomId: string): Promise<void> {
+    const driver = String(process.env.DATABASE_DRIVER || '').toLowerCase();
+    let sql: string;
+    switch (driver) {
+      case 'mysql':
+        sql = `INSERT IGNORE INTO user_rooms (userId, roomId) VALUES (?, ?)`;
+        break;
+      case 'postgres':
+        sql = `INSERT INTO user_rooms (userId, roomId) VALUES (?, ?) ON CONFLICT (userId, roomId) DO NOTHING`;
+        break;
+      case 'sqlite':
+      default:
+        sql = `INSERT OR IGNORE INTO user_rooms (userId, roomId) VALUES (?, ?)`;
+        break;
+    }
     return new Promise((resolve, reject) => {
-      this.db.run(
-        `INSERT OR IGNORE INTO user_rooms (userId, roomId) VALUES (?, ?)`,
-        [userId, roomId],
-        (err) => {
-          if (err) return reject(err);
-          resolve();
-        }
-      );
+      this.db.run(sql, [userId, roomId], (err) => {
+        if (err) return reject(err);
+        resolve();
+      });
     });
   }
 
@@ -139,11 +161,26 @@ export class RoomsRepo implements IRoomRepo {
 
   getVisibleRoomsForUser(userId: string): Promise<Room[]> {
     return new Promise((resolve, reject) => {
+      const driver = String(process.env.DATABASE_DRIVER || '').toLowerCase();
+      let sql: string;
+      switch (driver) {
+        case 'postgres':
+          sql = `SELECT r.id, r.name, r.creatorId, r.createdAt, r.type, r.isPublic
+                 FROM rooms r
+                 WHERE r.isPublic = TRUE OR r.id IN (SELECT roomId FROM user_rooms WHERE userId = ?)
+                 ORDER BY r.createdAt DESC`;
+          break;
+        case 'mysql':
+        case 'sqlite':
+        default:
+          sql = `SELECT r.id, r.name, r.creatorId, r.createdAt, r.type, r.isPublic
+                 FROM rooms r
+                 WHERE r.isPublic = 1 OR r.id IN (SELECT roomId FROM user_rooms WHERE userId = ?)
+                 ORDER BY r.createdAt DESC`;
+          break;
+      }
       this.db.all(
-        `SELECT r.id, r.name, r.creatorId, r.createdAt, r.type, r.isPublic
-         FROM rooms r
-         WHERE r.isPublic = 1 OR r.id IN (SELECT roomId FROM user_rooms WHERE userId = ?)
-         ORDER BY r.createdAt DESC`,
+        sql,
         [userId],
         async (err: Error | null, rows?: any[]) => {
           if (err) return reject(err);

@@ -24,23 +24,34 @@ export class FriendsRepo implements IFriendRepo {
     const id = `${a}:${b}`;
     const now = Date.now();
     return new Promise((resolve, reject) => {
-      this.db.run(
-        `INSERT INTO friends (id, userA, userB, status, requesterId, createdAt, updatedAt) VALUES (?, ?, ?, 'pending', ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET status=excluded.status, requesterId=excluded.requesterId, updatedAt=excluded.updatedAt`,
-        [id, a, b, requesterId, now, now],
-        (err) => {
-          if (err) return reject(err);
-          resolve({
-            id,
-            status: "pending",
-            userA: a,
-            userB: b,
-            requesterId,
-            createdAt: now,
-            updatedAt: now,
-          });
-        }
-      );
+      const driver = String(process.env.DATABASE_DRIVER || '').toLowerCase();
+      let sql: string;
+      switch (driver) {
+        case 'mysql':
+          sql = `INSERT INTO friends (id, userA, userB, status, requesterId, createdAt, updatedAt)
+                 VALUES (?, ?, ?, 'pending', ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE status=VALUES(status), requesterId=VALUES(requesterId), updatedAt=VALUES(updatedAt)`;
+          break;
+        case 'postgres':
+        case 'sqlite':
+        default:
+          sql = `INSERT INTO friends (id, userA, userB, status, requesterId, createdAt, updatedAt)
+                 VALUES (?, ?, ?, 'pending', ?, ?, ?)
+                 ON CONFLICT(id) DO UPDATE SET status=excluded.status, requesterId=excluded.requesterId, updatedAt=excluded.updatedAt`;
+          break;
+      }
+      this.db.run(sql, [id, a, b, requesterId, now, now], (err) => {
+        if (err) return reject(err);
+        resolve({
+          id,
+          status: "pending",
+          userA: a,
+          userB: b,
+          requesterId,
+          createdAt: now,
+          updatedAt: now,
+        });
+      });
     });
   }
 
