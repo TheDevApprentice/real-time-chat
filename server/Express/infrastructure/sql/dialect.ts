@@ -72,12 +72,18 @@ class Dialect implements IDialect {
     }
   }
   buildLike(column: string, caseInsensitive = false, withEscape = true): string {
+    // Build proper ESCAPE fragment per driver:
+    // - Postgres expects a single backslash in SQL literal: ESCAPE '\'
+    // - MySQL/SQLite require double backslash in SQL literal: ESCAPE '\\'
+    const escapeFrag = withEscape
+      ? (this.name === "postgres" ? " ESCAPE '\\'" : " ESCAPE '\\\\'")
+      : "";
     if (this.name === "postgres") {
       const op = caseInsensitive ? "ILIKE" : "LIKE";
-      return `${column} ${op} ?${withEscape ? " ESCAPE '\\'" : ""}`;
+      return `${column} ${op} ?${escapeFrag}`;
     }
     const col = caseInsensitive ? `LOWER(${column})` : column;
-    return `${col} LIKE ?${withEscape ? " ESCAPE '\\'" : ""}`;
+    return `${col} LIKE ?${escapeFrag}`;
   }
   prepareLikeParam(value: string, mode: "contains" | "startsWith" | "endsWith" | "exact" = "contains", caseInsensitive = false): string {
     let v = this.escapeLike(value);
