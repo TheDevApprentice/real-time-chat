@@ -11,6 +11,8 @@ export class AuthWsController {
   async authenticate(ctx: WsContext<{ token: string }>) {
     const { authService, messageService } = ctx.services;
     const { token } = ctx.payload!;
+    Logger.info("Authenticating via token");
+    Logger.infoObj("token", token);
     const session = await authService.getUserSessionByToken(token);
     if (!session || !session.user) {
       return { success: false, error: "Invalid session." };

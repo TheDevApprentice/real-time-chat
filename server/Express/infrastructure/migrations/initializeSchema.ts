@@ -1,12 +1,11 @@
 import { CallbackDB } from "../adapters/callbackDb";
 import { Logger } from "../../utils/LoggerUtil";
-
-export type DbDriver = "sqlite" | "postgres" | "mysql";
+import { SupportedDBDrivers } from "../factory";
 
 // Initialize database schema per dialect (idempotent as much as possible)
 export function initializeSchema(
   db: CallbackDB,
-  driver: DbDriver = "sqlite"
+  driver: SupportedDBDrivers = "sqlite"
 ): void {
   type Ddl = {
     users: string;
@@ -72,70 +71,6 @@ export function initializeSchema(
             userB VARCHAR(255) NOT NULL,
             status VARCHAR(32) NOT NULL,
             requesterId VARCHAR(255) NOT NULL,
-            createdAt BIGINT NOT NULL,
-            updatedAt BIGINT NOT NULL,
-            UNIQUE(userA, userB),
-            FOREIGN KEY (userA) REFERENCES users(id),
-            FOREIGN KEY (userB) REFERENCES users(id)
-          )`,
-          indexes: [
-            `CREATE INDEX IF NOT EXISTS idx_user_sessions_refresh ON user_sessions(refreshToken)`,
-            `CREATE INDEX IF NOT EXISTS idx_friends_userA ON friends(userA)`,
-            `CREATE INDEX IF NOT EXISTS idx_friends_userB ON friends(userB)`,
-          ],
-          // sqliteAlters: [],
-        };
-      case "postgres":
-        return {
-          users: `CREATE TABLE IF NOT EXISTS users (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            password TEXT NOT NULL
-          )`,
-          rooms: `CREATE TABLE IF NOT EXISTS rooms (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            creatorId TEXT NOT NULL,
-            createdAt BIGINT NOT NULL,
-            type TEXT DEFAULT 'room',
-            isPublic BOOLEAN DEFAULT TRUE
-          )`,
-          userRooms: `CREATE TABLE IF NOT EXISTS user_rooms (
-            userId TEXT NOT NULL,
-            roomId TEXT NOT NULL,
-            PRIMARY KEY (userId, roomId),
-            FOREIGN KEY (userId) REFERENCES users(id),
-            FOREIGN KEY (roomId) REFERENCES rooms(id)
-          )`,
-          messages: `CREATE TABLE IF NOT EXISTS messages (
-            id BIGSERIAL PRIMARY KEY,
-            authorId TEXT,
-            authorName TEXT,
-            content TEXT,
-            timestamp BIGINT,
-            roomId TEXT NOT NULL,
-            status TEXT DEFAULT 'sent',
-            sentAt BIGINT,
-            deliveredAt BIGINT,
-            readAt BIGINT,
-            FOREIGN KEY (roomId) REFERENCES rooms(id)
-          )`,
-          sessions: `CREATE TABLE IF NOT EXISTS user_sessions (
-            id TEXT PRIMARY KEY,
-            userId TEXT NOT NULL,
-            token TEXT NOT NULL,
-            createdAt BIGINT NOT NULL,
-            expiresAt BIGINT,
-            refreshToken TEXT,
-            refreshTokenExpiresAt BIGINT,
-            FOREIGN KEY (userId) REFERENCES users(id)
-          )`,
-          friends: `CREATE TABLE IF NOT EXISTS friends (
-            id TEXT PRIMARY KEY,
-            userA TEXT NOT NULL,
-            userB TEXT NOT NULL,
-            status TEXT NOT NULL,
-            requesterId TEXT NOT NULL,
             createdAt BIGINT NOT NULL,
             updatedAt BIGINT NOT NULL,
             UNIQUE(userA, userB),
@@ -224,41 +159,6 @@ export function initializeSchema(
 
   db.serialize(() => {
     switch (driver) {
-      case "postgres":
-        Logger.info(`[Schema] Running batch DDL for ${driver}...`);
-        // Execute in-order in a single batch to satisfy FK dependencies
-        const stmts: string[] = [
-          ddl.users,
-          ddl.rooms,
-          ddl.userRooms,
-          ddl.messages,
-          ddl.sessions,
-          ddl.friends,
-          ...ddl.indexes,
-        ];
-        const sqlBlock = stmts.join(";\n") + ";";
-        db.exec(sqlBlock, (err) => {
-          if (err) {
-            Logger.warn(
-              `[Schema] Batch DDL failed on ${driver}: ${err.message}. Falling back to sequential execution.`
-            );
-            // Fallback: run statements one by one to guarantee ordering
-            const runSeq = (i: number) => {
-              if (i >= stmts.length) {
-                Logger.info(`[Schema] Sequential DDL completed for ${driver}.`);
-                return;
-              }
-              db.run(stmts[i], undefined, (e) => {
-                if (e) Logger.warn(`[Schema] Statement failed: ${e.message}`);
-                runSeq(i + 1);
-              });
-            };
-            runSeq(0);
-          } else {
-            Logger.info(`[Schema] Batch DDL completed for ${driver}.`);
-          }
-        });
-        break;
       case "sqlite":
         // SQLite path: run statements individually; serialize() enforces ordering
         Logger.info(`[Schema] Running batch DDL for ${driver}...`);

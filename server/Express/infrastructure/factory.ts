@@ -1,25 +1,24 @@
 import {
   CallbackDB,
   createSqliteCallbackDb,
-  createPostgresCallbackDb,
   createMysqlCallbackDb,
 } from "./adapters";
 import { Logger } from "../utils/LoggerUtil";
 import { initializeSchema } from "./migrations/initializeSchema";
 
-export type SupportedDrivers = "sqlite" | "postgres" | "mysql";
-const DRIVER: SupportedDrivers = process.env
-  .DATABASE_DRIVER as SupportedDrivers;
+export type SupportedDBDrivers = "sqlite" | "mysql";
+const DRIVER: SupportedDBDrivers = process.env
+  .DATABASE_DRIVER as SupportedDBDrivers;
 
 export interface DbFactoryOptions {
-  driver?: SupportedDrivers;
+  driver?: SupportedDBDrivers;
   sqliteFile?: string;
 }
 
 export function createCallbackDbFromEnv(
   env: NodeJS.ProcessEnv = process.env
 ): CallbackDB {
-  const driver = (DRIVER as string).toLowerCase() as SupportedDrivers;
+  const driver = (DRIVER as string).toLowerCase() as SupportedDBDrivers;
   Logger.info(`DatabaseFactory using driver: ${driver}`);
   switch (driver) {
     case "sqlite": {
@@ -30,28 +29,6 @@ export function createCallbackDbFromEnv(
       Logger.info(`DatabaseFactory using SQLite file: ${file}`);
       const db = createSqliteCallbackDb(file);
       initializeSchema(db, "sqlite");
-      return db;
-    }
-    case "postgres": {
-      // Expected env vars for Postgres
-      const host = env.POSTGRES_HOST || "postgres";
-      const port = Number(env.POSTGRES_PORT || 5432);
-      const database = env.POSTGRES_DB || "chat";
-      const user = env.POSTGRES_USER || "chat";
-      const password = env.POSTGRES_PASSWORD || "";
-      const ssl = String(env.POSTGRES_SSL || "false").toLowerCase() === "true";
-      Logger.info(
-        `DatabaseFactory Postgres -> host=${host} port=${port} db=${database} user=${user} ssl=${ssl}`
-      );
-      const db = createPostgresCallbackDb({
-        host,
-        port,
-        database,
-        user,
-        password,
-        ssl,
-      });
-      initializeSchema(db, "postgres");
       return db;
     }
     case "mysql": {

@@ -1,11 +1,11 @@
-import { SupportedDrivers } from "../factory";
+import { SupportedDBDrivers } from "../factory";
 
 export interface IDialect {
-  name: SupportedDrivers;
-  // Convert a boolean to a parameter value the DB expects (e.g., 1/0 for sqlite/mysql, true/false for postgres)
+  name: SupportedDBDrivers;
+  // Convert a boolean to a parameter value the DB expects (e.g., 1/0 for sqlite/mysql)
   boolParam(value: boolean): any;
   // Return a WHERE predicate for visibility checks on boolean-like columns
-  visibilityPredicate(column: string): string; // e.g. "column = TRUE" or "column = 1"
+  visibilityPredicate(column: string): string; // e.g. "column = 1"
   // LIKE helpers
   buildLike(column: string, caseInsensitive?: boolean, withEscape?: boolean): string; // returns predicate using ? param, optionally with ESCAPE '\\'
   prepareLikeParam(value: string, mode?: "contains" | "startsWith" | "endsWith" | "exact", caseInsensitive?: boolean): string;
@@ -17,13 +17,13 @@ export interface IDialect {
     table: string,
     columns: string[],
     conflictColumns?: string[]
-  ): string; // MySQL: INSERT IGNORE, PG/SQLite: ON CONFLICT(cols) DO NOTHING
+  ): string; // MySQL: INSERT IGNORE, SQLite: INSERT OR IGNORE
   // Upsert on primary key id
   buildUpsertOnId(
     table: string,
     columns: string[],
     updateColumns: string[]
-  ): string; // MySQL: ON DUPLICATE KEY UPDATE; PG/SQLite: ON CONFLICT(id) DO UPDATE SET
+  ): string; // MySQL: ON DUPLICATE KEY UPDATE; SQLite: ON CONFLICT(id) DO UPDATE SET
   // Select / Update / Delete builders
   buildSelect(
     table: string,
@@ -47,17 +47,16 @@ export interface IDialect {
     table: string,
     where: string
   ): string;
-  // Returning id support (Postgres)
+  // Returning id support (none for sqlite/mysql)
   hasReturningId(): boolean;
-  returningIdFragment(): string; // e.g. " RETURNING id" or ""
+  returningIdFragment(): string; // always ""
 }
 
 class Dialect implements IDialect {
-  name: SupportedDrivers;
-  constructor(name: SupportedDrivers) { this.name = name; }
+  name: SupportedDBDrivers;
+  constructor(name: SupportedDBDrivers) { this.name = name; }
   boolParam(value: boolean): any {
     switch (this.name) {
-      case "postgres": return !!value;
       case "sqlite":
       case "mysql":
       default: return value ? 1 : 0;
@@ -65,29 +64,21 @@ class Dialect implements IDialect {
   }
   visibilityPredicate(column: string): string {
     switch (this.name) {
-      case "postgres": return `${column} = TRUE`;
       case "sqlite":
       case "mysql":
-      default: return `${column} = 1`;
+      default:
+        return `${column} = 1`;
     }
   }
   buildLike(column: string, caseInsensitive = false, withEscape = true): string {
-    // Build proper ESCAPE fragment per driver:
-    // - Postgres expects a single backslash in SQL literal: ESCAPE '\'
-    // - MySQL/SQLite require double backslash in SQL literal: ESCAPE '\\'
-    const escapeFrag = withEscape
-      ? (this.name === "postgres" ? " ESCAPE '\\'" : " ESCAPE '\\\\'")
-      : "";
-    if (this.name === "postgres") {
-      const op = caseInsensitive ? "ILIKE" : "LIKE";
-      return `${column} ${op} ?${escapeFrag}`;
-    }
+    // For SQLite/MySQL, use ESCAPE '\\' to represent backslash escape
+    const escapeFrag = withEscape ? " ESCAPE '\\\\'" : "";
     const col = caseInsensitive ? `LOWER(${column})` : column;
     return `${col} LIKE ?${escapeFrag}`;
   }
   prepareLikeParam(value: string, mode: "contains" | "startsWith" | "endsWith" | "exact" = "contains", caseInsensitive = false): string {
     let v = this.escapeLike(value);
-    if (caseInsensitive && this.name !== "postgres") v = v.toLowerCase();
+    if (caseInsensitive) v = v.toLowerCase();
     switch (mode) {
       case "startsWith": return `${v}%`;
       case "endsWith": return `%${v}`;
@@ -108,12 +99,6 @@ class Dialect implements IDialect {
     switch (this.name) {
       case "mysql":
         return `INSERT IGNORE INTO ${table} (${cols}) VALUES (${qs})`;
-      case "postgres": {
-        const conflict = conflictColumns && conflictColumns.length > 0
-          ? ` ON CONFLICT (${conflictColumns.join(", ")}) DO NOTHING`
-          : "";
-        return `INSERT INTO ${table} (${cols}) VALUES (${qs})${conflict}`;
-      }
       case "sqlite":
       default:
         return `INSERT OR IGNORE INTO ${table} (${cols}) VALUES (${qs})`;
@@ -127,7 +112,6 @@ class Dialect implements IDialect {
         const set = updateColumns.map((c) => `${c} = VALUES(${c})`).join(", ");
         return `INSERT INTO ${table} (${cols}) VALUES (${qs}) ON DUPLICATE KEY UPDATE ${set}`;
       }
-      case "postgres":
       case "sqlite":
       default: {
         const set = updateColumns.map((c) => `${c} = excluded.${c}`).join(", ");
@@ -155,11 +139,11 @@ class Dialect implements IDialect {
   buildDelete(table: string, where: string): string {
     return `DELETE FROM ${table} WHERE ${where}`;
   }
-  hasReturningId(): boolean { return this.name === "postgres"; }
-  returningIdFragment(): string { return this.name === "postgres" ? " RETURNING id" : ""; }
+  hasReturningId(): boolean { return false; }
+  returningIdFragment(): string { return ""; }
 }
 
 export function createDialect(): IDialect {
-  const d = String(process.env.DATABASE_DRIVER || "sqlite").toLowerCase() as SupportedDrivers;
+  const d = String(process.env.DATABASE_DRIVER || "sqlite").toLowerCase() as SupportedDBDrivers;
   return new Dialect(d);
 }

@@ -225,7 +225,7 @@ Server broadcasts (to `roomId`):
 
 ## Database & Drivers
 
-SQLite is the default (schema initialized automatically). Postgres/MySQL adapters are wired via the factory but may be placeholders until fully implemented. See `ARCHITECTURE.md` for driver selection and environment variables.
+SQLite is the default (schema initialized automatically). MySQL adapters are wired via the factory but may be placeholders until fully implemented. See `ARCHITECTURE.md` for driver selection and environment variables.
 
 ---
 
@@ -261,20 +261,12 @@ DATABASE_DRIVER=sqlite
 SQLITE_FILE=./Database/SqlLite/data.sqlite
 ```
 
-Postgres (stub; adapter not implemented yet)
 ```
 PORT=3080
 FRONTEND_URL=http://localhost:3080
 TRUST_PROXY=false
 BCRYPT_COST=12
 
-DATABASE_DRIVER=postgres
-POSTGRES_HOST=postgres
-POSTGRES_PORT=5432
-POSTGRES_DB=chat
-POSTGRES_USER=chat
-POSTGRES_PASSWORD=chat
-POSTGRES_SSL=false
 ```
 
 MySQL (stub; adapter not implemented yet)
@@ -309,8 +301,8 @@ REDIS_URL=redis://redis:6379
   - Ensure `SQLITE_FILE` points to a writable path.
   - In Docker, the server mounts `sqlite_data:/data` and expects `/data/chat.sqlite`.
 
-- Cannot connect to Postgres/MySQL
-  - Use the service name as host inside compose network (`postgres`, `mysql`).
+- Cannot connect to MySQL
+  - Use the service name as host inside compose network (`mysql`).
   - Verify env vars match compose and that the service is enabled and healthy.
   - Note: Adapters are stubs; enable only after implementation.
 
@@ -321,5 +313,5 @@ REDIS_URL=redis://redis:6379
   - The per-user undo snapshot is stored in Redis with a 10-minute TTL. If `getUndoTTL` returns 0, the key expired or the action was not initiated by this user.
 
 - Wrong driver selected
-  - `DATABASE_DRIVER` must be one of `sqlite`, `postgres`, `mysql`.
+  - `DATABASE_DRIVER` must be one of `sqlite`, `mysql`.
   - If unset, default is `sqlite`.

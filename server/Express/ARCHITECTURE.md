@@ -103,7 +103,7 @@ Directory: `domain/`
 Directory: `infrastructure/`
 
 - `db/`
-  - Implementations of the repository interfaces (`domain/interfaces/dbInterfaces/*`), using SQLite/Postgres/MySQL drivers depending on environment.
+  - Implementations of the repository interfaces (`domain/interfaces/dbInterfaces/*`), using SQLite/MySQL drivers depending on environment.
   - Responsible for schema bootstrap, migrations, connection pooling, and mapping DB rows <-> domain entities/DTOs.
 
 - Cache and storage adapters (if present) are implemented here as well, e.g. Redis, MinIO.
