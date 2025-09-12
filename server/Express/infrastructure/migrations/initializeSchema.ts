@@ -1,9 +1,13 @@
 import { CallbackDB } from "../adapters/callbackDb";
+import { Logger } from "../../utils/LoggerUtil";
 
 export type DbDriver = "sqlite" | "postgres" | "mysql";
 
 // Initialize database schema per dialect (idempotent as much as possible)
-export function initializeSchema(db: CallbackDB, driver: DbDriver = "sqlite"): void {
+export function initializeSchema(
+  db: CallbackDB,
+  driver: DbDriver = "sqlite"
+): void {
   type Ddl = {
     users: string;
     rooms: string;
@@ -219,23 +223,110 @@ export function initializeSchema(db: CallbackDB, driver: DbDriver = "sqlite"): v
   })();
 
   db.serialize(() => {
-    db.run(ddl.users, undefined, () => {});
-    db.run(ddl.rooms, undefined, () => {});
-    db.run(ddl.userRooms, undefined, () => {});
-    db.run(ddl.messages, undefined, () => {});
-    db.run(ddl.sessions, undefined, () => {});
-    db.run(ddl.friends, undefined, () => {});
-
-    for (const idx of ddl.indexes) {
-      db.run(idx, undefined, () => {});
-    }
-
-    if (driver === "sqlite") {
-      if (ddl.sqliteAlters) {
-        for (const alt of ddl.sqliteAlters) {
-          db.run(alt, undefined, () => {});
+    switch (driver) {
+      case "postgres":
+        Logger.info(`[Schema] Running batch DDL for ${driver}...`);
+        // Execute in-order in a single batch to satisfy FK dependencies
+        const stmts: string[] = [
+          ddl.users,
+          ddl.rooms,
+          ddl.userRooms,
+          ddl.messages,
+          ddl.sessions,
+          ddl.friends,
+          ...ddl.indexes,
+        ];
+        const sqlBlock = stmts.join(";\n") + ";";
+        db.exec(sqlBlock, (err) => {
+          if (err) {
+            Logger.warn(
+              `[Schema] Batch DDL failed on ${driver}: ${err.message}. Falling back to sequential execution.`
+            );
+            // Fallback: run statements one by one to guarantee ordering
+            const runSeq = (i: number) => {
+              if (i >= stmts.length) {
+                Logger.info(`[Schema] Sequential DDL completed for ${driver}.`);
+                return;
+              }
+              db.run(stmts[i], undefined, (e) => {
+                if (e) Logger.warn(`[Schema] Statement failed: ${e.message}`);
+                runSeq(i + 1);
+              });
+            };
+            runSeq(0);
+          } else {
+            Logger.info(`[Schema] Batch DDL completed for ${driver}.`);
+          }
+        });
+        break;
+      case "sqlite":
+        // SQLite path: run statements individually; serialize() enforces ordering
+        Logger.info(`[Schema] Running batch DDL for ${driver}...`);
+        Logger.info(`[Schema] Running batch tables creation.`);
+        db.run(ddl.users, undefined, () => {});
+        db.run(ddl.rooms, undefined, () => {});
+        db.run(ddl.userRooms, undefined, () => {});
+        db.run(ddl.messages, undefined, () => {});
+        db.run(ddl.sessions, undefined, () => {});
+        db.run(ddl.friends, undefined, () => {});
+        Logger.info(`[Schema] Batch tables creation completed.`);
+        Logger.info(`[Schema] Running batch indexes creation.`);
+        for (const idx of ddl.indexes) {
+          db.run(idx, undefined, () => {});
         }
-      }
+        Logger.info(`[Schema] Batch indexes creation completed.`);
+        if (ddl.sqliteAlters) {
+          Logger.info(`[Schema] Batch sqlite alters started.`);
+          for (const alt of ddl.sqliteAlters) {
+            db.run(alt, undefined, () => {});
+          }
+          Logger.info(`[Schema] Batch sqlite alters completed.`);
+        }
+        Logger.info(`[Schema] Batch DDL completed for ${driver}.`);
+        break;
+      case "mysql":
+        // SQLite path: run statements individually; serialize() enforces ordering
+        Logger.info(`[Schema] Running batch DDL for ${driver}...`);
+        Logger.info(`[Schema] Running batch tables creation.`);
+        db.run(ddl.users, undefined, () => {});
+        db.run(ddl.rooms, undefined, () => {});
+        db.run(ddl.userRooms, undefined, () => {});
+        db.run(ddl.messages, undefined, () => {});
+        db.run(ddl.sessions, undefined, () => {});
+        db.run(ddl.friends, undefined, () => {});
+        Logger.info(`[Schema] Batch tables creation completed.`);
+        Logger.info(`[Schema] Running batch indexes creation.`);
+        for (const idx of ddl.indexes) {
+          db.run(idx, undefined, () => {});
+        }
+        Logger.info(`[Schema] Batch indexes creation completed.`);
+        Logger.info(`[Schema] Batch DDL completed for ${driver}.`);
+        break;
+      default:
+        // SQLite path: run statements individually; serialize() enforces ordering
+        Logger.info(`[Schema] Running batch DDL for ${driver}...`);
+        Logger.info(`[Schema] Running batch tables creation.`);
+        db.run(ddl.users, undefined, () => {});
+        db.run(ddl.rooms, undefined, () => {});
+        db.run(ddl.userRooms, undefined, () => {});
+        db.run(ddl.messages, undefined, () => {});
+        db.run(ddl.sessions, undefined, () => {});
+        db.run(ddl.friends, undefined, () => {});
+        for (const idx of ddl.indexes) {
+          db.run(idx, undefined, () => {});
+        }
+        Logger.info(`[Schema] Batch tables creation completed.`);
+        Logger.info(`[Schema] Running batch sqlite alters.`);
+        if (driver === "sqlite") {
+          if (ddl.sqliteAlters) {
+            for (const alt of ddl.sqliteAlters) {
+              db.run(alt, undefined, () => {});
+            }
+          }
+        }
+        Logger.info(`[Schema] Batch sqlite alters completed.`);
+        Logger.info(`[Schema] Batch DDL completed for ${driver}.`);
+        break;
     }
   });
 }
