@@ -10,7 +10,6 @@ services:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
       - --entrypoints.web.address=:80
-
       # Enable HTTPS with Let's Encrypt (free). Uncomment the 4 lines below and set your email and domain DNS to this host.
       - --entrypoints.websecure.address=:443
       - --certificatesresolvers.le.acme.tlschallenge=true
@@ -54,13 +53,6 @@ services:
       S3_PUBLIC_URL_BASE: https://83b2ce3bfb07.ngrok-free.app/minio/chat-bucket
       # Database configuration
       DATABASE_DRIVER: mariadb
-      # MySQL configuration
-      MYSQL_HOST: mysql
-      MYSQL_PORT: 3306
-      MYSQL_DB: chat
-      MYSQL_USER: chat
-      MYSQL_PASSWORD: chat
-      MYSQL_SSL: false
       # MariaDB configuration
       MARIADB_HOST: mariadb
       MARIADB_PORT: 3306
@@ -68,6 +60,13 @@ services:
       MARIADB_USER: chat
       MARIADB_PASSWORD: chat
       MARIADB_SSL: false
+      # MariaDB backup configuration
+      MARIADB_HOST_BACKUP: mariadb_backup
+      MARIADB_PORT_BACKUP: 3306
+      MARIADB_DB_BACKUP: chat
+      MARIADB_USER_BACKUP: chat
+      MARIADB_PASSWORD_BACKUP: chat
+      MARIADB_SSL_BACKUP: false
       WEBRTC_STUN: stun:stun.l.google.com:19302
       # Point to the local TURN (coturn) service below; replace with public DNS when deployed
       WEBRTC_TURN_URLS: turn:turn:3478
@@ -75,18 +74,20 @@ services:
       WEBRTC_TURN_CREDENTIAL: devpass
       CALL_RING_TIMEOUT: 20
     volumes:
-      - mysql_data:/var/lib/mysql
       - mariadb_data:/var/lib/mysql
+      - mariadb_backup_data:/var/lib/mysql
     depends_on:
+      traefik:
+        condition: service_started
       redis:
         condition: service_started
       minio:
         condition: service_started
       turn:
         condition: service_started
-      mysql:
-        condition: service_healthy
       mariadb:
+        condition: service_healthy
+      mariadb_backup:
         condition: service_healthy
     restart: unless-stopped
     labels:
@@ -125,6 +126,9 @@ services:
         --listening-ip=0.0.0.0 \
         --min-port=49160 --max-port=49200 \
         --verbose"
+    depends_on:
+      traefik:
+        condition: service_started
     restart: unless-stopped
 
   minio:
@@ -139,6 +143,9 @@ services:
       - S3_BUCKET=chat-bucket
     volumes:
       - minio_data:/data
+    depends_on:
+      traefik:
+        condition: service_started
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
@@ -162,29 +169,11 @@ services:
       REDIS_PASSWORD: changeme
     volumes:
       - redis_data:/data
+    depends_on:
+      traefik:
+        condition: service_started
     restart: unless-stopped
     # No Traefik labels here: Redis is TCP on 6379 (not HTTP). Keep it internal.
-
-  mysql:
-    build:
-      context: ./server/Database/MySql
-      dockerfile: Dockerfile
-    image: realtime-chat-mysql:latest
-    container_name: chat-mysql
-    environment:
-      MYSQL_DATABASE: chat
-      MYSQL_USER: chat
-      MYSQL_PASSWORD: chat
-      MYSQL_ROOT_PASSWORD: root
-    volumes:
-      - mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -proot || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-      start_period: 10s
-    restart: unless-stopped
 
   mariadb:
     build:
@@ -205,11 +194,42 @@ services:
       timeout: 3s
       retries: 30
       start_period: 10s
+    depends_on:
+      traefik:
+        condition: service_started
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  mariadb_backup:
+    build:
+      context: ./server/Database/MariaDB
+      dockerfile: Dockerfile
+    image: realtime-chat-mariadb:latest
+    container_name: chat-mariadb-backup
+    environment:
+      MARIADB_DATABASE: chat_backup
+      MARIADB_USER: chat_backup
+      MARIADB_PASSWORD: chat_backup
+      MARIADB_ROOT_PASSWORD: root
+    volumes:
+      - mariadb_backup_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    depends_on:
+      traefik:
+        condition: service_started
+      redis:
+        condition: service_started
     restart: unless-stopped
 
 volumes:
   redis_data:
   minio_data:
-  mysql_data:
   mariadb_data:
+  mariadb_backup_data:
   traefik_data:
