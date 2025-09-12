@@ -20,6 +20,7 @@ export function initializeSchema(
 
   const ddl: Ddl = (() => {
     switch (driver) {
+      case "mariadb":
       case "mysql":
         return {
           users: `CREATE TABLE IF NOT EXISTS users (
@@ -184,6 +185,7 @@ export function initializeSchema(
         }
         Logger.info(`[Schema] Batch DDL completed for ${driver}.`);
         break;
+      case "mariadb":
       case "mysql":
         // SQLite path: run statements individually; serialize() enforces ordering
         Logger.info(`[Schema] Running batch DDL for ${driver}...`);

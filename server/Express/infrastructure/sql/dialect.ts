@@ -59,6 +59,7 @@ class Dialect implements IDialect {
     switch (this.name) {
       case "sqlite":
       case "mysql":
+      case "mariadb":
       default: return value ? 1 : 0;
     }
   }
@@ -66,6 +67,7 @@ class Dialect implements IDialect {
     switch (this.name) {
       case "sqlite":
       case "mysql":
+      case "mariadb":
       default:
         return `${column} = 1`;
     }
@@ -97,6 +99,7 @@ class Dialect implements IDialect {
     const cols = columns.join(", ");
     const qs = columns.map(() => "?").join(", ");
     switch (this.name) {
+      case "mariadb":
       case "mysql":
         return `INSERT IGNORE INTO ${table} (${cols}) VALUES (${qs})`;
       case "sqlite":
@@ -108,6 +111,7 @@ class Dialect implements IDialect {
     const cols = columns.join(", ");
     const qs = columns.map(() => "?").join(", ");
     switch (this.name) {
+      case "mariadb":
       case "mysql": {
         const set = updateColumns.map((c) => `${c} = VALUES(${c})`).join(", ");
         return `INSERT INTO ${table} (${cols}) VALUES (${qs}) ON DUPLICATE KEY UPDATE ${set}`;

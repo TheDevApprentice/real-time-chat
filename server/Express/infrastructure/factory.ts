@@ -6,7 +6,7 @@ import {
 import { Logger } from "../utils/LoggerUtil";
 import { initializeSchema } from "./migrations/initializeSchema";
 
-export type SupportedDBDrivers = "sqlite" | "mysql";
+export type SupportedDBDrivers = "sqlite" | "mariadb" | "mysql";
 const DRIVER: SupportedDBDrivers = process.env
   .DATABASE_DRIVER as SupportedDBDrivers;
 
@@ -31,14 +31,37 @@ export function createCallbackDbFromEnv(
       initializeSchema(db, "sqlite");
       return db;
     }
+    case "mariadb":
+      {
+        // Expected env vars for MariaDB
+        const host = env.MARIADB_HOST as string;
+        const port = Number(env.MARIADB_PORT);
+        const database = env.MARIADB_DB as string;
+        const user = env.MARIADB_USER as string;
+        const password = env.MARIADB_PASSWORD as string;
+        const ssl = String(env.MARIADB_SSL).toLowerCase() === "true";
+        Logger.info(
+          `DatabaseFactory MariaDB -> host=${host} port=${port} db=${database} user=${user} ssl=${ssl}`
+        );
+        const db = createMysqlCallbackDb({
+          host,
+          port,
+          database,
+          user,
+          password,
+          ssl,
+        });
+        initializeSchema(db, "mariadb");
+        return db;
+      }
     case "mysql": {
       // Expected env vars for MySQL/MariaDB
-      const host = env.MYSQL_HOST || "mysql";
-      const port = Number(env.MYSQL_PORT || 3306);
-      const database = env.MYSQL_DB || "chat";
-      const user = env.MYSQL_USER || "chat";
-      const password = env.MYSQL_PASSWORD || "";
-      const ssl = String(env.MYSQL_SSL || "false").toLowerCase() === "true";
+      const host = env.MYSQL_HOST as string;
+      const port = Number(env.MYSQL_PORT);
+      const database = env.MYSQL_DB as string;
+      const user = env.MYSQL_USER as string;
+      const password = env.MYSQL_PASSWORD as string;
+      const ssl = String(env.MYSQL_SSL).toLowerCase() === "true";
       Logger.info(
         `DatabaseFactory MySQL -> host=${host} port=${port} db=${database} user=${user} ssl=${ssl}`
       );

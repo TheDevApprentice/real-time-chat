@@ -11,7 +11,7 @@ services:
       NODE_ENV: production
       DEBUG: true
       PORT: 3080
-      FRONTEND_URL: https://71a18fd91fbc.ngrok-free.app
+      FRONTEND_URL: https://11edbd8d5202.ngrok-free.app
       # Trust proxy (e.g. when behind a reverse proxy)
       TRUST_PROXY: "false"
       # Bcrypt cost
@@ -28,16 +28,9 @@ services:
       # Base URL for public access from host (used to form public links)
       S3_PUBLIC_URL_BASE: http://localhost:9000/chat-bucket
       # Database configuration
-      DATABASE_DRIVER: mysql
+      DATABASE_DRIVER: mariadb
       # SQLite configuration
       # SQLITE_FILE: /data/chat.sqlite
-      # PostgreSQL configuration
-      # POSTGRES_HOST: postgres
-      # POSTGRES_PORT: 5432
-      # POSTGRES_DB: chat
-      # POSTGRES_USER: chat
-      # POSTGRES_PASSWORD: chat
-      # POSTGRES_SSL: false
       # MySQL configuration
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
@@ -45,6 +38,13 @@ services:
       MYSQL_USER: chat
       MYSQL_PASSWORD: chat
       MYSQL_SSL: false
+      # MariaDB configuration
+      MARIADB_HOST: mariadb
+      MARIADB_PORT: 3306
+      MARIADB_DB: chat
+      MARIADB_USER: chat
+      MARIADB_PASSWORD: chat
+      MARIADB_SSL: false
       WEBRTC_STUN: stun:stun.l.google.com:19302
       # Point to the local TURN (coturn) service below; replace with public DNS when deployed
       WEBRTC_TURN_URLS: turn:turn:3478
@@ -53,18 +53,20 @@ services:
       CALL_RING_TIMEOUT: 20
     volumes:
       # - sqlite_data:/data
-      # - postgres_data:/var/lib/postgresql/data
       - mysql_data:/var/lib/mysql
+      - mariadb_data:/var/lib/mysql
     depends_on:
-      # - sqlite
       redis:
         condition: service_started
       minio:
         condition: service_started
       turn:
         condition: service_started
-      # - postgres
+      # sqlite:
+      #   condition: service_started
       mysql:
+        condition: service_healthy
+      mariadb:
         condition: service_healthy
     restart: unless-stopped
 
@@ -141,22 +143,6 @@ services:
   #     - sqlite_data:/data
   #   restart: unless-stopped
 
-  # postgres:
-  #   build:
-  #     context: ./server/Database/Postgres
-  #     dockerfile: Dockerfile
-  #   image: realtime-chat-postgres:latest
-  #   container_name: chat-postgres
-  #   environment:
-  #     POSTGRES_DB: chat
-  #     POSTGRES_USER: chat
-  #     POSTGRES_PASSWORD: chat
-  #   ports:
-  #     - "5432:5432"
-  #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
-  #   restart: unless-stopped
-
   mysql:
     build:
       context: ./server/Database/MySql
@@ -180,6 +166,29 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  mariadb:
+    build:
+      context: ./server/Database/MariaDB
+      dockerfile: Dockerfile
+    image: realtime-chat-mariadb:latest
+    container_name: chat-mariadb
+    environment:
+      MARIADB_DATABASE: chat
+      MARIADB_USER: chat
+      MARIADB_PASSWORD: chat
+      MARIADB_ROOT_PASSWORD: root
+    ports:
+      - "3316:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+
   # Web UI's for dev debugging
   
   # Web UI for browsing the SQLite database
@@ -191,28 +200,26 @@ services:
   #     - "8080:8080"
   #   volumes:
   #     - sqlite_data:/data
-  #   depends_on:
-  #     - sqlite
   #   restart: unless-stopped
 
-  # redis-commander:
-  #   image: rediscommander/redis-commander:latest
-  #   container_name: chat-redis-commander-web
-  #   restart: unless-stopped
-  #   ports:
-  #     - "8081:8081"
-  #   environment:
-  #     - REDIS_HOSTS=local:redis:6379:0:changeme
-  #     - HTTP_USER=admin
-  #     - HTTP_PASSWORD=secret
-  #   depends_on:
-  #     - redis
-  #   profiles:
-  #     - tools  # Utilise docker-compose --profile tools up pour inclure ce service
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: chat-redis-commander-web
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379:0:changeme
+      - HTTP_USER=admin
+      - HTTP_PASSWORD=secret
+    depends_on:
+      - redis
+    profiles:
+      - tools  # Utilise docker-compose --profile tools up pour inclure ce service
 
 volumes:
   # sqlite_data:
   redis_data:
   minio_data:
-  # postgres_data:
   mysql_data:
+  mariadb_data:
