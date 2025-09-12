@@ -1,19 +1,45 @@
 services:
+
+  # Reverse proxy / gateway (Traefik)
+  traefik:
+    image: traefik:v2.11
+    container_name: traefik
+    command:
+      - --api.dashboard=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      # Enable HTTPS with Let's Encrypt (free). Uncomment the 4 lines below and set your email and domain DNS to this host.
+      # - --entrypoints.websecure.address=:443
+      # - --certificatesresolvers.le.acme.tlschallenge=true
+      # - --certificatesresolvers.le.acme.email=your-email@example.com
+      # - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      # Optionally redirect HTTP->HTTPS when enabling websecure
+      # - --entrypoints.web.http.redirections.entryPoint.to=websecure
+      # - --entrypoints.web.http.redirections.entryPoint.scheme=https
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # - traefik_data:/letsencrypt
+    restart: unless-stopped
+
   server:
     build:
       context: ./server/Express
       dockerfile: Dockerfile
     image: realtime-chat-server:latest
     container_name: chat-server
-    ports:
-      - "3080:3080"
+    # ports:
+    #   - "3080:3080"
     environment:
       NODE_ENV: production
       DEBUG: true
       PORT: 3080
-      FRONTEND_URL: https://11edbd8d5202.ngrok-free.app
+      FRONTEND_URL: http://localhost
       # Trust proxy (e.g. when behind a reverse proxy)
-      TRUST_PROXY: "false"
+      TRUST_PROXY: "true"
       # Bcrypt cost
       BCRYPT_COST: "12"
       # Redis configuration
@@ -69,6 +95,12 @@ services:
       mariadb:
         condition: service_healthy
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      # Route everything to this server (adjust Host(`your.domain`) later if you have a domain)
+      - "traefik.http.routers.chat.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.chat.entrypoints=web"
+      - "traefik.http.services.chat.loadbalancer.server.port=3080"
 
   # TURN/STUN server (coturn)
   turn:
@@ -223,3 +255,4 @@ volumes:
   minio_data:
   mysql_data:
   mariadb_data:
+  # traefik_data:
