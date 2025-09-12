@@ -1,0 +1,216 @@
+services:
+  # Reverse proxy / gateway (Traefik)
+  traefik:
+    image: traefik:v2.11
+    container_name: traefik
+    command:
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --log.level=DEBUG
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+
+      # Enable HTTPS with Let's Encrypt (free). Uncomment the 4 lines below and set your email and domain DNS to this host.
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.le.acme.tlschallenge=true
+      - --certificatesresolvers.le.acme.email=your-menuwebservice@gmail.com
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      # Optionally redirect HTTP->HTTPS when enabling websecure
+      - --entrypoints.web.http.redirections.entryPoint.to=websecure
+      - --entrypoints.web.http.redirections.entryPoint.scheme=https
+    ports:
+      - "443:443"
+      # - "80:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_data:/letsencrypt
+    restart: unless-stopped
+
+  server:
+    build:
+      context: ./server/Express
+      dockerfile: Dockerfile
+    image: realtime-chat-server:latest
+    container_name: chat-server
+    environment:
+      NODE_ENV: production
+      DEBUG: true
+      PORT: 3080
+      FRONTEND_URL: http://localhost
+      TRUST_PROXY: "true"
+      # Bcrypt cost
+      BCRYPT_COST: "12"
+      # Redis configuration
+      REDIS_URL: redis://:changeme@redis:6379
+      # S3/MinIO configuration
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: admin
+      S3_SECRET_KEY: adminadmin123
+      S3_BUCKET: chat-bucket
+      S3_USE_PATH_STYLE: "true"
+      # Base URL for public access from host (used to form public links)
+      # This is what browsers will use via Traefik
+      S3_PUBLIC_URL_BASE: http://localhost/minio/chat-bucket
+      # Database configuration
+      DATABASE_DRIVER: mariadb
+      # MySQL configuration
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: chat
+      MYSQL_USER: chat
+      MYSQL_PASSWORD: chat
+      MYSQL_SSL: false
+      # MariaDB configuration
+      MARIADB_HOST: mariadb
+      MARIADB_PORT: 3306
+      MARIADB_DB: chat
+      MARIADB_USER: chat
+      MARIADB_PASSWORD: chat
+      MARIADB_SSL: false
+      WEBRTC_STUN: stun:stun.l.google.com:19302
+      # Point to the local TURN (coturn) service below; replace with public DNS when deployed
+      WEBRTC_TURN_URLS: turn:turn:3478
+      WEBRTC_TURN_USERNAME: devuser
+      WEBRTC_TURN_CREDENTIAL: devpass
+      CALL_RING_TIMEOUT: 20
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - mariadb_data:/var/lib/mysql
+    depends_on:
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+      turn:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+      mariadb:
+        condition: service_healthy
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      # Route all paths to this server on entrypoint web (dev + ngrok friendly)
+      - "traefik.http.routers.chat.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.chat.entrypoints=web"
+      - "traefik.http.routers.chat.service=chat"
+      - "traefik.http.services.chat.loadbalancer.server.port=3080"
+      - "traefik.docker.network=real-time-chat_default"
+
+  # TURN/STUN server (coturn)
+  turn:
+    image: coturn/coturn:latest
+    container_name: chat-turn
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478"
+    environment:
+      # REQUIRED: Set to your public IP or DNS-resolved IP of this host for NAT hairpin correctness
+      - COTURN_PUBLIC_IP=${COTURN_PUBLIC_IP:-127.0.0.1}
+      - COTURN_REALM=${COTURN_REALM:-chat.local}
+      - COTURN_USER=${COTURN_USER:-devuser}
+      - COTURN_PASS=${COTURN_PASS:-devpass}
+    command: >-
+      bash -lc "\
+      turnserver \
+        --no-cli \
+        --no-tls \
+        --fingerprint \
+        --lt-cred-mech \
+        --realm=${COTURN_REALM:-chat.local} \
+        --user=${COTURN_USER:-devuser}:${COTURN_PASS:-devpass} \
+        --external-ip=${COTURN_PUBLIC_IP:-127.0.0.1} \
+        --listening-port=3478 \
+        --listening-ip=0.0.0.0 \
+        --min-port=49160 --max-port=49200 \
+        --verbose"
+    restart: unless-stopped
+
+  minio:
+    build:
+      context: ./server/Minio
+      dockerfile: Dockerfile
+    image: realtime-chat-minio:latest
+    container_name: chat-minio
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=adminadmin123
+      - S3_BUCKET=chat-bucket
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      # Route /minio -> MinIO S3 API (HTTP)
+      - "traefik.http.routers.minio.rule=PathPrefix(`/minio`)"
+      - "traefik.http.routers.minio.entrypoints=web"
+      - "traefik.http.routers.minio.middlewares=minio-strip"
+      - "traefik.http.middlewares.minio-strip.stripprefix.prefixes=/minio"
+      - "traefik.http.services.minio.loadbalancer.server.port=9000"
+      - "traefik.docker.network=real-time-chat_default"
+  redis:
+    build:
+      context: ./server/Redis
+      dockerfile: Dockerfile
+    image: realtime-chat-redis:latest
+    container_name: chat-redis
+    # For dev you can inline a password; for production use secrets.
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"${REDIS_PASSWORD:-changeme}\""]
+    environment:
+      # Set a strong password here (dev example)
+      REDIS_PASSWORD: changeme
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    # No Traefik labels here: Redis is TCP on 6379 (not HTTP). Keep it internal.
+
+  mysql:
+    build:
+      context: ./server/Database/MySql
+      dockerfile: Dockerfile
+    image: realtime-chat-mysql:latest
+    container_name: chat-mysql
+    environment:
+      MYSQL_DATABASE: chat
+      MYSQL_USER: chat
+      MYSQL_PASSWORD: chat
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -proot || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+
+  mariadb:
+    build:
+      context: ./server/Database/MariaDB
+      dockerfile: Dockerfile
+    image: realtime-chat-mariadb:latest
+    container_name: chat-mariadb
+    environment:
+      MARIADB_DATABASE: chat
+      MARIADB_USER: chat
+      MARIADB_PASSWORD: chat
+      MARIADB_ROOT_PASSWORD: root
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  minio_data:
+  mysql_data:
+  mariadb_data:
+  traefik_data:
