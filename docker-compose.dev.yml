@@ -11,6 +11,7 @@ services:
       NODE_ENV: production
       DEBUG: true
       PORT: 3080
+      # Frontend URL ngrok
       FRONTEND_URL: https://11edbd8d5202.ngrok-free.app
       # Trust proxy (e.g. when behind a reverse proxy)
       TRUST_PROXY: "false"
