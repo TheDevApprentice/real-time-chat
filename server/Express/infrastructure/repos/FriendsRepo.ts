@@ -1,8 +1,10 @@
 import { CallbackDB } from "../adapters/callbackDb";
 import { IFriendRepo } from "../../domain/interfaces/dbInterfaces/Irepos/IFriendRepo";
+import { IDialect } from "../sql/dialect";
+import { buildDelete, buildSelect, buildUpsertOnId, buildUpdate } from "../sql/queryBuilder";
 
 export class FriendsRepo implements IFriendRepo {
-  constructor(private db: CallbackDB) {}
+  constructor(private db: CallbackDB, private dialect: IDialect) {}
 
   private orderPair(a: string, b: string): { a: string; b: string } {
     return a < b ? { a, b } : { a: b, b: a };
@@ -24,23 +26,19 @@ export class FriendsRepo implements IFriendRepo {
     const id = `${a}:${b}`;
     const now = Date.now();
     return new Promise((resolve, reject) => {
-      const driver = String(process.env.DATABASE_DRIVER || '').toLowerCase();
-      let sql: string;
-      switch (driver) {
-        case 'mysql':
-          sql = `INSERT INTO friends (id, userA, userB, status, requesterId, createdAt, updatedAt)
-                 VALUES (?, ?, ?, 'pending', ?, ?, ?)
-                 ON DUPLICATE KEY UPDATE status=VALUES(status), requesterId=VALUES(requesterId), updatedAt=VALUES(updatedAt)`;
-          break;
-        case 'postgres':
-        case 'sqlite':
-        default:
-          sql = `INSERT INTO friends (id, userA, userB, status, requesterId, createdAt, updatedAt)
-                 VALUES (?, ?, ?, 'pending', ?, ?, ?)
-                 ON CONFLICT(id) DO UPDATE SET status=excluded.status, requesterId=excluded.requesterId, updatedAt=excluded.updatedAt`;
-          break;
-      }
-      this.db.run(sql, [id, a, b, requesterId, now, now], (err) => {
+      const columns = [
+        "id",
+        "userA",
+        "userB",
+        "status",
+        "requesterId",
+        "createdAt",
+        "updatedAt",
+      ];
+      const updateColumns = ["status", "requesterId", "updatedAt"];
+      const sql = buildUpsertOnId(this.dialect, "friends", columns, updateColumns);
+      const params = [id, a, b, "pending", requesterId, now, now];
+      this.db.run(sql, params, (err) => {
         if (err) return reject(err);
         resolve({
           id,
@@ -73,26 +71,26 @@ export class FriendsRepo implements IFriendRepo {
     const now = Date.now();
     return new Promise((resolve, reject) => {
       if (action === "reject") {
-        this.db.run(`DELETE FROM friends WHERE id = ?`, [id], (err) => {
+        const delSql = buildDelete(this.dialect, "friends", "id = ?");
+        this.db.run(delSql, [id], (err) => {
           if (err) return reject(err);
           resolve(null);
         });
       } else {
-        this.db.run(
-          `UPDATE friends SET status = 'accepted', updatedAt = ? WHERE id = ?`,
-          [now, id],
-          (err) => {
-            if (err) return reject(err);
-            this.db.get(
-              `SELECT id, userA, userB, status, requesterId, createdAt, updatedAt FROM friends WHERE id = ?`,
-              [id],
-              (err2: Error | null, row?: any) => {
-                if (err2) return reject(err2);
-                resolve(row as any);
-              }
-            );
-          }
-        );
+        const updSql = buildUpdate(this.dialect, "friends", ["status", "updatedAt"], "id = ?");
+        this.db.run(updSql, ["accepted", now, id], (err) => {
+          if (err) return reject(err);
+          const selSql = buildSelect(
+            this.dialect,
+            "friends",
+            ["id", "userA", "userB", "status", "requesterId", "createdAt", "updatedAt"],
+            { where: "id = ?" }
+          );
+          this.db.get(selSql, [id], (err2: Error | null, row?: any) => {
+            if (err2) return reject(err2);
+            resolve(row as any);
+          });
+        });
       }
     });
   }
@@ -109,13 +107,21 @@ export class FriendsRepo implements IFriendRepo {
     }>
   > {
     return new Promise((resolve, reject) => {
+      const table = `friends f JOIN users u ON u.id = CASE WHEN f.userA = ? THEN f.userB ELSE f.userA END`;
+      const columns = [
+        "f.id",
+        "f.userA",
+        "f.userB",
+        "f.status",
+        "f.requesterId",
+        "CASE WHEN f.userA = ? THEN f.userB ELSE f.userA END AS otherId",
+        "u.name as otherName",
+      ];
+      const sql = buildSelect(this.dialect, table, columns, {
+        where: "f.userA = ? OR f.userB = ?",
+      });
       this.db.all(
-        `SELECT f.id, f.userA, f.userB, f.status, f.requesterId,
-                CASE WHEN f.userA = ? THEN f.userB ELSE f.userA END AS otherId,
-                u.name as otherName
-         FROM friends f
-         JOIN users u ON u.id = CASE WHEN f.userA = ? THEN f.userB ELSE f.userA END
-         WHERE f.userA = ? OR f.userB = ?`,
+        sql,
         [userId, userId, userId, userId],
         (
           err: Error | null,

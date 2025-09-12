@@ -1,44 +1,41 @@
 import { CallbackDB } from "../adapters/callbackDb";
 import { User } from "../../domain/entities/User";
 import { IUserRepo } from "../../domain/interfaces/dbInterfaces/Irepos/IUserRepo";
+import { IDialect } from "../sql/dialect";
+import { buildSelect, buildLikePredicate, prepareLikeParam, buildInsert } from "../sql/queryBuilder";
 
 export class UsersRepo implements IUserRepo {
-  constructor(private db: CallbackDB) {}
+  constructor(private db: CallbackDB, private dialect: IDialect) {}
 
   addUser(user: User): Promise<User> {
     return new Promise((resolve, reject) => {
-      this.db.run(
-        `INSERT INTO users (id, name, password) VALUES (?, ?, ?)`,
-        [user.id, user.name, user.password],
-        (err) => {
-          if (err) return reject(err);
-          resolve(user);
-        }
-      );
+      const sql = buildInsert(this.dialect, "users", ["id", "name", "password"]);
+      this.db.run(sql, [user.id, user.name, user.password], (err) => {
+        if (err) return reject(err);
+        resolve(user);
+      });
     });
   }
 
   getUsers(): Promise<User[]> {
     return new Promise((resolve, reject) => {
-      this.db.all(
-        `SELECT id, name, password FROM users`,
-        undefined,
-        (err, rows?: any[]) => {
-          if (err) return reject(err);
-          const users = (
-            (rows as Array<{ id: string; name: string; password: string }>) ||
-            []
-          ).map(User.fromDbRow);
-          resolve(users.filter((u) => u !== undefined));
-        }
-      );
+      const sql = buildSelect(this.dialect, "users", ["id", "name", "password"]);
+      this.db.all(sql, undefined, (err, rows?: any[]) => {
+        if (err) return reject(err);
+        const users = (
+          (rows as Array<{ id: string; name: string; password: string }>) ||
+          []
+        ).map(User.fromDbRow);
+        resolve(users.filter((u) => u !== undefined));
+      });
     });
   }
 
   getUserById(id: string): Promise<User | undefined> {
     return new Promise((resolve, reject) => {
+      const sql = buildSelect(this.dialect, "users", ["id", "name", "password"], { where: "id = ?" });
       this.db.get(
-        `SELECT id, name, password FROM users WHERE id = ?`,
+        sql,
         [id],
         (
           err,
@@ -54,10 +51,16 @@ export class UsersRepo implements IUserRepo {
 
   searchUsersByName(query: string, limit = 20): Promise<User[]> {
     return new Promise((resolve, reject) => {
-      const like = `%${query.replace(/%/g, "").replace(/_/g, "")}%`;
+      const where = buildLikePredicate(this.dialect, "name", true);
+      const sql = buildSelect(this.dialect, "users", ["id", "name", "password"], {
+        where,
+        orderBy: "name",
+        limit,
+      });
+      const like = prepareLikeParam(this.dialect, query.replace(/\s+/g, " "), "contains", true);
       this.db.all(
-        `SELECT id, name, password FROM users WHERE name LIKE ? ORDER BY name LIMIT ?`,
-        [like, limit],
+        sql,
+        [like],
         (err, rows) => {
           if (err) return reject(err);
           const users = (

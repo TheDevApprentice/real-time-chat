@@ -2,48 +2,55 @@ import { CallbackDB } from "../adapters/callbackDb";
 import { UserSession } from "../../domain/entities/UserSession";
 import { UsersRepo } from "./UsersRepo";
 import { ISessionRepo } from "../../domain/interfaces/dbInterfaces/Irepos/ISessionRepo";
+import { IDialect } from "../sql/dialect";
+import { buildDelete, buildInsert, buildSelect } from "../sql/queryBuilder";
 
 export class SessionsRepo implements ISessionRepo {
-  constructor(private db: CallbackDB, private usersRepo: UsersRepo) {}
+  constructor(private db: CallbackDB, private usersRepo: UsersRepo, private dialect: IDialect) {}
 
   addUserSession(session: UserSession): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.db.run(
-        `INSERT INTO user_sessions (id, userId, token, createdAt, expiresAt, refreshToken, refreshTokenExpiresAt) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [
-          session.id,
-          session.userId,
-          session.token,
-          session.createdAt,
-          session.expiresAt ?? null,
-          session.refreshToken ?? null,
-          session.refreshTokenExpiresAt ?? null,
-        ],
-        (err) => {
-          if (err) return reject(err);
-          resolve();
-        }
-      );
+      const columns = [
+        "id",
+        "userId",
+        "token",
+        "createdAt",
+        "expiresAt",
+        "refreshToken",
+        "refreshTokenExpiresAt",
+      ];
+      const sql = buildInsert(this.dialect, "user_sessions", columns);
+      const params = [
+        session.id,
+        session.userId,
+        session.token,
+        session.createdAt,
+        session.expiresAt ?? null,
+        session.refreshToken ?? null,
+        session.refreshTokenExpiresAt ?? null,
+      ];
+      this.db.run(sql, params, (err) => {
+        if (err) return reject(err);
+        resolve();
+      });
     });
   }
 
   deleteAllUserSessionsByUserId(userId: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.db.run(
-        `DELETE FROM user_sessions WHERE userId = ?`,
-        [userId],
-        (err) => {
-          if (err) return reject(err);
-          resolve();
-        }
-      );
+      const sql = buildDelete(this.dialect, "user_sessions", "userId = ?");
+      this.db.run(sql, [userId], (err) => {
+        if (err) return reject(err);
+        resolve();
+      });
     });
   }
 
   getUserSessionsByUserId(userId: string): Promise<UserSession[]> {
     return new Promise((resolve, reject) => {
+      const sql = buildSelect(this.dialect, "user_sessions", ["id","userId","token","createdAt","expiresAt","refreshToken","refreshTokenExpiresAt"], { where: "userId = ?" });
       this.db.all(
-        `SELECT * FROM user_sessions WHERE userId = ?`,
+        sql,
         [userId],
         async (
           err: Error | null,
@@ -81,8 +88,9 @@ export class SessionsRepo implements ISessionRepo {
 
   async getUserSessionByToken(token: string): Promise<UserSession | null> {
     return new Promise((resolve, reject) => {
+      const sql = buildSelect(this.dialect, "user_sessions", ["id","userId","token","createdAt","expiresAt","refreshToken","refreshTokenExpiresAt"], { where: "token = ?" });
       this.db.get(
-        `SELECT * FROM user_sessions WHERE token = ?`,
+        sql,
         [token],
         async (
           err,
@@ -124,14 +132,11 @@ export class SessionsRepo implements ISessionRepo {
 
   deleteUserSession(token: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.db.run(
-        `DELETE FROM user_sessions WHERE token = ?`,
-        [token],
-        (err) => {
-          if (err) return reject(err);
-          resolve();
-        }
-      );
+      const sql = buildDelete(this.dialect, "user_sessions", "token = ?");
+      this.db.run(sql, [token], (err) => {
+        if (err) return reject(err);
+        resolve();
+      });
     });
   }
 
@@ -139,8 +144,9 @@ export class SessionsRepo implements ISessionRepo {
     refreshToken: string
   ): Promise<UserSession | null> {
     return new Promise((resolve, reject) => {
+      const sql = buildSelect(this.dialect, "user_sessions", ["id","userId","token","createdAt","expiresAt","refreshToken","refreshTokenExpiresAt"], { where: "refreshToken = ?" });
       this.db.get(
-        `SELECT * FROM user_sessions WHERE refreshToken = ?`,
+        sql,
         [refreshToken],
         async (
           err,

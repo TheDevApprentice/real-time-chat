@@ -5,6 +5,7 @@ import { RoomsRepo } from "../../infrastructure/repos/RoomsRepo";
 import { MessagesRepo } from "../../infrastructure/repos/MessagesRepo";
 import { SessionsRepo } from "../../infrastructure/repos/SessionsRepo";
 import { FriendsRepo } from "../../infrastructure/repos/FriendsRepo";
+import { createDialect } from "../../infrastructure/sql/dialect";
 import { AuthService } from "../../domain/services/dbServices/AuthService";
 import { UserService } from "../../domain/services/dbServices/UserService";
 import { RoomService } from "../../domain/services/dbServices/RoomService";
@@ -31,13 +32,14 @@ export function getServices(): Services {
   if (servicesSingleton) return servicesSingleton;
 
   const db = createCallbackDbFromEnv(process.env);
+  const dialect = createDialect();
 
   // Infra repos
-  const usersRepo = new UsersRepo(db);
-  const roomsRepo = new RoomsRepo(db);
-  const messagesRepo = new MessagesRepo(db);
-  const sessionsRepo = new SessionsRepo(db, usersRepo);
-  const friendsRepo = new FriendsRepo(db);
+  const usersRepo = new UsersRepo(db, dialect);
+  const roomsRepo = new RoomsRepo(db, dialect);
+  const messagesRepo = new MessagesRepo(db, dialect);
+  const sessionsRepo = new SessionsRepo(db, usersRepo, dialect);
+  const friendsRepo = new FriendsRepo(db, dialect);
 
   // Domain services (DI via interfaces)
   const authService = new AuthService(sessionsRepo);
