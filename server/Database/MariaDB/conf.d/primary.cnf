@@ -5,7 +5,7 @@ server-id=1
 
 # Enable binary logging for replication
 log_bin=mysqld-bin
-binlog_format=ROW
+binlog_format=mixed
 binlog_row_image=FULL
 binlog_checksum=CRC32
 
