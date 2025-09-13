@@ -41,7 +41,7 @@ services:
       NODE_ENV: production
       DEBUG: true
       PORT: 3080
-      FRONTEND_URL: https://6d5dd13eb69c.ngrok-free.app
+      FRONTEND_URL: http://localhost
       # Trust proxy (e.g. when behind a reverse proxy)
       TRUST_PROXY: "true"
       # Bcrypt cost
@@ -57,7 +57,7 @@ services:
       S3_USE_PATH_STYLE: "true"
       # Base URL for public access from host (used to form public links)
       # This is what browsers will use via Traefik
-      S3_PUBLIC_URL_BASE: https://6d5dd13eb69c.ngrok-free.app/minio/chat-bucket
+      S3_PUBLIC_URL_BASE: http://localhost/minio/chat-bucket
       # Database configuration
       DATABASE_DRIVER: mariadb
       # MariaDB configuration
@@ -100,7 +100,8 @@ services:
     labels:
       - "traefik.enable=true"
       # Route all paths to this server on entrypoint web (dev + ngrok friendly)
-      - "traefik.http.routers.chat.rule=Host(`6d5dd13eb69c.ngrok-free.app`) && PathPrefix(`/`)"
+      # - "traefik.http.routers.chat.rule=Host(`6a5cdec350c2.ngrok-free.app`) && PathPrefix(`/`)"
+      - "traefik.http.routers.chat.rule=PathPrefix(`/`)"
       - "traefik.http.routers.chat.entrypoints=web"
       - "traefik.http.routers.chat.priority=1"
       - "traefik.http.routers.chat.service=chat"
@@ -157,7 +158,8 @@ services:
     labels:
       - "traefik.enable=true"
       # Route /minio -> MinIO S3 API (HTTP)
-      - "traefik.http.routers.minio.rule=Host(`6d5dd13eb69c.ngrok-free.app`) && PathPrefix(`/minio`)"
+      # - "traefik.http.routers.minio.rule=Host(`6a5cdec350c2.ngrok-free.app`) && PathPrefix(`/minio`)"
+      - "traefik.http.routers.minio.rule=PathPrefix(`/minio`)"
       - "traefik.http.routers.minio.entrypoints=web"
       - "traefik.http.routers.minio.service=minio"
       - "traefik.http.routers.minio.middlewares=minio-strip"
@@ -165,7 +167,8 @@ services:
       - "traefik.http.services.minio.loadbalancer.server.port=9000"
       - "traefik.http.routers.minio.priority=100"
       # Route /minio-console -> MinIO Console (HTTP)
-      - "traefik.http.routers.minioconsole.rule=Host(`6d5dd13eb69c.ngrok-free.app`) && PathPrefix(`/minio-console`)"
+      # - "traefik.http.routers.minioconsole.rule=Host(`6a5cdec350c2.ngrok-free.app`) && PathPrefix(`/minio-console`)"
+      - "traefik.http.routers.minioconsole.rule=PathPrefix(`/minio-console`)"
       - "traefik.http.routers.minioconsole.entrypoints=web"
       - "traefik.http.routers.minioconsole.service=minioconsole"
       - "traefik.http.routers.minioconsole.middlewares=minioconsole-strip,minioconsole-auth,minio-allow"
