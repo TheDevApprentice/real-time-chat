@@ -242,10 +242,13 @@ services:
       MARIADB_USER: chat
       MARIADB_PASSWORD: chat
       MARIADB_ROOT_PASSWORD: root
-    # ports:
-    #   - "3306:3306"
+    ports:
+      - "3306:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
+      # Replication primary config and init scripts
+      - ./server/Database/MariaDB/conf.d/primary.cnf:/etc/mysql/mariadb.conf.d/zz-primary.cnf:ro
+      - ./server/Database/MariaDB/initdb/primary:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1"]
       interval: 5s
@@ -267,8 +270,16 @@ services:
       MARIADB_USER: chat_backup
       MARIADB_PASSWORD: chat_backup
       MARIADB_ROOT_PASSWORD: root
+      # Replication configuration
+      PRIMARY_HOST: mariadb
+      PRIMARY_PORT: 3306
+      REPL_USER: repl
+      REPL_PASSWORD: replpass
     volumes:
       - mariadb_backup_data:/var/lib/mysql
+      # Replication replica config and init scripts
+      - ./server/Database/MariaDB/conf.d/replica.cnf:/etc/mysql/mariadb.conf.d/zz-replica.cnf:ro
+      - ./server/Database/MariaDB/initdb/replica:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1"]
       interval: 5s
@@ -276,6 +287,8 @@ services:
       retries: 30
       start_period: 10s
     depends_on:
+      mariadb:
+        condition: service_healthy
       traefik:
         condition: service_started
       redis:
