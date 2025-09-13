@@ -27,6 +27,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       # - traefik_data:/letsencrypt
+    networks:
+      - proxy
     restart: unless-stopped
 
   server:
@@ -49,8 +51,8 @@ services:
       # Redis configuration
       REDIS_URL: redis://:changeme@redis:6379
       # S3/MinIO configuration
-      S3_ENDPOINT: http://minio:9000
       # S3_ENDPOINT: http://localhost:9000
+      S3_ENDPOINT: http://minio:9000
       S3_REGION: us-east-1
       S3_ACCESS_KEY: admin
       S3_SECRET_KEY: adminadmin123
@@ -90,11 +92,9 @@ services:
       WEBRTC_TURN_USERNAME: devuser
       WEBRTC_TURN_CREDENTIAL: devpass
       CALL_RING_TIMEOUT: 20
-    volumes:
-      # - sqlite_data:/data
-      # - mysql_data:/var/lib/mysql
-      - mariadb_data:/var/lib/mysql
-      - mariadb_backup_data:/var/lib/mysql
+    networks:
+      - proxy
+      - real-time-chat
     depends_on:
       redis:
         condition: service_started
@@ -116,9 +116,10 @@ services:
       # Route all paths to this server on entrypoint web (dev + ngrok friendly)
       - "traefik.http.routers.chat.rule=PathPrefix(`/`)"
       - "traefik.http.routers.chat.entrypoints=web"
+      - "traefik.http.routers.chat.priority=1"
       - "traefik.http.routers.chat.service=chat"
       - "traefik.http.services.chat.loadbalancer.server.port=3080"
-      - "traefik.docker.network=real-time-chat_default"
+      - "traefik.docker.network=proxy"
 
   # TURN/STUN server (coturn)
   turn:
@@ -148,6 +149,8 @@ services:
         --min-port=49160 --max-port=49200 \
         --verbose"
     restart: unless-stopped
+    networks:
+      - real-time-chat
 
   minio:
     build:
@@ -165,21 +168,28 @@ services:
     volumes:
       - minio_data:/data
     restart: unless-stopped
+    networks:
+      - proxy
+      - real-time-chat
     labels:
       - "traefik.enable=true"
       # Route /minio -> MinIO S3 API (HTTP)
       - "traefik.http.routers.minio.rule=PathPrefix(`/minio`)"
       - "traefik.http.routers.minio.entrypoints=web"
+      - "traefik.http.routers.minio.service=minio"
       - "traefik.http.routers.minio.middlewares=minio-strip"
       - "traefik.http.middlewares.minio-strip.stripprefix.prefixes=/minio"
       - "traefik.http.services.minio.loadbalancer.server.port=9000"
+      - "traefik.http.routers.minio.priority=100"
       # Route /minio-console -> MinIO Console (HTTP)
       - "traefik.http.routers.minioconsole.rule=PathPrefix(`/minio-console`)"
       - "traefik.http.routers.minioconsole.entrypoints=web"
+      - "traefik.http.routers.minioconsole.service=minioconsole"
       - "traefik.http.routers.minioconsole.middlewares=minioconsole-strip"
       - "traefik.http.middlewares.minioconsole-strip.stripprefix.prefixes=/minio-console"
       - "traefik.http.services.minioconsole.loadbalancer.server.port=9001"
-      - "traefik.docker.network=real-time-chat_default"
+      - "traefik.http.routers.minioconsole.priority=110"
+      - "traefik.docker.network=proxy"
   redis:
     build:
       context: ./server/Redis
@@ -195,6 +205,8 @@ services:
       REDIS_PASSWORD: changeme
     volumes:
       - redis_data:/data
+    networks:
+      - real-time-chat
     restart: unless-stopped
     # No Traefik labels here: Redis is TCP on 6379 (not HTTP). Keep it internal.
 
@@ -242,10 +254,13 @@ services:
       MARIADB_USER: chat
       MARIADB_PASSWORD: chat
       MARIADB_ROOT_PASSWORD: root
-    # ports:
-    #   - "3306:3306"
+    ports:
+      - "3306:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
+      # Replication primary config and init scripts
+      - ./server/Database/MariaDB/conf.d/primary.cnf:/etc/mysql/mariadb.conf.d/zz-primary.cnf:ro
+      - ./server/Database/MariaDB/initdb/primary:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1"]
       interval: 5s
@@ -253,6 +268,8 @@ services:
       retries: 30
       start_period: 10s
     restart: unless-stopped
+    networks:
+      - real-time-chat
 
   mariadb_backup:
     build:
@@ -267,8 +284,16 @@ services:
       MARIADB_USER: chat_backup
       MARIADB_PASSWORD: chat_backup
       MARIADB_ROOT_PASSWORD: root
+      # Replication configuration
+      PRIMARY_HOST: mariadb
+      PRIMARY_PORT: 3306
+      REPL_USER: repl
+      REPL_PASSWORD: replpass
     volumes:
       - mariadb_backup_data:/var/lib/mysql
+      # Replication replica config and init scripts
+      - ./server/Database/MariaDB/conf.d/replica.cnf:/etc/mysql/mariadb.conf.d/zz-replica.cnf:ro
+      - ./server/Database/MariaDB/initdb/replica:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1"]
       interval: 5s
@@ -276,11 +301,15 @@ services:
       retries: 30
       start_period: 10s
     depends_on:
+      mariadb:
+        condition: service_healthy
       traefik:
         condition: service_started
       redis:
         condition: service_started
     restart: unless-stopped
+    networks:
+      - real-time-chat
 
   # Web UI's for dev debugging
   
@@ -295,29 +324,31 @@ services:
   #     - sqlite_data:/data
   #   restart: unless-stopped
 
-  redis-commander:
-    image: rediscommander/redis-commander:latest
-    container_name: chat-redis-commander-web
-    restart: unless-stopped
-    # ports:
-    #   - "8081:8081"
-    environment:
-      - REDIS_HOSTS=local:redis:6379:0:changeme
-      - HTTP_USER=admin
-      - HTTP_PASSWORD=secret
-    depends_on:
-      - redis
-    profiles:
-      - tools  # Utilise docker-compose --profile tools up pour inclure ce service
-    labels:
-      - "traefik.enable=true"
-      # Route /redis-commander -> Redis Commander Web UI (HTTP)
-      - "traefik.http.routers.rediscommander.rule=PathPrefix(`/redis-commander`)"
-      - "traefik.http.routers.rediscommander.entrypoints=web"
-      - "traefik.http.routers.rediscommander.middlewares=rediscommander-strip"
-      - "traefik.http.middlewares.rediscommander-strip.stripprefix.prefixes=/redis-commander"
-      - "traefik.http.services.rediscommander.loadbalancer.server.port=8081"
-      - "traefik.docker.network=real-time-chat_default"
+  # redis-commander:
+  #   image: rediscommander/redis-commander:latest
+  #   container_name: chat-redis-commander-web
+  #   restart: unless-stopped
+  #   # ports:
+  #   #   - "8081:8081"
+  #   environment:
+  #     - REDIS_HOSTS=local:redis:6379:0:changeme
+  #     - HTTP_USER=admin
+  #     - HTTP_PASSWORD=secret
+  #   depends_on:
+  #     - redis
+  #   profiles:
+  #     - tools  # Utilise docker-compose --profile tools up pour inclure ce service
+  #   labels:
+  #     - "traefik.enable=true"
+  #     # Route /redis-commander -> Redis Commander Web UI (HTTP)
+  #     - "traefik.http.routers.rediscommander.rule=PathPrefix(`/redis-commander`)"
+  #     - "traefik.http.routers.rediscommander.entrypoints=web"
+  #     - "traefik.http.routers.rediscommander.middlewares=rediscommander-strip"
+  #     - "traefik.http.middlewares.rediscommander-strip.stripprefix.prefixes=/redis-commander"
+  #     - "traefik.http.services.rediscommander.loadbalancer.server.port=8081"
+  #     - "traefik.docker.network=proxy"
+  #   networks:
+  #     - proxy
 
 volumes:
   # sqlite_data:
@@ -327,3 +358,9 @@ volumes:
   mariadb_data:
   mariadb_backup_data:
   traefik_data:
+
+networks:
+  proxy:
+    name: proxy
+  real-time-chat:
+    name: real-time-chat
