@@ -49,8 +49,8 @@ services:
       # Redis configuration
       REDIS_URL: redis://:changeme@redis:6379
       # S3/MinIO configuration
-      S3_ENDPOINT: http://minio:9000
       # S3_ENDPOINT: http://localhost:9000
+      S3_ENDPOINT: http://minio:9000
       S3_REGION: us-east-1
       S3_ACCESS_KEY: admin
       S3_SECRET_KEY: adminadmin123
@@ -116,6 +116,7 @@ services:
       # Route all paths to this server on entrypoint web (dev + ngrok friendly)
       - "traefik.http.routers.chat.rule=PathPrefix(`/`)"
       - "traefik.http.routers.chat.entrypoints=web"
+      - "traefik.http.routers.chat.priority=1"
       - "traefik.http.routers.chat.service=chat"
       - "traefik.http.services.chat.loadbalancer.server.port=3080"
       - "traefik.docker.network=real-time-chat_default"
@@ -170,15 +171,19 @@ services:
       # Route /minio -> MinIO S3 API (HTTP)
       - "traefik.http.routers.minio.rule=PathPrefix(`/minio`)"
       - "traefik.http.routers.minio.entrypoints=web"
+      - "traefik.http.routers.minio.service=minio"
       - "traefik.http.routers.minio.middlewares=minio-strip"
       - "traefik.http.middlewares.minio-strip.stripprefix.prefixes=/minio"
       - "traefik.http.services.minio.loadbalancer.server.port=9000"
+      - "traefik.http.routers.minio.priority=100"
       # Route /minio-console -> MinIO Console (HTTP)
       - "traefik.http.routers.minioconsole.rule=PathPrefix(`/minio-console`)"
       - "traefik.http.routers.minioconsole.entrypoints=web"
+      - "traefik.http.routers.minioconsole.service=minioconsole"
       - "traefik.http.routers.minioconsole.middlewares=minioconsole-strip"
       - "traefik.http.middlewares.minioconsole-strip.stripprefix.prefixes=/minio-console"
       - "traefik.http.services.minioconsole.loadbalancer.server.port=9001"
+      - "traefik.http.routers.minioconsole.priority=110"
       - "traefik.docker.network=real-time-chat_default"
   redis:
     build:
