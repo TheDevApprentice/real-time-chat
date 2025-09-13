@@ -62,12 +62,12 @@ services:
       # SQLite configuration
       # SQLITE_FILE: /data/chat.sqlite
       # MySQL configuration
-      MYSQL_HOST: mysql
-      MYSQL_PORT: 3306
-      MYSQL_DB: chat
-      MYSQL_USER: chat
-      MYSQL_PASSWORD: chat
-      MYSQL_SSL: false
+      # MYSQL_HOST: mysql
+      # MYSQL_PORT: 3306
+      # MYSQL_DB: chat
+      # MYSQL_USER: chat
+      # MYSQL_PASSWORD: chat
+      # MYSQL_SSL: false
       # MariaDB configuration
       MARIADB_HOST: mariadb
       MARIADB_PORT: 3306
@@ -75,6 +75,13 @@ services:
       MARIADB_USER: chat
       MARIADB_PASSWORD: chat
       MARIADB_SSL: false
+      # MariaDB backup configuration
+      MARIADB_HOST_BACKUP: mariadb_backup
+      MARIADB_PORT_BACKUP: 3306
+      MARIADB_DB_BACKUP: chat_backup
+      MARIADB_USER_BACKUP: chat_backup
+      MARIADB_PASSWORD_BACKUP: chat_backup
+      MARIADB_SSL_BACKUP: false
       WEBRTC_STUN: stun:stun.l.google.com:19302
       # Point to the local TURN (coturn) service below; replace with public DNS when deployed
       WEBRTC_TURN_URLS: turn:turn:3478
@@ -83,8 +90,9 @@ services:
       CALL_RING_TIMEOUT: 20
     volumes:
       # - sqlite_data:/data
-      - mysql_data:/var/lib/mysql
+      # - mysql_data:/var/lib/mysql
       - mariadb_data:/var/lib/mysql
+      - mariadb_backup_data:/var/lib/mysql
     depends_on:
       redis:
         condition: service_started
@@ -94,9 +102,11 @@ services:
         condition: service_started
       # sqlite:
       #   condition: service_started
-      mysql:
-        condition: service_healthy
+      # mysql:
+      #   condition: service_healthy
       mariadb:
+        condition: service_healthy
+      mariadb_backup:
         condition: service_healthy
     restart: unless-stopped
     labels:
@@ -161,6 +171,12 @@ services:
       - "traefik.http.routers.minio.middlewares=minio-strip"
       - "traefik.http.middlewares.minio-strip.stripprefix.prefixes=/minio"
       - "traefik.http.services.minio.loadbalancer.server.port=9000"
+      # Route /minio-console -> MinIO Console (HTTP)
+      - "traefik.http.routers.minioconsole.rule=PathPrefix(`/minio-console`)"
+      - "traefik.http.routers.minioconsole.entrypoints=web"
+      - "traefik.http.routers.minioconsole.middlewares=minioconsole-strip"
+      - "traefik.http.middlewares.minioconsole-strip.stripprefix.prefixes=/minio-console"
+      - "traefik.http.services.minioconsole.loadbalancer.server.port=9001"
       - "traefik.docker.network=real-time-chat_default"
   redis:
     build:
@@ -190,28 +206,28 @@ services:
   #     - sqlite_data:/data
   #   restart: unless-stopped
 
-  mysql:
-    build:
-      context: ./server/Database/MySql
-      dockerfile: Dockerfile
-    image: realtime-chat-mysql:latest
-    container_name: chat-mysql
-    environment:
-      MYSQL_DATABASE: chat
-      MYSQL_USER: chat
-      MYSQL_PASSWORD: chat
-      MYSQL_ROOT_PASSWORD: root
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -proot || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-      start_period: 10s
-    restart: unless-stopped
+  # mysql:
+  #   build:
+  #     context: ./server/Database/MySql
+  #     dockerfile: Dockerfile
+  #   image: realtime-chat-mysql:latest
+  #   container_name: chat-mysql
+  #   environment:
+  #     MYSQL_DATABASE: chat
+  #     MYSQL_USER: chat
+  #     MYSQL_PASSWORD: chat
+  #     MYSQL_ROOT_PASSWORD: root
+  #   ports:
+  #     - "3306:3306"
+  #   volumes:
+  #     - mysql_data:/var/lib/mysql
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -proot || exit 1"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 30
+  #     start_period: 10s
+  #   restart: unless-stopped
 
   mariadb:
     build:
@@ -224,8 +240,8 @@ services:
       MARIADB_USER: chat
       MARIADB_PASSWORD: chat
       MARIADB_ROOT_PASSWORD: root
-    ports:
-      - "3316:3306"
+    # ports:
+    #   - "3306:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
     healthcheck:
@@ -234,6 +250,34 @@ services:
       timeout: 3s
       retries: 30
       start_period: 10s
+    restart: unless-stopped
+
+  mariadb_backup:
+    build:
+      context: ./server/Database/MariaDB
+      dockerfile: Dockerfile
+    image: realtime-chat-mariadb:latest
+    ports:
+      - "3317:3306"
+    container_name: chat-mariadb-backup
+    environment:
+      MARIADB_DATABASE: chat_backup
+      MARIADB_USER: chat_backup
+      MARIADB_PASSWORD: chat_backup
+      MARIADB_ROOT_PASSWORD: root
+    volumes:
+      - mariadb_backup_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    depends_on:
+      traefik:
+        condition: service_started
+      redis:
+        condition: service_started
     restart: unless-stopped
 
   # Web UI's for dev debugging
@@ -277,6 +321,7 @@ volumes:
   # sqlite_data:
   redis_data:
   minio_data:
-  mysql_data:
+  # mysql_data:
   mariadb_data:
-  # traefik_data:
+  mariadb_backup_data:
+  traefik_data:
