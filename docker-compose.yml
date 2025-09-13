@@ -151,6 +151,7 @@ services:
     restart: unless-stopped
     networks:
       - real-time-chat
+      - proxy
 
   minio:
     build:
@@ -255,7 +256,7 @@ services:
       MARIADB_PASSWORD: chat
       MARIADB_ROOT_PASSWORD: root
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
       # Replication primary config and init scripts
@@ -270,6 +271,7 @@ services:
     restart: unless-stopped
     networks:
       - real-time-chat
+      - proxy # to delete in prod
 
   mariadb_backup:
     build:
@@ -277,7 +279,7 @@ services:
       dockerfile: Dockerfile
     image: realtime-chat-mariadb:latest
     ports:
-      - "3317:3306"
+      - "127.0.0.1:3317:3306"
     container_name: chat-mariadb-backup
     environment:
       MARIADB_DATABASE: chat_backup
@@ -309,6 +311,7 @@ services:
         condition: service_started
     restart: unless-stopped
     networks:
+      - proxy # to delete in prod
       - real-time-chat
 
   # Web UI's for dev debugging
@@ -362,6 +365,14 @@ volumes:
 networks:
   proxy:
     name: proxy
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.30.0.0/24
   real-time-chat:
     internal: true
     name: real-time-chat
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.31.0.0/24
