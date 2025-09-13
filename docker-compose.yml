@@ -94,7 +94,9 @@ services:
       CALL_RING_TIMEOUT: 20
     networks:
       - proxy
-      - real-time-chat
+      - dbnet
+      - cachenet
+      - stornet
     depends_on:
       redis:
         condition: service_started
@@ -150,7 +152,6 @@ services:
         --verbose"
     restart: unless-stopped
     networks:
-      - real-time-chat
       - proxy
 
   minio:
@@ -171,7 +172,7 @@ services:
     restart: unless-stopped
     networks:
       - proxy
-      - real-time-chat
+      - stornet
     labels:
       - "traefik.enable=true"
       # Route /minio -> MinIO S3 API (HTTP)
@@ -186,7 +187,10 @@ services:
       - "traefik.http.routers.minioconsole.rule=PathPrefix(`/minio-console`)"
       - "traefik.http.routers.minioconsole.entrypoints=web"
       - "traefik.http.routers.minioconsole.service=minioconsole"
-      - "traefik.http.routers.minioconsole.middlewares=minioconsole-strip"
+      - "traefik.http.routers.minioconsole.middlewares=minioconsole-strip,minioconsole-auth,minio-allow"
+      - "traefik.http.middlewares.minioconsole-auth.basicauth.users=admin:$$apr1$$H6uskkkW$$IgXLP6ewTrSuBkTrqE8wj/"
+      - "traefik.http.middlewares.minioconsole-auth.basicauth.removeheader=true"
+      - "traefik.http.middlewares.minio-allow.ipwhitelist.sourcerange=127.0.0.1/32,172.30.0.0/24,::1/128"
       - "traefik.http.middlewares.minioconsole-strip.stripprefix.prefixes=/minio-console"
       - "traefik.http.services.minioconsole.loadbalancer.server.port=9001"
       - "traefik.http.routers.minioconsole.priority=110"
@@ -207,7 +211,8 @@ services:
     volumes:
       - redis_data:/data
     networks:
-      - real-time-chat
+      - proxy
+      - cachenet
     restart: unless-stopped
     # No Traefik labels here: Redis is TCP on 6379 (not HTTP). Keep it internal.
 
@@ -270,7 +275,7 @@ services:
       start_period: 10s
     restart: unless-stopped
     networks:
-      - real-time-chat
+      - dbnet
       - proxy # to delete in prod
 
   mariadb_backup:
@@ -312,7 +317,7 @@ services:
     restart: unless-stopped
     networks:
       - proxy # to delete in prod
-      - real-time-chat
+      - dbnet
 
   # Web UI's for dev debugging
   
@@ -369,10 +374,24 @@ networks:
       driver: default
       config:
         - subnet: 172.30.0.0/24
-  real-time-chat:
+  dbnet:
     internal: true
-    name: real-time-chat
+    name: dbnet
     ipam:
       driver: default
       config:
-        - subnet: 172.31.0.0/24
+        - subnet: 172.31.10.0/24
+  cachenet:
+    internal: true
+    name: cachenet
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.31.20.0/24
+  stornet:
+    internal: true
+    name: stornet
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.31.30.0/24
