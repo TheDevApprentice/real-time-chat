@@ -1,0 +1,310 @@
+version: "3.9"
+
+# Docker Swarm stack file
+# Notes:
+# - Build directives are not supported by `docker stack deploy`. Build images first with docker compose, or push to a registry.
+# - Traefik must run with providers.docker.swarmMode=true and service labels must be under deploy.labels.
+# - Networks are overlay for Swarm. Sticky cookie stays enabled on the chat service.
+
+services:
+  traefik:
+    image: traefik:v2.11
+    command:
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --log.level=DEBUG
+      - --providers.docker=true
+      - --providers.docker.swarmMode=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      # To enable HTTPS with Let's Encrypt in prod, add websecure entrypoint and ACME args here
+      # - --entrypoints.websecure.address=:443
+      # - --certificatesresolvers.le.acme.tlschallenge=true
+      # - --certificatesresolvers.le.acme.email=your-email@example.com
+      # - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+    ports:
+      - target: 80
+        published: 80
+        protocol: tcp
+        mode: host
+      - target: 8080
+        published: 8080
+        protocol: tcp
+        mode: host
+      - target: 443
+        published: 443
+        protocol: tcp
+        mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # - traefik_data:/letsencrypt
+    networks:
+      - proxy
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: any
+
+  server:
+    # Build is not supported in stack deploy. Ensure this image exists locally or in a registry.
+    image: realtime-chat-server:latest
+    environment:
+      NODE_ENV: production
+      DEBUG: "true"
+      PORT: 3080
+      FRONTEND_URL: http://localhost
+      TRUST_PROXY: "true"
+      BCRYPT_COST: "12"
+      # Redis configuration (URL preferred)
+      REDIS_URL: redis://:changeme@redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_USER: changeme
+      REDIS_PASSWORD: changeme
+      REDIS_TLS: "false"
+      # S3/MinIO configuration
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: admin
+      S3_SECRET_KEY: adminadmin123
+      S3_BUCKET: chat-bucket
+      S3_USE_PATH_STYLE: "true"
+      S3_PUBLIC_URL_BASE: http://localhost/minio/chat-bucket
+      # MariaDB configuration
+      DATABASE_DRIVER: mariadb
+      MARIADB_HOST: mariadb
+      MARIADB_PORT: 3306
+      MARIADB_DB: chat
+      MARIADB_USER: chat
+      MARIADB_PASSWORD: chat
+      MARIADB_SSL: "false"
+      # MariaDB backup configuration
+      MARIADB_HOST_BACKUP: mariadb_backup
+      MARIADB_PORT_BACKUP: 3306
+      MARIADB_DB_BACKUP: chat_backup
+      MARIADB_USER_BACKUP: chat_backup
+      MARIADB_PASSWORD_BACKUP: chat_backup
+      MARIADB_SSL_BACKUP: "false"
+      # TURN / STUN
+      WEBRTC_STUN: stun:stun.l.google.com:19302
+      WEBRTC_TURN_URLS: turn:turn:3478
+      WEBRTC_TURN_USERNAME: devuser
+      WEBRTC_TURN_CREDENTIAL: devpass
+      CALL_RING_TIMEOUT: 20
+    networks:
+      - proxy
+      - dbnet
+      - cachenet
+      - stornet
+    depends_on: [] # ignored by Swarm; keep empty to document dependencies
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: any
+      update_config:
+        parallelism: 1
+        delay: 3s
+        failure_action: rollback
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.chat.rule=PathPrefix(`/`)"
+        - "traefik.http.routers.chat.entrypoints=web"
+        - "traefik.http.routers.chat.priority=1"
+        - "traefik.http.routers.chat.service=chat"
+        - "traefik.http.services.chat.loadbalancer.server.port=3080"
+        # Sticky cookie for session affinity (dev HTTP; set secure=true under HTTPS)
+        - "traefik.http.services.chat.loadbalancer.sticky.cookie=true"
+        - "traefik.http.services.chat.loadbalancer.sticky.cookie.name=chat_affinity"
+        - "traefik.http.services.chat.loadbalancer.sticky.cookie.httpOnly=true"
+        - "traefik.http.services.chat.loadbalancer.sticky.cookie.secure=false"
+        - "traefik.http.services.chat.loadbalancer.sticky.cookie.sameSite=lax"
+        - "traefik.docker.network=proxy"
+
+  turn:
+    image: coturn/coturn:latest
+    command: >-
+      bash -lc "\
+      turnserver \
+        --no-cli \
+        --no-tls \
+        --fingerprint \
+        --lt-cred-mech \
+        --realm=${COTURN_REALM:-chat.local} \
+        --user=${COTURN_USER:-devuser}:${COTURN_PASS:-devpass} \
+        --external-ip=${COTURN_PUBLIC_IP:-127.0.0.1} \
+        --listening-port=3478 \
+        --listening-ip=0.0.0.0 \
+        --min-port=49160 --max-port=49200 \
+        --verbose"
+    environment:
+      - COTURN_PUBLIC_IP=${COTURN_PUBLIC_IP:-127.0.0.1}
+      - COTURN_REALM=${COTURN_REALM:-chat.local}
+      - COTURN_USER=${COTURN_USER:-devuser}
+      - COTURN_PASS=${COTURN_PASS:-devpass}
+    networks:
+      - proxy
+    deploy:
+      restart_policy:
+        condition: any
+
+  minio:
+    image: realtime-chat-minio:latest
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=adminadmin123
+      - S3_BUCKET=chat-bucket
+    networks:
+      - proxy
+      - stornet
+    volumes:
+      - minio_data:/data
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.minio.rule=PathPrefix(`/minio`)"
+        - "traefik.http.routers.minio.entrypoints=web"
+        - "traefik.http.routers.minio.service=minio"
+        - "traefik.http.routers.minio.middlewares=minio-strip"
+        - "traefik.http.middlewares.minio-strip.stripprefix.prefixes=/minio"
+        - "traefik.http.services.minio.loadbalancer.server.port=9000"
+        - "traefik.http.routers.minio.priority=100"
+        - "traefik.http.routers.minioconsole.rule=PathPrefix(`/minio-console`)"
+        - "traefik.http.routers.minioconsole.entrypoints=web"
+        - "traefik.http.routers.minioconsole.service=minioconsole"
+        - "traefik.http.routers.minioconsole.middlewares=minioconsole-strip,minioconsole-auth,minio-allow"
+        - "traefik.http.middlewares.minioconsole-auth.basicauth.users=admin:$$apr1$$H6uskkkW$$IgXLP6ewTrSuBkTrqE8wj/"
+        - "traefik.http.middlewares.minioconsole-auth.basicauth.removeheader=true"
+        - "traefik.http.middlewares.minio-allow.ipwhitelist.sourcerange=127.0.0.1/32,172.30.0.0/24,::1/128"
+        - "traefik.http.middlewares.minioconsole-strip.stripprefix.prefixes=/minio-console"
+        - "traefik.http.services.minioconsole.loadbalancer.server.port=9001"
+        - "traefik.http.routers.minioconsole.priority=110"
+        - "traefik.docker.network=proxy"
+      restart_policy:
+        condition: any
+
+  redis:
+    image: realtime-chat-redis:latest
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"${REDIS_PASSWORD:-changeme}\""]
+    environment:
+      - REDIS_PASSWORD=changeme
+    networks:
+      - proxy
+      - cachenet
+    volumes:
+      - redis_data:/data
+    deploy:
+      restart_policy:
+        condition: any
+
+  mariadb:
+    image: realtime-chat-mariadb:latest
+    environment:
+      MARIADB_DATABASE: chat
+      MARIADB_USER: chat
+      MARIADB_PASSWORD: chat
+      MARIADB_ROOT_PASSWORD: root
+    ports:
+      - target: 3306
+        published: 3306
+        protocol: tcp
+        mode: host
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    configs:
+      - source: mariadb-primary-cnf
+        target: /etc/mysql/mariadb.conf.d/zz-primary.cnf
+      - source: mariadb-init-primary-10
+        target: /docker-entrypoint-initdb.d/10-create-repl-user.sh
+        mode: 0555
+    networks:
+      - dbnet
+      - proxy
+    depends_on:
+      - 'traefik'
+      - 'redis'
+    deploy:
+      restart_policy:
+        condition: any
+
+  mariadb_backup:
+    image: realtime-chat-mariadb:latest
+    ports:
+      - target: 3306
+        published: 3317
+        protocol: tcp
+        mode: host
+    environment:
+      MARIADB_DATABASE: chat_backup
+      MARIADB_USER: chat_backup
+      MARIADB_PASSWORD: chat_backup
+      MARIADB_ROOT_PASSWORD: root
+      PRIMARY_HOST: mariadb
+      PRIMARY_PORT: 3306
+      REPL_USER: repl
+      REPL_PASSWORD: replpass
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    volumes:
+      - mariadb_backup_data:/var/lib/mysql
+    configs:
+      - source: mariadb-replica-cnf
+        target: /etc/mysql/mariadb.conf.d/zz-replica.cnf
+      - source: mariadb-init-replica-20
+        target: /docker-entrypoint-initdb.d/20-setup-replication.sh
+        mode: 0555
+    networks:
+      - proxy
+      - dbnet
+    depends_on:
+      - 'traefik'
+      - 'redis'
+      - 'mariadb'
+    deploy:
+      restart_policy:
+        condition: any
+
+networks:
+  proxy:
+    driver: overlay
+    attachable: true
+  dbnet:
+    driver: overlay
+    attachable: true
+    internal: true
+  cachenet:
+    driver: overlay
+    attachable: true
+    internal: true
+  stornet:
+    driver: overlay
+    attachable: true
+    internal: true
+
+volumes:
+  redis_data: {}
+  minio_data: {}
+  mariadb_data: {}
+  mariadb_backup_data: {}
+  traefik_data: {}
+
+configs:
+  mariadb-primary-cnf:
+    file: ./server/Database/MariaDB/conf.d/primary.cnf
+  mariadb-replica-cnf:
+    file: ./server/Database/MariaDB/conf.d/replica.cnf
+  mariadb-init-primary-10:
+    file: ./server/Database/MariaDB/initdb/primary/10-create-repl-user.sh
+  mariadb-init-replica-20:
+    file: ./server/Database/MariaDB/initdb/replica/20-setup-replication.sh
