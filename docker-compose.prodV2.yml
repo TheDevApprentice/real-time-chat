@@ -48,6 +48,11 @@ services:
       BCRYPT_COST: "12"
       # Redis configuration
       REDIS_URL: redis://:changeme@redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_USER: changeme
+      REDIS_PASSWORD: changeme
+      REDIS_TLS: false
       # S3/MinIO configuration
       S3_ENDPOINT: http://minio:9000
       S3_REGION: us-east-1
@@ -106,6 +111,16 @@ services:
       - "traefik.http.routers.chat.priority=1"
       - "traefik.http.routers.chat.service=chat"
       - "traefik.http.services.chat.loadbalancer.server.port=3080"
+      # Sticky cookie for session affinity (useful for reconnections and long-polling)
+      - "traefik.http.services.chat.loadbalancer.sticky.cookie=true"
+      - "traefik.http.services.chat.loadbalancer.sticky.cookie.name=chat_affinity"
+      - "traefik.http.services.chat.loadbalancer.sticky.cookie.httpOnly=true"
+      - "traefik.http.services.chat.loadbalancer.sticky.cookie.secure=false" # dev over HTTP
+      - "traefik.http.services.chat.loadbalancer.sticky.cookie.sameSite=lax"
+      # --- Production (HTTPS) notes ---
+      # When deploying behind HTTPS, enable a secure cookie and consider a stricter SameSite policy:
+      # - "traefik.http.services.chat.loadbalancer.sticky.cookie.secure=true"  # cookie only over HTTPS
+      # - "traefik.http.services.chat.loadbalancer.sticky.cookie.sameSite=strict"  # stronger CSRF isolation (adjust if embedding)
       - "traefik.docker.network=proxy"
 
   # TURN/STUN server (coturn)
