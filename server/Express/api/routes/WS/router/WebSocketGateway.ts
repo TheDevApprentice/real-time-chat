@@ -1,6 +1,8 @@
 import { Server as HttpServer } from "http";
 import { Server as SocketServer, Socket } from "socket.io";
 import { Logger } from "../../../../utils/LoggerUtil";
+import { createAdapter } from "@socket.io/redis-adapter";
+import { Redis as IoRedis } from "ioredis";
 import {
   WsAuthenticateSchema,
   WsLoginSchema,
@@ -52,11 +54,15 @@ export class WebSocketGateway {
   private friendsCtrl: FriendsWsController;
   private callsCtrl: CallsWsController;
   private routerInitialized = false;
+  private pubClient?: IoRedis;
+  private subClient?: IoRedis;
 
   constructor(httpServer: HttpServer) {
     this.io = new SocketServer(httpServer, {
       cors: { origin: process.env.FRONTEND_URL, credentials: true },
     });
+    // Configure cross-instance broadcasting using Redis adapter (no-op if Redis unavailable)
+    void this.configureRedisAdapter();
     this.router = new WsRouter();
     this.authCtrl = new AuthWsController();
     this.roomsCtrl = new RoomsWsController();
@@ -65,6 +71,64 @@ export class WebSocketGateway {
     this.callsCtrl = new CallsWsController();
     this.registerRoutes();
     this.handleConnections();
+  }
+
+  public async dispose(): Promise<void> {
+    // Graceful shutdown of adapter clients (no throw on errors)
+    try {
+      if (this.subClient) {
+        try { 
+          Logger.info("Redis subClient disconnecting");
+          await this.subClient.quit(); 
+        } catch {}
+      }
+    } catch {}
+    try {
+      if (this.pubClient) {
+        try { 
+          Logger.info("Redis pubClient disconnecting");
+          await this.pubClient.quit(); 
+        } catch {}
+      }
+    } catch {}
+  }
+
+  private async configureRedisAdapter(): Promise<void> {
+    try {
+      const url = process.env.REDIS_URL;
+      let pub: IoRedis;
+      let sub: IoRedis;
+      if (typeof url === "string" && url.trim().length > 0) {
+        // Connect using a single URL (redis://... or rediss://...)
+        pub = new IoRedis(url);
+        sub = pub.duplicate();
+        Logger.info("Socket.IO Redis adapter (ioredis) enabled with URL: " + url);
+      } else {
+        // Build from individual envs (fallback similar to RedisService)
+        const host = process.env.REDIS_HOST || "redis";
+        const port = Number(process.env.REDIS_PORT || "6379");
+        const username = process.env.REDIS_USER || undefined;
+        const password = process.env.REDIS_PASSWORD || process.env.REDIS_PASS || undefined;
+        const useTLS = (process.env.REDIS_TLS || "false").toLowerCase() === "true";
+        const options: any = { host, port };
+        if (username) options.username = username;
+        if (password) options.password = password;
+        if (useTLS) options.tls = {};
+        pub = new IoRedis(options);
+        sub = pub.duplicate();
+        Logger.info("Socket.IO Redis adapter (ioredis) enabled with options: " + JSON.stringify(options));
+      }
+      // ioredis auto-connects; no explicit await needed
+      this.io.adapter(createAdapter(pub as any, sub as any));
+      this.pubClient = pub;
+      this.subClient = sub;
+      Logger.info("Socket.IO Redis adapter (ioredis) enabled");
+    } catch (err) {
+      Logger.warn(
+        "Socket.IO Redis adapter disabled: " +
+          (err instanceof Error ? err.message : String(err))
+      );
+    }
   }
 
   private registerRoutes(): void {
