@@ -16,6 +16,7 @@ class AppServer {
   private app: express.Application;
   private server: http.Server;
   private port: number;
+  private wsGateway?: WebSocketGateway;
 
   constructor() {
     this.app = express();
@@ -52,8 +53,8 @@ class AppServer {
     }
     // Database schema is initialized by infrastructure/db/factory at connection time
 
-    // Start WebSocket service
-    new WebSocketGateway(this.server);
+    // Start WebSocket service and keep a reference for graceful shutdown
+    this.wsGateway = new WebSocketGateway(this.server);
   }
 
   private setupMiddleware(): void {
@@ -154,6 +155,8 @@ class AppServer {
     const shutdown = async (signal: string) => {
       try {
         Logger.info(`Received ${signal}, shutting down...`);
+        // Dispose WebSocket adapter clients first
+        await this.wsGateway?.dispose().catch(() => undefined);
         await redisService.disconnect().catch(() => undefined);
         this.server.close(() => {
           Logger.info("HTTP server closed");
