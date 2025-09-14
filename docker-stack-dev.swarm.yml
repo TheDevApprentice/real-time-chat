@@ -58,8 +58,9 @@ services:
       TRUST_PROXY: "true"
       BCRYPT_COST: "12"
       # Redis configuration (URL preferred)
-      REDIS_URL: redis://:changeme@redis:6379
-      REDIS_HOST: redis
+      # Target tasks.<stack>_<service> to bypass VIP and use DNS round-robin of task IPs
+      REDIS_URL: redis://:changeme@tasks.chat_redis:6379
+      REDIS_HOST: tasks.chat_redis
       REDIS_PORT: 6379
       REDIS_USER: changeme
       REDIS_PASSWORD: changeme
@@ -98,7 +99,6 @@ services:
       - dbnet
       - cachenet
       - stornet
-    depends_on: [] # ignored by Swarm; keep empty to document dependencies
     deploy:
       replicas: 2
       restart_policy:
@@ -190,7 +190,6 @@ services:
     environment:
       - REDIS_PASSWORD=changeme
     networks:
-      - proxy
       - cachenet
     volumes:
       - redis_data:/data
@@ -227,9 +226,6 @@ services:
     networks:
       - dbnet
       - proxy
-    depends_on:
-      - 'traefik'
-      - 'redis'
     deploy:
       restart_policy:
         condition: any
@@ -267,10 +263,6 @@ services:
     networks:
       - proxy
       - dbnet
-    depends_on:
-      - 'traefik'
-      - 'redis'
-      - 'mariadb'
     deploy:
       restart_policy:
         condition: any
