@@ -156,6 +156,11 @@ export class RedisService implements IRedisService {
   ): Promise<() => Promise<void>> {
     // Dedicated sub client (node-redis v4 requirement)
     const sub = this.ensure().duplicate();
+    // Avoid unhandled 'error' events on the duplicate client
+    sub.on("error", (err: unknown) => {
+      // eslint-disable-next-line no-console
+      console.error("Redis sub error:", err);
+    });
     await sub.connect();
     await sub.subscribe(channel, (msg: string) => handler(msg, channel));
     return async () => {

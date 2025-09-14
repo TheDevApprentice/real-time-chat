@@ -98,10 +98,22 @@ export class WebSocketGateway {
       const url = process.env.REDIS_URL;
       let pub: IoRedis;
       let sub: IoRedis;
+      const retryStrategy = (times: number) => {
+        // backoff up to 5s, keep retrying (helps when service comes up later in Swarm)
+        return Math.min(5000, 300 + times * 200);
+      };
       if (typeof url === "string" && url.trim().length > 0) {
         // Connect using a single URL (redis://... or rediss://...)
-        pub = new IoRedis(url);
-        sub = pub.duplicate();
+        pub = new IoRedis(url, {
+          lazyConnect: false,
+          retryStrategy,
+          connectionName: "ws-pub",
+        } as any);
+        sub = pub.duplicate({
+          lazyConnect: false,
+          retryStrategy,
+          connectionName: "ws-sub",
+        } as any);
         Logger.info("Socket.IO Redis adapter (ioredis) enabled with URL: " + url);
       } else {
         // Build from individual envs (fallback similar to RedisService)
@@ -110,14 +122,31 @@ export class WebSocketGateway {
         const username = process.env.REDIS_USER || undefined;
         const password = process.env.REDIS_PASSWORD || process.env.REDIS_PASS || undefined;
         const useTLS = (process.env.REDIS_TLS || "false").toLowerCase() === "true";
-        const options: any = { host, port };
+        const options: any = {
+          host,
+          port,
+          lazyConnect: false,
+          retryStrategy,
+          connectionName: "ws-pub",
+        };
         if (username) options.username = username;
         if (password) options.password = password;
         if (useTLS) options.tls = {};
         pub = new IoRedis(options);
-        sub = pub.duplicate();
+        sub = pub.duplicate({
+          lazyConnect: false,
+          retryStrategy,
+          connectionName: "ws-sub",
+        } as any);
         Logger.info("Socket.IO Redis adapter (ioredis) enabled with options: " + JSON.stringify(options));
       }
+      // Attach error handlers to avoid "missing 'error' handler" and log cleanly
+      pub.on("error", (err) => {
+        Logger.warn("ioredis pub error: " + (err instanceof Error ? err.message : String(err)));
+      });
+      sub.on("error", (err) => {
+        Logger.warn("ioredis sub error: " + (err instanceof Error ? err.message : String(err)));
+      });
       // ioredis auto-connects; no explicit await needed
       this.io.adapter(createAdapter(pub as any, sub as any));
       this.pubClient = pub;

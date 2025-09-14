@@ -53,8 +53,7 @@ class AppServer {
     }
     // Database schema is initialized by infrastructure/db/factory at connection time
 
-    // Start WebSocket service and keep a reference for graceful shutdown
-    this.wsGateway = new WebSocketGateway(this.server);
+    // WebSocketGateway is initialized later in start() after DB readiness checks
   }
 
   private setupMiddleware(): void {
@@ -144,7 +143,66 @@ class AppServer {
     this.app.use("/api", routerREST);
   }
 
-  public start(): void {
+  private async waitForDatabasesHealthy(): Promise<void> {
+    try {
+      const driver = (process.env.DATABASE_DRIVER || "").toLowerCase();
+      if (driver !== "mariadb") return; // only gate when using MariaDB
+
+      const mariadbHost = process.env.MARIADB_HOST as string;
+      const mariadbPort = Number(process.env.MARIADB_PORT || 3306);
+      const mariadbDb = process.env.MARIADB_DB as string;
+      const mariadbUser = process.env.MARIADB_USER as string;
+      const mariadbPassword = process.env.MARIADB_PASSWORD as string;
+
+      const replicaHost = process.env.MARIADB_HOST_BACKUP as string;
+      const replicaPort = Number(process.env.MARIADB_PORT_BACKUP || 3306);
+      const replicaDb = process.env.MARIADB_DB_BACKUP as string;
+      const replicaUser = process.env.MARIADB_USER_BACKUP as string;
+      const replicaPassword = process.env.MARIADB_PASSWORD_BACKUP as string;
+
+      const timeoutMs = Number(process.env.DB_WAIT_TIMEOUT_MS || 120_000);
+      const started = Date.now();
+
+      const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+      const check = async (host: string, port: number, user: string, password: string, database: string) => {
+        // Lazy import to avoid top-level dependency in other modes
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const mysql = require("mysql2/promise");
+        const conn = await mysql.createConnection({ host, port, user, password, database, timezone: "Z" });
+        try {
+          await conn.query("SELECT 1");
+        } finally {
+          try { await conn.end(); } catch {}
+        }
+      };
+
+      while (true) {
+        try {
+          await check(mariadbHost, mariadbPort, mariadbUser, mariadbPassword, mariadbDb);
+          await check(replicaHost, replicaPort, replicaUser, replicaPassword, replicaDb);
+          Logger.info("MariaDB primary and replica are healthy. Proceeding to start server.");
+          return;
+        } catch (e: any) {
+          if (Date.now() - started > timeoutMs) {
+            Logger.error("Timed out waiting for databases to become healthy.");
+            throw e instanceof Error ? e : new Error(String(e));
+          }
+          Logger.warn("Waiting for databases to be healthy...");
+          await delay(2000);
+        }
+      }
+    } catch (err) {
+      // As a safety net, do not block forever; allow start to continue
+      Logger.warn(`DB readiness check skipped with error: ${String(err)}`);
+    }
+  }
+
+  public async start(): Promise<void> {
+    // Ensure databases are ready before accepting traffic
+    await this.waitForDatabasesHealthy();
+
+    // Start WebSocket service and keep a reference for graceful shutdown
+    this.wsGateway = new WebSocketGateway(this.server);
     // Connect Redis (non-blocking) and handle graceful shutdown
     const redisService = RedisService.getInstance();
     redisService
@@ -178,4 +236,4 @@ class AppServer {
 }
 
 const app = new AppServer();
-app.start();
+void app.start();
