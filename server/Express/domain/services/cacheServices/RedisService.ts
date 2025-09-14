@@ -1,5 +1,6 @@
 import { createClient } from "redis";
 import { IRedisService } from "../../interfaces/cacheInterfaces/IRedisService";
+import { Logger } from "../../../utils/LoggerUtil";
 
 export class RedisService implements IRedisService {
   private static instance: RedisService | null = null;
@@ -88,6 +89,7 @@ export class RedisService implements IRedisService {
   async disconnect(): Promise<void> {
     if (!this.client) return;
     try {
+      Logger.info("Redis disconnecting");
       await this.client.quit();
     } finally {
       this.client = null;
