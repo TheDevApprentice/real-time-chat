@@ -351,8 +351,12 @@ services:
       # Route /redis-commander -> Redis Commander Web UI (HTTP)
       - "traefik.http.routers.rediscommander.rule=PathPrefix(`/redis-commander`)"
       - "traefik.http.routers.rediscommander.entrypoints=web"
-      - "traefik.http.routers.rediscommander.middlewares=rediscommander-strip"
+      - "traefik.http.routers.rediscommander.service=rediscommander"
+      - "traefik.http.routers.rediscommander.middlewares=rediscommander-strip,rediscommander-auth,rediscommander-allow"
       - "traefik.http.middlewares.rediscommander-strip.stripprefix.prefixes=/redis-commander"
+      - "traefik.http.middlewares.rediscommander-auth.basicauth.users=admin:$$apr1$$H6uskkkW$$IgXLP6ewTrSuBkTrqE8wj/"
+      - "traefik.http.middlewares.rediscommander-auth.basicauth.removeheader=true"
+      - "traefik.http.middlewares.rediscommander-allow.ipwhitelist.sourcerange=127.0.0.1/32,172.30.0.0/24,::1/128"
       - "traefik.http.services.rediscommander.loadbalancer.server.port=8081"
       - "traefik.docker.network=proxy"
     networks:
