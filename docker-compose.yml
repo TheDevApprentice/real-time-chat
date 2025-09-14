@@ -36,7 +36,7 @@ services:
       context: ./server/Express
       dockerfile: Dockerfile
     image: realtime-chat-server:latest
-    container_name: chat-server
+    # container_name: chat-server
     # ports:
     #   - "3080:3080"
     environment:
