@@ -332,31 +332,32 @@ services:
   #     - sqlite_data:/data
   #   restart: unless-stopped
 
-  # redis-commander:
-  #   image: rediscommander/redis-commander:latest
-  #   container_name: chat-redis-commander-web
-  #   restart: unless-stopped
-  #   # ports:
-  #   #   - "8081:8081"
-  #   environment:
-  #     - REDIS_HOSTS=local:redis:6379:0:changeme
-  #     - HTTP_USER=admin
-  #     - HTTP_PASSWORD=secret
-  #   depends_on:
-  #     - redis
-  #   profiles:
-  #     - tools  # Utilise docker-compose --profile tools up pour inclure ce service
-  #   labels:
-  #     - "traefik.enable=true"
-  #     # Route /redis-commander -> Redis Commander Web UI (HTTP)
-  #     - "traefik.http.routers.rediscommander.rule=PathPrefix(`/redis-commander`)"
-  #     - "traefik.http.routers.rediscommander.entrypoints=web"
-  #     - "traefik.http.routers.rediscommander.middlewares=rediscommander-strip"
-  #     - "traefik.http.middlewares.rediscommander-strip.stripprefix.prefixes=/redis-commander"
-  #     - "traefik.http.services.rediscommander.loadbalancer.server.port=8081"
-  #     - "traefik.docker.network=proxy"
-  #   networks:
-  #     - proxy
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: chat-redis-commander-web
+    restart: unless-stopped
+    # ports:
+    #   - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379:0:changeme
+      - HTTP_USER=admin
+      - HTTP_PASSWORD=secret
+    depends_on:
+      - redis
+    profiles:
+      - tools  # Utilise docker-compose --profile tools up pour inclure ce service
+    labels:
+      - "traefik.enable=true"
+      # Route /redis-commander -> Redis Commander Web UI (HTTP)
+      - "traefik.http.routers.rediscommander.rule=PathPrefix(`/redis-commander`)"
+      - "traefik.http.routers.rediscommander.entrypoints=web"
+      - "traefik.http.routers.rediscommander.middlewares=rediscommander-strip"
+      - "traefik.http.middlewares.rediscommander-strip.stripprefix.prefixes=/redis-commander"
+      - "traefik.http.services.rediscommander.loadbalancer.server.port=8081"
+      - "traefik.docker.network=proxy"
+    networks:
+      - cachenet
+      - proxy
 
 volumes:
   # sqlite_data:
