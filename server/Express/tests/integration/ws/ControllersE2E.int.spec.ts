@@ -181,4 +181,67 @@ describe("WS Controllers E2E (bypass middleware)", () => {
     expect((outA as any).success).toBe(true);
     expect((outB as any).success).toBe(true);
   });
+
+  it("same scenario but each user has two sessions and we perform logoutAll to remove all sessions", async () => {
+    // Seed distinct users
+    await seedUserRaw(dbConn, "UA3", "alice3", "pwA3");
+    await seedUserRaw(dbConn, "UB3", "bob3", "pwB3");
+
+    // Add second sockets to simulate two sessions per user
+    const socketA2 = new FakeSocket("sock-A-dup");
+    const socketB2 = new FakeSocket("sock-B-dup");
+    (io.sockets as any).push(socketA2, socketB2);
+
+    // Login for A on two sockets
+    const a1 = await authCtrl.login(makeCtx(services(), io, socketA, { username: "alice3", password: "pwA3" }));
+    const a2 = await authCtrl.login(makeCtx(services(), io, socketA2, { username: "alice3", password: "pwA3" }));
+    expect((a1 as any).token).toBeDefined();
+    expect((a2 as any).token).toBeDefined();
+    expect(socketA.data.userId).toBe("UA3");
+    expect(socketA2.data.userId).toBe("UA3");
+
+    // Login for B on two sockets
+    const b1 = await authCtrl.login(makeCtx(services(), io, socketB, { username: "bob3", password: "pwB3" }));
+    const b2 = await authCtrl.login(makeCtx(services(), io, socketB2, { username: "bob3", password: "pwB3" }));
+    expect((b1 as any).token).toBeDefined();
+    expect((b2 as any).token).toBeDefined();
+    expect(socketB.data.userId).toBe("UB3");
+    expect(socketB2.data.userId).toBe("UB3");
+
+    // Friend flow and DM creation (using one socket per user)
+    await friendsCtrl.friendRequest(makeCtx(services(), io, socketA, { targetUserId: "UB3" }));
+    await friendsCtrl.friendRespond(makeCtx(services(), io, socketB, { otherUserId: "UA3", action: "accept" }));
+    const dmRes = await roomsCtrl.createRoom(makeCtx(services(), io, socketA, { name: "DM UA3<->UB3", type: "user", invitedUserIds: ["UB3"] }));
+    expect((dmRes as any).success).toBe(true);
+
+    // Sanity: send one message
+    await roomsCtrl.getRooms(makeCtx(services(), io, socketA));
+    const roomsEvent = socketA.events.find(e => e.event === "rooms");
+    const dm = (roomsEvent?.payload as any[]).find((r: any) => !r.isPublic && r.users?.some((u: any) => u.id === "UA3") && r.users?.some((u: any) => u.id === "UB3"));
+    expect(dm).toBeDefined();
+    await messagesCtrl.sendMessageToRoom(makeCtx(services(), io, socketA, { roomId: dm.id, content: "Hi from A" }));
+
+    // Perform logoutAll as user A, then as user B
+    const outAllA = await authCtrl.logoutAll(makeCtx(services(), io, socketA));
+    expect((outAllA as any).success).toBe(true);
+    const outAllB = await authCtrl.logoutAll(makeCtx(services(), io, socketB));
+    expect((outAllB as any).success).toBe(true);
+
+    // All sockets for UA3 should have received forceLogout
+    const aForced1 = socketA.events.some(e => e.event === "forceLogout");
+    const aForced2 = socketA2.events.some(e => e.event === "forceLogout");
+    expect(aForced1 && aForced2).toBe(true);
+
+    // All sockets for UB3 should have received forceLogout
+    const bForced1 = socketB.events.some(e => e.event === "forceLogout");
+    const bForced2 = socketB2.events.some(e => e.event === "forceLogout");
+    expect(bForced1 && bForced2).toBe(true);
+
+    // Sessions should be cleared for both users
+    const sessionsA = await authService.getUserSessionsByUserId("UA3");
+    const sessionsB = await authService.getUserSessionsByUserId("UB3");
+    expect(sessionsA.length).toBe(0);
+    expect(sessionsB.length).toBe(0);
+  });
+
 });
