@@ -69,8 +69,8 @@ describe("FriendService Edge Cases (UoW, MySQL)", () => {
     const listA = await service.listFriendsAndRequests(a.id);
     const listB = await service.listFriendsAndRequests(b.id);
     const count =
-      listA.filter((x) => x.userId === b.id).length +
-      listB.filter((x) => x.userId === a.id).length;
+      listA.filter((x: any) => x.userId === b.id).length +
+      listB.filter((x: any) => x.userId === a.id).length;
     expect(count).toBeGreaterThan(0);
   });
 
