@@ -8,9 +8,7 @@
     "dev": "nodemon --exec ts-node server.ts",
     "build": "tsc",
     "start:prod": "node dist/server.js",
-    "test": "jest",
-    "test:all": "jest --runInBand" ,
-    "test:unit": "jest tests/unit",
+    "test:all": "jest --runInBand tests/unit/" ,
     "test:integration": "jest tests/integration",
     "test:e2e": "jest tests/e2e"
   },
