@@ -1,5 +1,13 @@
 /// <reference types="jest" />
-import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from "@jest/globals";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  jest,
+} from "@jest/globals";
 import { createTestUow, type TestUowHandle } from "../../helpers/testUow";
 import { AuthService } from "../../../domain/services/dbServices/AuthService";
 import { User } from "../../../domain/entities/User";
@@ -32,7 +40,9 @@ describe("AuthService (UoW, MySQL)", () => {
     handle = await createTestUow();
     service = new AuthService(handle.uow as any);
     await new Promise<void>((resolve, reject) =>
-      handle.db.get("SELECT 1", undefined, (err) => (err ? reject(err) : resolve()))
+      handle.db.get("SELECT 1", undefined, (err) =>
+        err ? reject(err) : resolve()
+      )
     );
   });
 
@@ -49,8 +59,24 @@ describe("AuthService (UoW, MySQL)", () => {
     const user = new User("UAUTH1", "AuthUser", "pw");
     await seedUser(user);
 
-    const s1 = new UserSession("S1", user.id, "tok1", Date.now(), Date.now() + 3600_000, "ref1", Date.now() + 7200_000);
-    const s2 = new UserSession("S2", user.id, "tok2", Date.now(), Date.now() + 3600_000, "ref2", Date.now() + 7200_000);
+    const s1 = new UserSession(
+      "S1",
+      user.id,
+      "tok1",
+      Date.now(),
+      Date.now() + 3600_000,
+      "ref1",
+      Date.now() + 7200_000
+    );
+    const s2 = new UserSession(
+      "S2",
+      user.id,
+      "tok2",
+      Date.now(),
+      Date.now() + 3600_000,
+      "ref2",
+      Date.now() + 7200_000
+    );
 
     await service.addUserSession(s1);
     await service.addUserSession(s2);
@@ -63,7 +89,15 @@ describe("AuthService (UoW, MySQL)", () => {
     const user = new User("UAUTH2", "AuthUser2", "pw");
     await seedUser(user);
 
-    const s = new UserSession("S3", user.id, "tok3", Date.now(), Date.now() + 3600_000, "ref3", Date.now() + 7200_000);
+    const s = new UserSession(
+      "S3",
+      user.id,
+      "tok3",
+      Date.now(),
+      Date.now() + 3600_000,
+      "ref3",
+      Date.now() + 7200_000
+    );
     await service.addUserSession(s);
 
     const byToken = await service.getUserSessionByToken("tok3");

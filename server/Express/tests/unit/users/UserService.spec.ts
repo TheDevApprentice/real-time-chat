@@ -1,5 +1,13 @@
 /// <reference types="jest" />
-import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from "@jest/globals";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  jest,
+} from "@jest/globals";
 import { createTestUow, type TestUowHandle } from "../../helpers/testUow";
 import { UserService } from "../../../domain/services/dbServices/UserService";
 import { User } from "../../../domain/entities/User";
@@ -31,7 +39,9 @@ describe("UserService (UoW, MySQL)", () => {
     handle = await createTestUow();
     service = new UserService(handle.uow as any);
     await new Promise<void>((resolve, reject) =>
-      handle.db.get("SELECT 1", undefined, (err) => (err ? reject(err) : resolve()))
+      handle.db.get("SELECT 1", undefined, (err) =>
+        err ? reject(err) : resolve()
+      )
     );
   });
 

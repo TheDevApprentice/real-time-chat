@@ -1,5 +1,13 @@
 /// <reference types="jest" />
-import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from "@jest/globals";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  jest,
+} from "@jest/globals";
 import { FriendService } from "../../../domain/services/dbServices/FriendService";
 import type { IFriendsService } from "../../../domain/interfaces/dbInterfaces/Iservices/IFriendsService";
 import { createTestUow } from "../../helpers/testUow";
@@ -38,14 +46,15 @@ describe("FriendService (UoW, MySQL)", () => {
     service = new FriendService(handle.uow);
     // Sanity check the DB connectivity (fail fast with clearer error)
     await new Promise<void>((resolve, reject) =>
-      handle.db.get("SELECT 1 AS ok", undefined, (err) => (err ? reject(err) : resolve()))
+      handle.db.get("SELECT 1 AS ok", undefined, (err) =>
+        err ? reject(err) : resolve()
+      )
     );
   });
 
   afterAll(async () => {
     await handle.close();
     await clearTables();
-
   });
 
   beforeEach(async () => {
@@ -68,7 +77,11 @@ describe("FriendService (UoW, MySQL)", () => {
     const userB = new User("BBBBB", "UserB", "bbbbbb");
     await seedUsers(userA, userB);
     await service.createFriendRequest(userA.id, userB.id);
-    const res = await service.respondFriendRequest(userB.id, userA.id, "accept");
+    const res = await service.respondFriendRequest(
+      userB.id,
+      userA.id,
+      "accept"
+    );
     expect(res).not.toBeNull();
     expect(res!.status).toBe("accepted");
   });
@@ -78,7 +91,11 @@ describe("FriendService (UoW, MySQL)", () => {
     const userB = new User("BBBBB", "UserB", "bbbbbb");
     await seedUsers(userA, userB);
     await service.createFriendRequest(userA.id, userB.id);
-    const res = await service.respondFriendRequest(userB.id, userA.id, "reject");
+    const res = await service.respondFriendRequest(
+      userB.id,
+      userA.id,
+      "reject"
+    );
     expect(res).toBeNull();
   });
 });

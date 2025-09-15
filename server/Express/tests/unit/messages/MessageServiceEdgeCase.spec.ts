@@ -15,9 +15,9 @@ import { User } from "../../../domain/entities/User";
 import { Room } from "../../../domain/entities/Room";
 import { clearMysqlTestDb } from "../../helpers/mysqlTestDb";
 
-// Jest tests for MessageService on MariaDB via UoW
+// Edge cases for MessageService
 
-describe("MessageService (UoW, MySQL)", () => {
+describe("MessageService Edge Cases (UoW, MySQL)", () => {
   let handle: TestUowHandle;
   let service: MessageService;
 
@@ -34,7 +34,6 @@ describe("MessageService (UoW, MySQL)", () => {
       )
     );
   };
-
   const seedRoom = async (room: Room) => {
     await new Promise<void>((resolve, reject) =>
       handle.db.run(
@@ -44,7 +43,6 @@ describe("MessageService (UoW, MySQL)", () => {
       )
     );
   };
-
   const addUserToRoom = async (user: User, room: Room) => {
     await new Promise<void>((resolve, reject) =>
       handle.db.run(
@@ -76,43 +74,31 @@ describe("MessageService (UoW, MySQL)", () => {
     await clearTables();
   });
 
-  it("should add and fetch messages for a room", async () => {
-    const user = new User("U1", "User1", "aaaaaa");
-    const room = new Room("General", user.id, Date.now(), "R1");
-    await seedUser(user);
-    await seedRoom(room);
-    await addUserToRoom(user, room);
-
-    const msg = new Message(user, "Hello", Date.now());
-    await service.addMessageToRoom(msg, room.id);
-
-    const list = await service.getMessagesForRoom(room.id);
-    expect(Array.isArray(list)).toBe(true);
-    expect(list.length).toBeGreaterThanOrEqual(1);
+  it("mark delivered/read on unknown id should not throw", async () => {
+    await expect(
+      service.markMessageDelivered(999999, Date.now())
+    ).resolves.toBeUndefined();
+    await expect(
+      service.markMessageRead(999999, Date.now())
+    ).resolves.toBeUndefined();
   });
 
-  it("should mark message delivered and read, update content, and soft delete", async () => {
-    const user = new User("U2", "User2", "pw");
-    const room = new Room("Random", user.id, Date.now(), "R2");
+  it("update/softDelete on unknown id should not throw", async () => {
+    await expect(
+      service.updateMessageContent(999999, "Edited")
+    ).resolves.toBeUndefined();
+    await expect(service.softDeleteMessage(999999)).resolves.toBeUndefined();
+  });
+
+  it("allows empty content message (if repo permits) and can fetch it", async () => {
+    const user = new User("MEC1", "User", "pw");
+    const room = new Room("Edge", user.id, Date.now(), "MR1");
     await seedUser(user);
     await seedRoom(room);
     await addUserToRoom(user, room);
-
-    const msg = new Message(user, "Original", Date.now());
+    const msg = new Message(user, "", Date.now());
     await service.addMessageToRoom(msg, room.id);
-    const messages = await service.getMessagesForRoom(room.id);
-    expect(messages.length).toBeGreaterThan(0);
-    const created = messages[messages.length - 1];
-    const createdID = Number(created.id);
-    await service.markMessageDelivered(createdID, Date.now());
-    await service.markMessageRead(createdID, Date.now());
-
-    await service.updateMessageContent(createdID, "Edited");
-    const fetched = await service.getMessageById(createdID);
-    expect(fetched).not.toBeNull();
-
-    await service.softDeleteMessage(createdID);
-    const after = await service.getMessageById(createdID);
-    expect(after).not.toBeNull();
+    const list = await service.getMessagesForRoom(room.id);
+    expect(list.length).toBeGreaterThan(0);
   });
 });

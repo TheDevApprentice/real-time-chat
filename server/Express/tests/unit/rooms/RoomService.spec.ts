@@ -1,5 +1,13 @@
 /// <reference types="jest" />
-import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from "@jest/globals";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  jest,
+} from "@jest/globals";
 import { createTestUow, type TestUowHandle } from "../../helpers/testUow";
 import { RoomService } from "../../../domain/services/dbServices/RoomService";
 import { Room } from "../../../domain/entities/Room";
@@ -32,7 +40,9 @@ describe("RoomService (UoW, MySQL)", () => {
     handle = await createTestUow();
     service = new RoomService(handle.uow as any);
     await new Promise<void>((resolve, reject) =>
-      handle.db.get("SELECT 1", undefined, (err) => (err ? reject(err) : resolve()))
+      handle.db.get("SELECT 1", undefined, (err) =>
+        err ? reject(err) : resolve()
+      )
     );
   });
 
@@ -60,13 +70,20 @@ describe("RoomService (UoW, MySQL)", () => {
   it("should add multiple users to a room atomically (tx)", async () => {
     const creator = new User("U200", "Creator", "pw");
     await seedUser(creator);
-    const users = [new User("U201", "User1", "pw"), new User("U202", "User2", "pw"), new User("U203", "User3", "pw")];
+    const users = [
+      new User("U201", "User1", "pw"),
+      new User("U202", "User2", "pw"),
+      new User("U203", "User3", "pw"),
+    ];
     for (const user of users) await seedUser(user);
 
     const room = new Room("Team", creator.id, Date.now(), "R200");
     await service.addRoom(room);
 
-    await service.addUsersToRoomBulk(users.map((u) => u.id), room.id);
+    await service.addUsersToRoomBulk(
+      users.map((u) => u.id),
+      room.id
+    );
 
     // Verify via service methods where possible
     const members = await service.getUsersForRoom("R200");
