@@ -1,0 +1,14 @@
+# Définir les 3 nœuds Galera
+mysql_servers =
+(
+    { address="mariadb-galera-1", port=3306, hostgroup=0, weight=1000 },
+    { address="mariadb-galera-2", port=3306, hostgroup=0, weight=1000 },
+    { address="mariadb-galera-3", port=3306, hostgroup=0, weight=1000 }
+)
+
+# Règles de routage
+mysql_query_rules =
+(
+    { match_pattern="^SELECT", destination_hostgroup=0, apply=1 },
+    { match_pattern="^INSERT|UPDATE|DELETE", destination_hostgroup=0, apply=1 }
+)

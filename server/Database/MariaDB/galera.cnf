@@ -1,0 +1,16 @@
+[mysqld]
+# Galera Configuration
+wsrep_on=ON
+wsrep_cluster_name="chat_cluster"
+wsrep_cluster_address="gcomm://mariadb1,mariadb2,mariadb3"
+wsrep_node_address="127.0.0.1"
+wsrep_node_name="node1"
+wsrep_sst_method=rsync
+wsrep_provider=/usr/lib/galera/libgalera_smm.so
+
+# Existing config
+server-id=1
+binlog_format=ROW
+default_storage_engine=InnoDB
+innodb_autoinc_lock_mode=2
+bind-address=0.0.0.0
