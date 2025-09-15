@@ -167,3 +167,75 @@ Recommendations:
 
 7. **Docs**
    - For each layer, add short README (interfaces, services, infra adapter responsibilities) to reduce onboarding time.
+
+---
+
+## Unit of Work (UoW) – Guidelines & Examples
+
+The server uses a Unit of Work provider to make transaction intent explicit. Services orchestrate business logic with `unitOfWork.tx/noTx`, while repositories expose atomic (single‑statement) operations only.
+
+Mini Table of Contents
+- Guidelines
+- Examples
+  - Simple read (noTx)
+  - Simple write (noTx)
+  - Multi‑step flow (tx)
+- See also
+
+Guidelines
+- Use `noTx` for reads and simple single‑step writes.
+- Use `tx` for multi‑step flows that must be atomic (all‑or‑nothing), especially across multiple repos.
+- Keep repository methods atomic; do not orchestrate multi‑step flows inside repos.
+- Nested transactions are flattened by DB adapters (nested `withTransaction` reuses the same connection/transaction).
+- Writes in repos should use executor helpers (`runWrite`, `insertGetLastId`) for consistent retry/backoff.
+
+Examples
+
+1) Simple read (noTx)
+```ts
+// In a service
+type UowRunner = <T>(fn: (uow: { usersRepo: { getUsers: () => Promise<User[]> } }) => Promise<T>) => Promise<T>;
+type Uow = { tx: UowRunner; noTx: UowRunner };
+
+export class UserService {
+  constructor(private readonly uow: Uow) {}
+
+  getUsers(): Promise<User[]> {
+    return this.uow.noTx(async ({ usersRepo }) => usersRepo.getUsers());
+  }
+}
+```
+
+2) Simple write (noTx)
+```ts
+// In a service
+export class MessageService {
+  constructor(private readonly uow: { noTx: <T>(fn: (u: { messagesRepo: { addMessageToRoom: (m: Message, roomId: string) => Promise<void> } }) => Promise<T>) => Promise<T> }) {}
+
+  addMessageToRoom(message: Message, roomId: string): Promise<void> {
+    return this.uow.noTx(async ({ messagesRepo }) => messagesRepo.addMessageToRoom(message, roomId));
+  }
+}
+```
+
+3) Multi‑step flow (tx)
+```ts
+// In a service
+export class RoomService {
+  constructor(private readonly uow: { tx: <T>(fn: (u: { roomsRepo: { addUsersToRoomBulk: (ids: string[], roomId: string) => Promise<void> };
+                                                           messagesRepo: { addMessageToRoom: (m: Message, roomId: string) => Promise<void> } }) => Promise<T>) => Promise<T> }) {}
+
+  async addUsersAndWelcome(roomId: string, userIds: string[], welcome: Message): Promise<void> {
+    await this.uow.tx(async ({ roomsRepo, messagesRepo }) => {
+      await roomsRepo.addUsersToRoomBulk(userIds, roomId);
+      await messagesRepo.addMessageToRoom(welcome, roomId);
+    });
+  }
+}
+```
+
+See also:
+- [infrastructure/transaction/UnitOfWork.ts](./infrastructure/transaction/UnitOfWork.ts) – provider and semantics (tx/noTx)
+- [infrastructure/sql/executor.ts](./infrastructure/sql/executor.ts) – write retry/backoff helpers
+- [ARCHITECTURE.md](./ARCHITECTURE.md) – overall layering and flows
+- Service files under [domain/services/dbServices/](./domain/services/dbServices/) – concrete usage

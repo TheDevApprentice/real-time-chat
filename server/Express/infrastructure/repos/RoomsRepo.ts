@@ -4,26 +4,29 @@ import { Room } from "../../domain/entities/Room";
 import { IRoomRepo } from "../../domain/interfaces/dbInterfaces/Irepos/IRoomRepo";
 import { IDialect } from "../sql/dialect";
 import { buildInsert, buildInsertOrIgnore, visibilityPredicate, buildSelect } from "../sql/queryBuilder";
+import { runWrite } from "../sql/executor";
 
 export class RoomsRepo implements IRoomRepo {
   constructor(private db: CallbackDB, private dialect: IDialect) {}
 
   addRoom(room: Room): Promise<Room> {
-    return new Promise((resolve, reject) => {
-      const columns = ["id", "name", "creatorId", "createdAt", "type", "isPublic"];
-      const sql = buildInsert(this.dialect, "rooms", columns);
-      const params = [
-        room.id,
-        room.name,
-        room.creatorId,
-        room.createdAt,
-        room.type,
-        this.dialect.boolParam(room.isPublic),
-      ];
-      this.db.run(sql, params, (err) => {
-        if (err) return reject(err);
+    return new Promise(async (resolve, reject) => {
+      try {
+        const columns = ["id", "name", "creatorId", "createdAt", "type", "isPublic"];
+        const sql = buildInsert(this.dialect, "rooms", columns);
+        const params = [
+          room.id,
+          room.name,
+          room.creatorId,
+          room.createdAt,
+          room.type,
+          this.dialect.boolParam(room.isPublic),
+        ];
+        await runWrite(this.db, sql, params);
         resolve(room);
-      });
+      } catch (e) {
+        reject(e as any);
+      }
     });
   }
 
@@ -80,11 +83,13 @@ export class RoomsRepo implements IRoomRepo {
   addUserToRoom(userId: string, roomId: string): Promise<void> {
     const columns = ["userId", "roomId"];
     const sql = buildInsertOrIgnore(this.dialect, "user_rooms", columns, ["userId", "roomId"]);
-    return new Promise((resolve, reject) => {
-      this.db.run(sql, [userId, roomId], (err) => {
-        if (err) return reject(err);
+    return new Promise(async (resolve, reject) => {
+      try {
+        await runWrite(this.db, sql, [userId, roomId]);
         resolve();
-      });
+      } catch (e) {
+        reject(e as any);
+      }
     });
   }
 

@@ -127,6 +127,30 @@ Directory: `infrastructure/`
 3. WS controllers validate payloads, call `domain/services/*`, and emit events back to the client rooms or sockets.
 4. Presence, unread counts, message status updates are pushed as events.
 
+
+## Persistence and Unit of Work
+
+The server uses a Unit of Work (UoW) provider to make transaction intent explicit and to keep repository methods atomic and simple.
+
+- UoW lives in `infrastructure/transaction/UnitOfWork.ts` and exposes two runners:
+  - `unitOfWork.tx(fn)` – run multiple repository calls in a single DB transaction.
+  - `unitOfWork.noTx(fn)` – run without an explicit transaction.
+
+- Repositories are atomic adapters:
+  - Each method performs a single SQL statement (insert/update/delete/select) and returns.
+  - No multi-step orchestration in repositories. Multi-step logic belongs to domain services.
+  - Writes use executor helpers with retry/backoff for transient errors (`infrastructure/sql/executor.ts`).
+
+- Services (domain) orchestrate business flows:
+  - Use `noTx` for reads and simple single-step writes.
+  - Use `tx` for multi-step flows that must be atomic (e.g., add many users to a room).
+  - Example: `RoomService.addUsersToRoomBulk` uses `unitOfWork.tx` to add members atomically.
+
+- Nested transactions are flattened:
+  - The DB adapters (SQLite/MySQL) implement `withTransaction` so nested calls reuse the same connection/transaction instead of opening a new one.
+
+This approach keeps the domain in control of transactional boundaries while ensuring infra remains a thin persistence layer.
+
 ### Presence & unread counts
 - Presence is cached (Redis) and queried via a domain service; clients display `online/last seen` indicators.
 - Unread counts are computed on server and emitted via `unreadCounts` to subscribed clients.

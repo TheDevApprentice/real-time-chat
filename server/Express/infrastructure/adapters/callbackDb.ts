@@ -19,4 +19,8 @@ export interface CallbackDB {
     rowCb: EachRowCb<T>,
     completeCb?: RunCb
   ): void;
+  // Execute a function within a transaction. The provided tx shares a single connection
+  // (where applicable) so that all operations are atomic. Implementations must COMMIT
+  // on success and ROLLBACK on error.
+  withTransaction<T = any>(fn: (tx: CallbackDB) => Promise<T>): Promise<T>;
 }

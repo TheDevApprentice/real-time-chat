@@ -1,28 +1,30 @@
 import { User } from "../../entities/User";
 import { IUserService } from "../../interfaces/dbInterfaces/Iservices/IUserService";
-import { IUserRepo } from "../../interfaces/dbInterfaces/Irepos/IUserRepo";
 
 // TODO: replace 'any' with IUserRepo interface from domain/interfaces/dbInterfaces/Irepos
+type UsersUowRunner = <T>(fn: (uow: { usersRepo: {
+  addUser: (user: User) => Promise<User>;
+  getUsers: () => Promise<User[]>;
+  getUserById: (id: string) => Promise<User | undefined>;
+  searchUsersByName: (query: string, limit: number) => Promise<User[]>;
+} }) => Promise<T>) => Promise<T>;
+type UsersUowProvider = { tx: UsersUowRunner; noTx: UsersUowRunner };
 export class UserService implements IUserService {
-  private readonly userRepo: IUserRepo;
-
-  constructor(private readonly _iUserRepo: IUserRepo) {
-    this.userRepo = _iUserRepo;
-  }
+  constructor(private readonly uow: UsersUowProvider) {}
 
   addUser(user: User): Promise<User> {
-    return this.userRepo.addUser(user);
+    return this.uow.noTx(async ({ usersRepo }) => usersRepo.addUser(user));
   }
 
   getUsers(): Promise<User[]> {
-    return this.userRepo.getUsers();
+    return this.uow.noTx(async ({ usersRepo }) => usersRepo.getUsers());
   }
 
   getUserById(id: string): Promise<User | undefined> {
-    return this.userRepo.getUserById(id);
+    return this.uow.noTx(async ({ usersRepo }) => usersRepo.getUserById(id));
   }
 
   searchUsersByName(query: string, limit = 20): Promise<User[]> {
-    return this.userRepo.searchUsersByName(query, limit);
+    return this.uow.noTx(async ({ usersRepo }) => usersRepo.searchUsersByName(query, limit));
   }
 }

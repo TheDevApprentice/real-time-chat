@@ -1,10 +1,4 @@
 import { createCallbackDbFromEnv } from "../../infrastructure/factory";
-import { UsersRepo } from "../../infrastructure/repos/UsersRepo";
-import { CachedUsersRepo } from "../../infrastructure/repos/CachedUsersRepo";
-import { RoomsRepo } from "../../infrastructure/repos/RoomsRepo";
-import { MessagesRepo } from "../../infrastructure/repos/MessagesRepo";
-import { SessionsRepo } from "../../infrastructure/repos/SessionsRepo";
-import { FriendsRepo } from "../../infrastructure/repos/FriendsRepo";
 import { createDialect } from "../../infrastructure/sql/dialect";
 import { AuthService } from "../../domain/services/dbServices/AuthService";
 import { UserService } from "../../domain/services/dbServices/UserService";
@@ -15,6 +9,7 @@ import { S3Service } from "../../domain/services/storageServices/S3Service";
 import { IS3Service } from "../../domain/interfaces/storageInterface/IS3Service";
 import { RedisService } from "../../domain/services/cacheServices/RedisService";
 import { IRedisService } from "../../domain/interfaces/cacheInterfaces/IRedisService";
+import { createUnitOfWork, UnitOfWorkProvider } from "../../infrastructure/transaction/UnitOfWork";
 
 export type Services = {
   authService: AuthService;
@@ -24,6 +19,7 @@ export type Services = {
   friendService: FriendService;
   s3Service: IS3Service;
   redisService: IRedisService;
+  unitOfWork: UnitOfWorkProvider;
 };
 
 let servicesSingleton: Services | null = null;
@@ -33,22 +29,15 @@ export function getServices(): Services {
 
   const db = createCallbackDbFromEnv(process.env);
   const dialect = createDialect();
-
-  // Infra repos
-  const usersRepo = new UsersRepo(db, dialect);
-  const roomsRepo = new RoomsRepo(db, dialect);
-  const messagesRepo = new MessagesRepo(db, dialect);
-  const sessionsRepo = new SessionsRepo(db, usersRepo, dialect);
-  const friendsRepo = new FriendsRepo(db, dialect);
+  const unitOfWork = createUnitOfWork(db, dialect);
 
   // Domain services (DI via interfaces)
-  const authService = new AuthService(sessionsRepo);
+  const authService = new AuthService(unitOfWork);
   const redisService = RedisService.getInstance();
-  const cachedUsersRepo = new CachedUsersRepo(usersRepo, redisService);
-  const userService = new UserService(cachedUsersRepo);
-  const roomService = new RoomService(roomsRepo);
-  const messageService = new MessageService(messagesRepo);
-  const friendService = new FriendService(friendsRepo);
+  const userService = new UserService(unitOfWork);
+  const roomService = new RoomService(unitOfWork);
+  const messageService = new MessageService(unitOfWork);
+  const friendService = new FriendService(unitOfWork);
   const s3Service = S3Service.getInstance();
 
   servicesSingleton = {
@@ -59,6 +48,7 @@ export function getServices(): Services {
     friendService,
     s3Service,
     redisService,
+    unitOfWork,
   };
   return servicesSingleton;
 }

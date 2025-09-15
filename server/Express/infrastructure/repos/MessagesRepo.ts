@@ -1,8 +1,21 @@
+/**
+ * MessagesRepo (Infrastructure)
+ * ----------------------------
+ * Atomic DB adapter for Messages. Under the Unit of Work pattern, services
+ * orchestrate higher-level flows via `unitOfWork.tx/noTx` and call these
+ * single-statement primitives.
+ *
+ * Notes:
+ * - Writes use executor helpers (`runWrite`, `insertGetLastId`) with retry/backoff
+ *   for transient errors.
+ * - No internal transaction orchestration; compose sequences at the service layer.
+ */
 import { CallbackDB } from "../adapters/callbackDb";
 import { Message } from "../../domain/entities/Message";
 import { IMessageRepo } from "../../domain/interfaces/dbInterfaces/Irepos/IMessageRepo";
 import { IDialect } from "../sql/dialect";
 import { buildInsert, buildSelect, buildUpdate, buildUpdateParts } from "../sql/queryBuilder";
+import { insertGetLastId, runWrite } from "../sql/executor";
 
 export class MessagesRepo implements IMessageRepo {
   constructor(private db: CallbackDB, private dialect: IDialect) {}
@@ -26,31 +39,17 @@ export class MessagesRepo implements IMessageRepo {
       "sent",
       message.timestamp,
     ];
-
-    if (this.dialect.hasReturningId()) {
-      const sql = buildInsert(this.dialect, "messages", columns, { returningId: true });
-      return new Promise((resolve, reject) => {
-        this.db.get<{ id: number }>(sql, params, (err, row) => {
-          if (err) return reject(err);
-          try { if (row && typeof row.id !== "undefined") message.id = String(row.id); } catch {}
-          resolve();
-        });
-      });
-    }
     const sql = buildInsert(this.dialect, "messages", columns);
-    return new Promise((resolve, reject) => {
-      this.db.run(
-        sql,
-        params,
-        function (this: any, err) {
-          if (err) return reject(err);
-          try {
-            if (this && typeof this.lastID !== "undefined")
-              message.id = String(this.lastID);
-          } catch {}
-          resolve();
+    return new Promise(async (resolve, reject) => {
+      try {
+        const newId = await insertGetLastId(this.db, sql, params);
+        if (typeof newId !== "undefined") {
+          try { message.id = String(newId); } catch {}
         }
-      );
+        resolve();
+      } catch (e) {
+        reject(e as any);
+      }
     });
   }
 
@@ -85,22 +84,26 @@ export class MessagesRepo implements IMessageRepo {
   }
 
   updateMessageContent(messageId: number, newContent: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const sql = buildUpdate(this.dialect, "messages", ["content"], "id = ?");
-      this.db.run(sql, [newContent, messageId], (err) => {
-        if (err) return reject(err);
+    return new Promise(async (resolve, reject) => {
+      try {
+        const sql = buildUpdate(this.dialect, "messages", ["content"], "id = ?");
+        await runWrite(this.db, sql, [newContent, messageId]);
         resolve();
-      });
+      } catch (e) {
+        reject(e as any);
+      }
     });
   }
 
   softDeleteMessage(messageId: number): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const sql = buildUpdate(this.dialect, "messages", ["content"], "id = ?");
-      this.db.run(sql, ["[deleted]", messageId], (err) => {
-        if (err) return reject(err);
+    return new Promise(async (resolve, reject) => {
+      try {
+        const sql = buildUpdate(this.dialect, "messages", ["content"], "id = ?");
+        await runWrite(this.db, sql, ["[deleted]", messageId]);
         resolve();
-      });
+      } catch (e) {
+        reject(e as any);
+      }
     });
   }
 
@@ -146,39 +149,43 @@ export class MessagesRepo implements IMessageRepo {
     messageId: number,
     ts: number = Date.now()
   ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const sql = buildUpdateParts(
-        this.dialect,
-        "messages",
-        [
-          "status = CASE WHEN status = 'read' THEN status ELSE 'delivered' END",
-          "deliveredAt = COALESCE(deliveredAt, ?)",
-        ],
-        "id = ?"
-      );
-      this.db.run(sql, [ts, messageId], (err) => {
-        if (err) return reject(err);
+    return new Promise(async (resolve, reject) => {
+      try {
+        const sql = buildUpdateParts(
+          this.dialect,
+          "messages",
+          [
+            "status = CASE WHEN status = 'read' THEN status ELSE 'delivered' END",
+            "deliveredAt = COALESCE(deliveredAt, ?)",
+          ],
+          "id = ?"
+        );
+        await runWrite(this.db, sql, [ts, messageId]);
         resolve();
-      });
+      } catch (e) {
+        reject(e as any);
+      }
     });
   }
 
   markMessageRead(messageId: number, ts: number = Date.now()): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const sql = buildUpdateParts(
-        this.dialect,
-        "messages",
-        [
-          "status = 'read'",
-          "readAt = ?",
-          "deliveredAt = COALESCE(deliveredAt, ?)",
-        ],
-        "id = ?"
-      );
-      this.db.run(sql, [ts, ts, messageId], (err) => {
-        if (err) return reject(err);
+    return new Promise(async (resolve, reject) => {
+      try {
+        const sql = buildUpdateParts(
+          this.dialect,
+          "messages",
+          [
+            "status = 'read'",
+            "readAt = ?",
+            "deliveredAt = COALESCE(deliveredAt, ?)",
+          ],
+          "id = ?"
+        );
+        await runWrite(this.db, sql, [ts, ts, messageId]);
         resolve();
-      });
+      } catch (e) {
+        reject(e as any);
+      }
     });
   }
 

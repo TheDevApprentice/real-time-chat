@@ -80,6 +80,8 @@ export function initializeSchema(
           )`,
           indexes: [
             `CREATE INDEX IF NOT EXISTS idx_user_sessions_refresh ON user_sessions(refreshToken)`,
+            `CREATE UNIQUE INDEX IF NOT EXISTS uniq_user_sessions_token ON user_sessions(token)`,
+            `CREATE UNIQUE INDEX IF NOT EXISTS uniq_user_sessions_refresh ON user_sessions(refreshToken)`,
             `CREATE INDEX IF NOT EXISTS idx_friends_userA ON friends(userA)`,
             `CREATE INDEX IF NOT EXISTS idx_friends_userB ON friends(userB)`,
           ],
@@ -145,6 +147,8 @@ export function initializeSchema(
           )`,
           indexes: [
             `CREATE INDEX IF NOT EXISTS idx_user_sessions_refresh ON user_sessions(refreshToken)`,
+            `CREATE UNIQUE INDEX IF NOT EXISTS uniq_user_sessions_token ON user_sessions(token)`,
+            `CREATE UNIQUE INDEX IF NOT EXISTS uniq_user_sessions_refresh ON user_sessions(refreshToken)`,
             `CREATE INDEX IF NOT EXISTS idx_friends_userA ON friends(userA)`,
             `CREATE INDEX IF NOT EXISTS idx_friends_userB ON friends(userB)`,
           ],

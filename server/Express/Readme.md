@@ -90,6 +90,31 @@ For an end-to-end UI/WS/REST flow, see `ARCHITECTURE.md` (delivery, domain, infr
 
 ---
 
+## Persistence: Unit of Work (tx/noTx)
+
+This server uses a Unit of Work provider to make transaction intent explicit and keep repositories simple and atomic.
+
+- `unitOfWork.tx(fn)`: run multiple repository calls in a single transaction.
+- `unitOfWork.noTx(fn)`: run without an explicit transaction for simple operations.
+
+Repositories expose single-statement primitives (insert/update/delete/select). Business flows are orchestrated in services with `tx/noTx`.
+
+Example (RoomService):
+
+```ts
+// Add several users to a room atomically
+await unitOfWork.tx(async ({ roomsRepo }) => {
+  await roomsRepo.addUsersToRoomBulk(userIds, roomId);
+});
+
+// Simple read without a transaction
+const rooms = await unitOfWork.noTx(async ({ roomsRepo }) => roomsRepo.getRoomsForUser(userId));
+```
+
+See `infrastructure/transaction/UnitOfWork.ts` and service files under `domain/services/dbServices/` for concrete usage patterns.
+
+---
+
 ## Calls (WebRTC) Quick Start
 
 This server ships with a minimal audio/video calling feature for validation. See `public/README.md` section “Calls (WebRTC) – Signaling, TURN/STUN and Test UI” for full details.

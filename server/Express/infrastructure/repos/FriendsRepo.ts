@@ -1,101 +1,98 @@
+/**
+ * FriendsRepo (Infrastructure)
+ * ---------------------------
+ * Atomic DB adapter for the Friends domain. Under the Unit of Work pattern,
+ * services orchestrate multi-step business logic using unitOfWork.tx/noTx.
+ * This repository provides single-statement primitives only:
+ * - addFriendRequest(record)
+ * - updateFriendRequest(id, patch)
+ * - deleteFriendRequest(id)
+ * - getFriendRequest(id)
+ * - getAllUserFriendRequest(userId)
+ *
+ * Concurrency & idempotency:
+ * - addFriendRequest uses an upsert on the deterministic id `${a}:${b}` to avoid duplicates
+ *   when concurrent requests happen.
+ */
 import { CallbackDB } from "../adapters/callbackDb";
-import { IFriendRepo } from "../../domain/interfaces/dbInterfaces/Irepos/IFriendRepo";
+import { IFriendRepo, FriendRecord } from "../../domain/interfaces/dbInterfaces/Irepos/IFriendRepo";
 import { IDialect } from "../sql/dialect";
 import { buildDelete, buildSelect, buildUpsertOnId, buildUpdate } from "../sql/queryBuilder";
+import { runWrite } from "../sql/executor";
 
 export class FriendsRepo implements IFriendRepo {
   constructor(private db: CallbackDB, private dialect: IDialect) {}
 
-  private orderPair(a: string, b: string): { a: string; b: string } {
-    return a < b ? { a, b } : { a: b, b: a };
+  // Atomic add (upsert on id)
+  async addFriendRequest(record: FriendRecord): Promise<void> {
+    const columns = [
+      "id",
+      "userA",
+      "userB",
+      "status",
+      "requesterId",
+      "createdAt",
+      "updatedAt",
+    ];
+    const updateColumns = ["status", "requesterId", "updatedAt"];
+    const sql = buildUpsertOnId(this.dialect, "friends", columns, updateColumns);
+    const params = [
+      record.id,
+      record.userA,
+      record.userB,
+      record.status,
+      record.requesterId,
+      record.createdAt,
+      record.updatedAt,
+    ];
+    await runWrite(this.db, sql, params);
   }
 
-  async createFriendRequest(
-    requesterId: string,
-    targetUserId: string
-  ): Promise<{
-    id: string;
-    status: "pending";
-    userA: string;
-    userB: string;
-    requesterId: string;
-    createdAt: number;
-    updatedAt: number;
-  }> {
-    const { a, b } = this.orderPair(requesterId, targetUserId);
-    const id = `${a}:${b}`;
-    const now = Date.now();
+  async updateFriendRequest(
+    id: string,
+    patch: Partial<Pick<FriendRecord, "status" | "requesterId" | "updatedAt">>
+  ): Promise<void> {
+    const sets: string[] = [];
+    const params: any[] = [];
+    if (typeof patch.status !== "undefined") { sets.push("status"); params.push(patch.status); }
+    if (typeof patch.requesterId !== "undefined") { sets.push("requesterId"); params.push(patch.requesterId); }
+    if (typeof patch.updatedAt !== "undefined") { sets.push("updatedAt"); params.push(patch.updatedAt); }
+    if (sets.length === 0) return; // nothing to update
+    const sql = buildUpdate(this.dialect, "friends", sets, "id = ?");
+    params.push(id);
+    await runWrite(this.db, sql, params);
+  }
+
+  async deleteFriendRequest(id: string): Promise<void> {
+    const sql = buildDelete(this.dialect, "friends", "id = ?");
+    await runWrite(this.db, sql, [id]);
+  }
+
+  async getFriendRequest(id: string): Promise<FriendRecord | null> {
+    const sql = buildSelect(
+      this.dialect,
+      "friends",
+      ["id", "userA", "userB", "status", "requesterId", "createdAt", "updatedAt"],
+      { where: "id = ?" }
+    );
     return new Promise((resolve, reject) => {
-      const columns = [
-        "id",
-        "userA",
-        "userB",
-        "status",
-        "requesterId",
-        "createdAt",
-        "updatedAt",
-      ];
-      const updateColumns = ["status", "requesterId", "updatedAt"];
-      const sql = buildUpsertOnId(this.dialect, "friends", columns, updateColumns);
-      const params = [id, a, b, "pending", requesterId, now, now];
-      this.db.run(sql, params, (err) => {
+      this.db.get(sql, [id], (err, row?: any) => {
         if (err) return reject(err);
+        if (!row) return resolve(null);
         resolve({
-          id,
-          status: "pending",
-          userA: a,
-          userB: b,
-          requesterId,
-          createdAt: now,
-          updatedAt: now,
+          id: row.id,
+          userA: row.userA,
+          userB: row.userB,
+          status: row.status,
+          requesterId: row.requesterId,
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt,
         });
       });
     });
   }
 
-  async respondFriendRequest(
-    userId: string,
-    otherUserId: string,
-    action: "accept" | "reject"
-  ): Promise<{
-    id: string;
-    status: "accepted" | "pending";
-    userA: string;
-    userB: string;
-    requesterId: string;
-    createdAt: number;
-    updatedAt: number;
-  } | null> {
-    const { a, b } = this.orderPair(userId, otherUserId);
-    const id = `${a}:${b}`;
-    const now = Date.now();
-    return new Promise((resolve, reject) => {
-      if (action === "reject") {
-        const delSql = buildDelete(this.dialect, "friends", "id = ?");
-        this.db.run(delSql, [id], (err) => {
-          if (err) return reject(err);
-          resolve(null);
-        });
-      } else {
-        const updSql = buildUpdate(this.dialect, "friends", ["status", "updatedAt"], "id = ?");
-        this.db.run(updSql, ["accepted", now, id], (err) => {
-          if (err) return reject(err);
-          const selSql = buildSelect(
-            this.dialect,
-            "friends",
-            ["id", "userA", "userB", "status", "requesterId", "createdAt", "updatedAt"],
-            { where: "id = ?" }
-          );
-          this.db.get(selSql, [id], (err2: Error | null, row?: any) => {
-            if (err2) return reject(err2);
-            resolve(row as any);
-          });
-        });
-      }
-    });
-  }
-
-  async listFriendsAndRequests(
+  async getAllUserFriendRequest(
     userId: string
   ): Promise<
     Array<{

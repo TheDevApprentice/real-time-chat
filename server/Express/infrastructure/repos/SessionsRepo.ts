@@ -1,3 +1,16 @@
+/**
+ * SessionsRepo (Infrastructure)
+ * ----------------------------
+ * Atomic DB adapter for user sessions. Under the Unit of Work pattern,
+ * higher-level flows (e.g., rotate session) are composed at the service layer
+ * using `unitOfWork.tx/noTx`, while this repository exposes single-statement
+ * primitives only.
+ *
+ * Notes:
+ * - Writes use `runWrite` with retry/backoff for transient DB errors.
+ * - Schema should enforce UNIQUE(token) and UNIQUE(refreshToken) to avoid duplicates.
+ * - `getUserSessionByToken` opportunistically expires and deletes an expired session.
+ */
 import { CallbackDB } from "../adapters/callbackDb";
 import { UserSession } from "../../domain/entities/UserSession";
 import { UsersRepo } from "./UsersRepo";
@@ -5,46 +18,51 @@ import { ISessionRepo } from "../../domain/interfaces/dbInterfaces/Irepos/ISessi
 import { IDialect } from "../sql/dialect";
 import { buildDelete, buildInsert, buildSelect } from "../sql/queryBuilder";
 import { Logger } from "../../utils/LoggerUtil";
+import { runWrite } from "../sql/executor";
 
 export class SessionsRepo implements ISessionRepo {
   constructor(private db: CallbackDB, private usersRepo: UsersRepo, private dialect: IDialect) {}
 
   addUserSession(session: UserSession): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const columns = [
-        "id",
-        "userId",
-        "token",
-        "createdAt",
-        "expiresAt",
-        "refreshToken",
-        "refreshTokenExpiresAt",
-      ];
-      const sql = buildInsert(this.dialect, "user_sessions", columns);
-      const params = [
-        session.id,
-        session.userId,
-        session.token,
-        session.createdAt,
-        session.expiresAt ?? null,
-        session.refreshToken ?? null,
-        session.refreshTokenExpiresAt ?? null,
-      ];
-      this.db.run(sql, params, (err) => {
-        if (err) return reject(err);
+    return new Promise(async (resolve, reject) => {
+      try {
+        const columns = [
+          "id",
+          "userId",
+          "token",
+          "createdAt",
+          "expiresAt",
+          "refreshToken",
+          "refreshTokenExpiresAt",
+        ];
+        const sql = buildInsert(this.dialect, "user_sessions", columns);
+        const params = [
+          session.id,
+          session.userId,
+          session.token,
+          session.createdAt,
+          session.expiresAt ?? null,
+          session.refreshToken ?? null,
+          session.refreshTokenExpiresAt ?? null,
+        ];
+        await runWrite(this.db, sql, params);
         resolve();
-      });
+      } catch (e) {
+        reject(e as any);
+      }
     });
   }
 
   deleteAllUserSessionsByUserId(userId: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const sql = buildDelete(this.dialect, "user_sessions", "userId = ?");
-      Logger.infoObj("deleteAllUserSessionsByUserId sql", sql);
-      this.db.run(sql, [userId], (err) => {
-        if (err) return reject(err);
+    return new Promise(async (resolve, reject) => {
+      try {
+        const sql = buildDelete(this.dialect, "user_sessions", "userId = ?");
+        Logger.infoObj("deleteAllUserSessionsByUserId sql", sql);
+        await runWrite(this.db, sql, [userId]);
         resolve();
-      });
+      } catch (e) {
+        reject(e as any);
+      }
     });
   }
 
@@ -151,13 +169,15 @@ export class SessionsRepo implements ISessionRepo {
   }
 
   deleteUserSession(token: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const sql = buildDelete(this.dialect, "user_sessions", "token = ?");
-      Logger.infoObj("deleteUserSession sql", sql);
-      this.db.run(sql, [token], (err) => {
-        if (err) return reject(err);
+    return new Promise(async (resolve, reject) => {
+      try {
+        const sql = buildDelete(this.dialect, "user_sessions", "token = ?");
+        Logger.infoObj("deleteUserSession sql", sql);
+        await runWrite(this.db, sql, [token]);
         resolve();
-      });
+      } catch (e) {
+        reject(e as any);
+      }
     });
   }
 
