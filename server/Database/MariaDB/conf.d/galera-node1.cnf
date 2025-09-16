@@ -1,18 +1,14 @@
-# Configuration Galera optimisée pour production
-# /etc/mysql/mariadb.conf.d/galera.cnf
-
 [mysqld]
 # Configuration de base
 server-id=1
 bind-address=0.0.0.0
 skip-name-resolve=1
 
-# Configuration Galera Cluster
+# Configuration Galera Cluster - NODE 1 (BOOTSTRAP)
 wsrep_on=ON
 wsrep_cluster_name="chat_cluster"
-wsrep_cluster_address="gcomm://"
-wsrep_node_address="AUTO"
-wsrep_node_name="AUTO"
+wsrep_cluster_address="gcomm://"  # Vide pour bootstrap
+wsrep_node_address="mariadb_galera1"
 wsrep_provider=/usr/lib/galera/libgalera_smm.so
 
 # Configuration SST (State Snapshot Transfer)
@@ -61,7 +57,3 @@ connect_timeout=30
 max_connections=1000
 max_connect_errors=10000
 max_allowed_packet=16M
-
-# Configuration pour ProxySQL monitoring
-# Créer un utilisateur monitor
-# GRANT REPLICATION CLIENT, PROCESS ON *.* TO 'monitor'@'%' IDENTIFIED BY 'monitor';

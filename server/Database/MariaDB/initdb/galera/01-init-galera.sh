@@ -6,8 +6,11 @@ set -euo pipefail
 
 echo "[galera-init] Initialisation du cluster Galera..."
 
+# Utiliser mariadb (le client officiel de MariaDB) au lieu de mysql
+MYSQL_CMD="mariadb"
+
 # Création des utilisateurs nécessaires
-mysql -uroot -p"${MARIADB_ROOT_PASSWORD}" <<SQL
+$MYSQL_CMD -uroot -p"${MARIADB_ROOT_PASSWORD}" <<SQL
 -- Utilisateur pour SST (State Snapshot Transfer)
 CREATE USER IF NOT EXISTS 'sst_user'@'%' IDENTIFIED BY 'sst_password';
 GRANT RELOAD, LOCK TABLES, PROCESS, REPLICATION CLIENT ON *.* TO 'sst_user'@'%';
@@ -28,7 +31,7 @@ SQL
 
 echo "[galera-init] Utilisateurs créés avec succès."
 
-# Vérification du statut Galera
-mysql -uroot -p"${MARIADB_ROOT_PASSWORD}" -e "SHOW STATUS LIKE 'wsrep%';" || true
+# Vérification du statut Galera (optionnel car peut échouer)
+$MYSQL_CMD -uroot -p"${MARIADB_ROOT_PASSWORD}" -e "SHOW STATUS LIKE 'wsrep%';" 2>/dev/null || echo "[galera-init] Impossible de vérifier le statut Galera pour le moment."
 
 echo "[galera-init] Initialisation terminée."
