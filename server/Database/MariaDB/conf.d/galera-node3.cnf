@@ -7,9 +7,10 @@ skip-name-resolve=1
 # Configuration Galera Cluster - NODE 3 (JOIN)
 wsrep_on=ON
 wsrep_cluster_name="chat_cluster"
-wsrep_cluster_address="gcomm://mariadb_galera1:4567"  # Pointe vers galera1 seulement
+wsrep_cluster_address="gcomm://mariadb_galera1,mariadb_galera2,mariadb_galera3"  # Seed list complète
 wsrep_node_address="mariadb_galera3"
 wsrep_provider=/usr/lib/galera/libgalera_smm.so
+wsrep_node_name="mariadb_galera3"
 
 # Configuration SST (State Snapshot Transfer)
 wsrep_sst_method=mariabackup
@@ -21,7 +22,7 @@ wsrep_log_conflicts=ON
 wsrep_retry_autocommit=3
 
 # Configuration de performance
-wsrep_provider_options="gcache.size=128M;gcache.page_size=128M;gcache.recover=yes"
+wsrep_provider_options="pc.recovery=TRUE;gcache.size=256M;gcache.page_size=128M;gcache.recover=yes"
 
 # Configuration InnoDB pour Galera
 default_storage_engine=InnoDB

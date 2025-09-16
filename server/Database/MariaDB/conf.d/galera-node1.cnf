@@ -10,6 +10,7 @@ wsrep_cluster_name="chat_cluster"
 wsrep_cluster_address="gcomm://"  # Vide pour bootstrap
 wsrep_node_address="mariadb_galera1"
 wsrep_provider=/usr/lib/galera/libgalera_smm.so
+wsrep_node_name="mariadb_galera1"
 
 # Configuration SST (State Snapshot Transfer)
 wsrep_sst_method=mariabackup
@@ -21,7 +22,7 @@ wsrep_log_conflicts=ON
 wsrep_retry_autocommit=3
 
 # Configuration de performance
-wsrep_provider_options="gcache.size=128M;gcache.page_size=128M;gcache.recover=yes"
+wsrep_provider_options="pc.recovery=TRUE;gcache.size=256M;gcache.page_size=128M;gcache.recover=yes"
 
 # Configuration InnoDB pour Galera
 default_storage_engine=InnoDB

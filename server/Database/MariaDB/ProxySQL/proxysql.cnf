@@ -26,8 +26,8 @@ mysql_variables=
     stacksize=1048576
     server_version="8.0.25"
     connect_timeout_server=3000
-    monitor_username="monitor"
-    monitor_password="monitor"
+    mysql-monitor_username="monitor"
+    mysql-monitor_password="monitor"
     monitor_history=600000
     monitor_connect_interval=60000
     monitor_ping_interval=10000
@@ -46,7 +46,7 @@ mysql_servers =
     {
         address="mariadb_galera1"
         port=3306
-        hostgroup=0
+        hostgroup=10
         status="ONLINE"
         weight=1000
         compression=0
@@ -59,7 +59,7 @@ mysql_servers =
     {
         address="mariadb_galera2"
         port=3306
-        hostgroup=0
+        hostgroup=10
         status="ONLINE"
         weight=1000
         compression=0
@@ -72,7 +72,7 @@ mysql_servers =
     {
         address="mariadb_galera3"
         port=3306
-        hostgroup=0
+        hostgroup=10
         status="ONLINE"
         weight=1000
         compression=0
@@ -84,13 +84,30 @@ mysql_servers =
     },
 )
 
+# Classification automatique Galera (writer/readers/offline)
+mysql_galera_hostgroups =
+(
+    {
+        writer_hostgroup=10
+        backup_writer_hostgroup=0
+        reader_hostgroup=20
+        offline_hostgroup=90
+        max_writers=1
+        writer_is_also_reader=1
+        max_transactions_behind=100
+        ping_interval=1000
+        dynamic_weight=0
+        comment="Auto classification Galera"
+    }
+)
+
 # Utilisateurs MySQL
 mysql_users =
 (
     {
         username = "chat"
         password = "chat"
-        default_hostgroup = 0
+        default_hostgroup = 10
         use_ssl = 0
         default_schema = "chat"
         schema_locked = 0
@@ -104,7 +121,7 @@ mysql_users =
     {
         username = "monitor"
         password = "monitor"
-        default_hostgroup = 0
+        default_hostgroup = 10
         use_ssl = 0
         default_schema = "information_schema"
         schema_locked = 0
@@ -124,7 +141,7 @@ mysql_query_rules =
         rule_id=1
         active=1
         match_pattern="^SELECT.*FOR UPDATE"
-        destination_hostgroup=0
+        destination_hostgroup=10
         apply=1
         comment="SELECT FOR UPDATE vers hostgroup write"
     },
@@ -132,7 +149,7 @@ mysql_query_rules =
         rule_id=2
         active=1
         match_pattern="^SELECT"
-        destination_hostgroup=1
+        destination_hostgroup=20
         apply=1
         comment="SELECT vers hostgroup read"
     },
@@ -140,7 +157,7 @@ mysql_query_rules =
         rule_id=3
         active=1
         match_pattern="^INSERT|^UPDATE|^DELETE|^REPLACE|^CREATE|^DROP|^ALTER|^TRUNCATE"
-        destination_hostgroup=0
+        destination_hostgroup=10
         apply=1
         comment="DML/DDL vers hostgroup write"
     },
@@ -148,7 +165,7 @@ mysql_query_rules =
         rule_id=4
         active=1
         match_pattern="^BEGIN|^START TRANSACTION|^COMMIT|^ROLLBACK"
-        destination_hostgroup=0
+        destination_hostgroup=10
         apply=1
         comment="Transactions vers hostgroup write"
     }
@@ -159,7 +176,7 @@ scheduler =
 (
     {
         id=1
-        active=1
+        active=0
         interval_ms=5000
         filename="/var/lib/proxysql/galera_check.sh"
         comment="Galera health check"
