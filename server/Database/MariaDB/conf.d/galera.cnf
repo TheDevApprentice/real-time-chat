@@ -1,0 +1,73 @@
+# Configuration Galera optimisée pour production
+# /etc/mysql/mariadb.conf.d/galera.cnf
+
+[mysqld]
+# Configuration de base
+server-id = 1
+bind-address = 0.0.0.0
+skip-name-resolve = 1
+
+# Configuration Galera Cluster
+wsrep_on = ON
+wsrep_cluster_name = "chat_cluster"
+wsrep_cluster_address = "gcomm://mariadb_galera1,mariadb_galera2,mariadb_galera3"
+wsrep_node_address = "AUTO"
+wsrep_node_name = "AUTO"
+wsrep_provider = /usr/lib/galera/libgalera_smm.so
+
+# Configuration SST (State Snapshot Transfer)
+wsrep_sst_method = mariabackup
+wsrep_sst_auth = "sst_user:sst_password"
+
+# Configuration de réplication
+wsrep_slave_threads = 4
+# wsrep_replicate_myisam = OFF
+wsrep_log_conflicts = ON
+wsrep_retry_autocommit = 3
+
+# Configuration Flow Control
+# wsrep_flow_control_paused_ns = 100000000
+# wsrep_flow_control_sent_ns = 100000000
+# wsrep_flow_control_recv_ns = 100000000
+
+# Configuration de performance
+wsrep_provider_options = "gcache.size=128M;gcache.page_size=128M;gcache.recover=yes"
+
+# Configuration InnoDB pour Galera
+default_storage_engine = InnoDB
+innodb_buffer_pool_size = 256M
+innodb_log_file_size = 64M
+innodb_flush_log_at_trx_commit = 0
+innodb_flush_method = O_DIRECT
+innodb_autoinc_lock_mode = 2
+innodb_doublewrite = 1
+
+# Configuration binlog
+binlog_format = ROW
+log_bin = mysql-bin
+expire_logs_days = 3
+max_binlog_size = 100M
+
+# Configuration générale
+query_cache_type = 0
+query_cache_size = 0
+
+# Monitoring et logging
+slow_query_log = ON
+slow_query_log_file = /var/log/mysql/slow.log
+long_query_time = 2
+log_queries_not_using_indexes = ON
+
+# Timeouts
+wait_timeout = 28800
+interactive_timeout = 28800
+connect_timeout = 30
+
+# Limites de connexions
+max_connections = 1000
+max_connect_errors = 10000
+max_allowed_packet = 16M
+
+# Configuration pour ProxySQL monitoring
+# Créer un utilisateur monitor
+# GRANT REPLICATION CLIENT, PROCESS ON *.* TO 'monitor'@'%' IDENTIFIED BY 'monitor';
