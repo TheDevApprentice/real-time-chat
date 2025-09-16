@@ -25,11 +25,6 @@ wsrep_slave_threads = 4
 wsrep_log_conflicts = ON
 wsrep_retry_autocommit = 3
 
-# Configuration Flow Control
-# wsrep_flow_control_paused_ns = 100000000
-# wsrep_flow_control_sent_ns = 100000000
-# wsrep_flow_control_recv_ns = 100000000
-
 # Configuration de performance
 wsrep_provider_options = "gcache.size=128M;gcache.page_size=128M;gcache.recover=yes"
 

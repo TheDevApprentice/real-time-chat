@@ -70,19 +70,6 @@ mysql_servers =
         comment="Galera Node 2"
     },
     {
-        address="mariadb_galera2"
-        port=3306
-        hostgroup=1
-        status="ONLINE"
-        weight=1000
-        compression=0
-        max_connections=500
-        max_replication_lag=10
-        use_ssl=0
-        max_latency_ms=0
-        comment="Galera Node 2 - Read Only"
-    },
-    {
         address="mariadb_galera3"
         port=3306
         hostgroup=0
@@ -95,19 +82,6 @@ mysql_servers =
         max_latency_ms=0
         comment="Galera Node 3"
     },
-    {
-        address="mariadb_galera3"
-        port=3306
-        hostgroup=1
-        status="ONLINE"
-        weight=1000
-        compression=0
-        max_connections=500
-        max_replication_lag=10
-        use_ssl=0
-        max_latency_ms=0
-        comment="Galera Node 3 - Read Only"
-    }
 )
 
 # Utilisateurs MySQL
