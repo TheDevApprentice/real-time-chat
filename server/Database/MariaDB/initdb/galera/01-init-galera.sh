@@ -27,6 +27,7 @@ GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'repl'@'%';
 CREATE USER IF NOT EXISTS 'maxscale'@'%' IDENTIFIED BY 'maxscale';
 GRANT SELECT ON mysql.* TO 'maxscale'@'%';
 GRANT SHOW DATABASES ON *.* TO 'maxscale'@'%';
+GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'maxscale'@'%';
 
 -- Utilisateur applicatif avec permissions étendues
 GRANT ALL PRIVILEGES ON chat.* TO 'chat'@'%';
