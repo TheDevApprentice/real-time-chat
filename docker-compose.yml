@@ -85,12 +85,12 @@ services:
       MARIADB_PASSWORD: chat
       MARIADB_SSL: false
       # # MariaDB backup configuration
-      # MARIADB_HOST_BACKUP: mariadb_backup
-      # MARIADB_PORT_BACKUP: 3306
-      # MARIADB_DB_BACKUP: chat_backup
-      # MARIADB_USER_BACKUP: chat_backup
-      # MARIADB_PASSWORD_BACKUP: chat_backup
-      # MARIADB_SSL_BACKUP: false
+      MARIADB_HOST_BACKUP: mariadb_backup
+      MARIADB_PORT_BACKUP: 3306
+      MARIADB_DB_BACKUP: chat_backup
+      MARIADB_USER_BACKUP: chat_backup
+      MARIADB_PASSWORD_BACKUP: chat_backup
+      MARIADB_SSL_BACKUP: false
       WEBRTC_STUN: stun:stun.l.google.com:19302
       # Point to the local TURN (coturn) service below; replace with public DNS when deployed
       WEBRTC_TURN_URLS: turn:turn:3478
