@@ -111,6 +111,8 @@ services:
         condition: service_healthy
       mariadb_galera3:
         condition: service_healthy
+      maxscale:
+        condition: service_healthy
       mariadb_backup:
         condition: service_healthy
       proxysql:
@@ -439,6 +441,30 @@ services:
       retries: 30
       start_period: 10s
 
+  # MaxScale - Binlog Server for replicas (stable binlog endpoint in front of Galera)
+  maxscale:
+    image: mariadb/maxscale:latest
+    container_name: chat-maxscale
+    volumes:
+      - ./server/Database/MariaDB/MaxScale/maxscale.cnf:/etc/maxscale.cnf:ro
+      - maxscale_data:/var/lib/maxscale
+    depends_on:
+      mariadb_galera1:
+        condition: service_healthy
+      mariadb_galera2:
+        condition: service_healthy
+      mariadb_galera3:
+        condition: service_healthy
+    networks:
+      - dbnet
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "maxctrl", "list", "services" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   # Backup/Replica MariaDB (optionnel, pour compatibilité)
   mariadb_backup:
     build:
@@ -453,15 +479,15 @@ services:
       MARIADB_USER: chat_backup
       MARIADB_PASSWORD: chat_backup
       MARIADB_ROOT_PASSWORD: root
-      # Replication configuration
-      PRIMARY_HOST: mariadb_galera1
+      # Replication configuration (via MaxScale Binlog Server)
+      PRIMARY_HOST: maxscale
       PRIMARY_PORT: 3306
       REPL_USER: repl
       REPL_PASSWORD: replpass
     volumes:
       - mariadb_backup_data:/var/lib/mysql
       - ./server/Database/MariaDB/conf.d/replica.cnf:/etc/mysql/mariadb.conf.d/zz-replica.cnf:ro
-      - ./server/Database/MariaDB/initdb/replica:/docker-entrypoint-initdb.d
+      - ./server/Database/MariaDB/initdb/replicaMaxScale:/docker-entrypoint-initdb.d
     healthcheck:
       test: [ "CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1" ]
       interval: 10s
@@ -476,6 +502,8 @@ services:
       mariadb_galera2:
         condition: service_healthy
       mariadb_galera3:
+        condition: service_healthy
+      maxscale: 
         condition: service_healthy
     restart: unless-stopped
     networks:
@@ -527,6 +555,7 @@ volumes:
   redis_data:
   minio_data:
   proxysql_data:
+  maxscale_data:
   galera_node1:
   galera_node2:
   galera_node3:

@@ -6,7 +6,7 @@ set -euo pipefail
 
 REPL_USER="${REPL_USER:-repl}"
 REPL_PASSWORD="${REPL_PASSWORD:-replpass}"
-PRIMARY_HOST="${PRIMARY_HOST:-mariadb}"
+PRIMARY_HOST="${PRIMARY_HOST:-maxscale}"
 PRIMARY_PORT="${PRIMARY_PORT:-3306}"
 ROOT_PWD="${MARIADB_ROOT_PASSWORD:-${MYSQL_ROOT_PASSWORD:-}}"
 
@@ -15,16 +15,16 @@ if [ -z "$ROOT_PWD" ]; then
   exit 1
 fi
 
-# Wait for primary to be reachable before configuring
-echo "[replica-init] Waiting for primary ${PRIMARY_HOST}:${PRIMARY_PORT} (root ping)..."
+# Wait for MaxScale binlogrouter TCP to be reachable (it's not a SQL server, ping won't work)
+echo "[replica-init] Waiting for primary ${PRIMARY_HOST}:${PRIMARY_PORT} (TCP)..."
 for i in {1..60}; do
-  if mariadb-admin ping -h"${PRIMARY_HOST}" -P"${PRIMARY_PORT}" --silent -u"root" -p"${ROOT_PWD}" >/dev/null 2>&1; then
-    echo "[replica-init] Primary is reachable."
+  if bash -lc "</dev/tcp/${PRIMARY_HOST}/${PRIMARY_PORT}" >/dev/null 2>&1; then
+    echo "[replica-init] Primary TCP endpoint is reachable."
     break
   fi
   sleep 2
   if [ $i -eq 60 ]; then
-    echo "[replica-init] ERROR: Primary not reachable after timeout." >&2
+    echo "[replica-init] ERROR: Primary TCP endpoint not reachable after timeout." >&2
     exit 1
   fi
 done

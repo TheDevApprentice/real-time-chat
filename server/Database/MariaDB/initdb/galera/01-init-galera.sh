@@ -21,7 +21,12 @@ GRANT PROCESS, REPLICATION CLIENT, REPLICATION SLAVE, SLAVE MONITOR ON *.* TO 'm
 
 -- Utilisateur de backup/replication si nécessaire
 CREATE USER IF NOT EXISTS 'repl'@'%' IDENTIFIED BY 'replpass';
-GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%';
+GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'repl'@'%';
+
+-- Compte MaxScale pour lecture des métadonnées d'authentification (MariaDBAuth)
+CREATE USER IF NOT EXISTS 'maxscale'@'%' IDENTIFIED BY 'maxscale';
+GRANT SELECT ON mysql.* TO 'maxscale'@'%';
+GRANT SHOW DATABASES ON *.* TO 'maxscale'@'%';
 
 -- Utilisateur applicatif avec permissions étendues
 GRANT ALL PRIVILEGES ON chat.* TO 'chat'@'%';

@@ -437,8 +437,6 @@ services:
       dockerfile: Dockerfile
     image: realtime-chat-mariadb:latest
     container_name: chat-mariadb-backup
-    ports:
-      - "127.0.0.1:3317:3306"
     environment:
       MARIADB_DATABASE: chat_backup
       MARIADB_USER: chat_backup
@@ -471,7 +469,6 @@ services:
     restart: unless-stopped
     networks:
       - dbnet
-      - proxy
 
 volumes:
   traefik_data:
