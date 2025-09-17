@@ -1,0 +1,591 @@
+services:
+  # Reverse proxy / gateway (Traefik)
+  traefik:
+    image: traefik:v2.11
+    container_name: traefik
+    command:
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --log.level=DEBUG
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      # Enable HTTPS with Let's Encrypt (free). Uncomment the 4 lines below and set your email and domain DNS to this host.
+      # - --entrypoints.websecure.address=:443
+      # - --certificatesresolvers.le.acme.tlschallenge=true
+      # - --certificatesresolvers.le.acme.email=your-email@example.com
+      # - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      # NOTE: Do NOT enable HTTP->HTTPS redirection when using ngrok to port 80,
+      # as TLS is terminated by ngrok and forwarded to local :80 (would cause loops)
+      # Optionally redirect HTTP->HTTPS when enabling websecure
+      # - --entrypoints.web.http.redirections.entryPoint.to=websecure
+      # - --entrypoints.web.http.redirections.entryPoint.scheme=https
+    ports:
+      - "80:80"
+      - "8080:8080"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # - traefik_data:/letsencrypt
+    depends_on:
+      proxysql:
+        condition: service_healthy
+      mariadb_galera1:
+        condition: service_healthy
+      mariadb_galera2:
+        condition: service_healthy
+      mariadb_galera3:
+        condition: service_healthy
+      mariadb_backup:
+        condition: service_healthy
+    networks:
+      - proxy
+    restart: unless-stopped
+
+  server:
+    build:
+      context: ./server/Express
+      dockerfile: Dockerfile
+    image: realtime-chat-server:latest
+    scale: 2
+    environment:
+      NODE_ENV: production
+      DEBUG: true
+      PORT: 3080
+      FRONTEND_URL: http://localhost
+      # Trust proxy (e.g. when behind a reverse proxy)
+      TRUST_PROXY: "true"
+      # Bcrypt cost
+      BCRYPT_COST: "12"
+      # Redis configuration
+      REDIS_URL: redis://:changeme@redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_USER: changeme
+      REDIS_PASSWORD: changeme
+      REDIS_TLS: false
+      # S3/MinIO configuration
+      # S3_ENDPOINT: http://localhost:9000
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: admin
+      S3_SECRET_KEY: adminadmin123
+      S3_BUCKET: chat-bucket
+      S3_USE_PATH_STYLE: "true"
+      # Base URL for public access from host (used to form public links)
+      # This is what browsers will use via Traefik
+      S3_PUBLIC_URL_BASE: http://localhost/minio/chat-bucket
+      # Database configuration
+      DATABASE_DRIVER: mariadb
+      # MariaDB configuration
+      MARIADB_HOST: proxysql
+      MARIADB_PORT: 6033
+      MARIADB_DB: chat
+      MARIADB_USER: chat
+      MARIADB_PASSWORD: chat
+      MARIADB_SSL: false
+      # # MariaDB backup configuration
+      MARIADB_HOST_BACKUP: mariadb_backup
+      MARIADB_PORT_BACKUP: 3306
+      MARIADB_DB_BACKUP: chat_backup
+      MARIADB_USER_BACKUP: chat_backup
+      MARIADB_PASSWORD_BACKUP: chat_backup
+      MARIADB_SSL_BACKUP: false
+      WEBRTC_STUN: stun:stun.l.google.com:19302
+      # Point to the local TURN (coturn) service below; replace with public DNS when deployed
+      WEBRTC_TURN_URLS: turn:turn:3478
+      WEBRTC_TURN_USERNAME: devuser
+      WEBRTC_TURN_CREDENTIAL: devpass
+      CALL_RING_TIMEOUT: 20
+    networks:
+      - proxy
+      - dbnet
+      - cachenet
+      - stornet
+    depends_on:
+      traefik:
+        condition: service_started
+      mariadb_galera1:
+        condition: service_healthy
+      mariadb_galera2:
+        condition: service_healthy
+      mariadb_galera3:
+        condition: service_healthy
+      maxscale:
+        condition: service_healthy
+      mariadb_backup:
+        condition: service_healthy
+      proxysql:
+        condition: service_healthy
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      # Route all paths to this server on entrypoint web (dev + ngrok friendly)
+      - "traefik.http.routers.chat.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.chat.entrypoints=web"
+      - "traefik.http.routers.chat.priority=1"
+      - "traefik.http.routers.chat.service=chat"
+      - "traefik.http.services.chat.loadbalancer.server.port=3080"
+      # Sticky cookie for session affinity (useful for reconnections and long-polling)
+      - "traefik.http.services.chat.loadbalancer.sticky.cookie=true"
+      - "traefik.http.services.chat.loadbalancer.sticky.cookie.name=chat_affinity"
+      - "traefik.http.services.chat.loadbalancer.sticky.cookie.httpOnly=true"
+      - "traefik.http.services.chat.loadbalancer.sticky.cookie.secure=false" # dev over HTTP
+      - "traefik.http.services.chat.loadbalancer.sticky.cookie.sameSite=lax"
+      # --- Production (HTTPS) notes ---
+      # When deploying behind HTTPS, enable a secure cookie and consider a stricter SameSite policy:
+      # - "traefik.http.services.chat.loadbalancer.sticky.cookie.secure=true"  # cookie only over HTTPS
+      # - "traefik.http.services.chat.loadbalancer.sticky.cookie.sameSite=strict"  # stronger CSRF isolation (adjust if embedding)
+      - "traefik.docker.network=proxy"
+
+  # TURN/STUN server (coturn)
+  turn:
+    image: coturn/coturn:latest
+    container_name: chat-turn
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478"
+    environment:
+      # REQUIRED: Set to your public IP or DNS-resolved IP of this host for NAT hairpin correctness
+      - COTURN_PUBLIC_IP=${COTURN_PUBLIC_IP:-127.0.0.1}
+      - COTURN_REALM=${COTURN_REALM:-chat.local}
+      - COTURN_USER=${COTURN_USER:-devuser}
+      - COTURN_PASS=${COTURN_PASS:-devpass}
+    command: >-
+      bash -lc "\ turnserver \
+        --no-cli \
+        --no-tls \
+        --fingerprint \
+        --lt-cred-mech \
+        --realm=${COTURN_REALM:-chat.local} \
+        --user=${COTURN_USER:-devuser}:${COTURN_PASS:-devpass} \
+        --external-ip=${COTURN_PUBLIC_IP:-127.0.0.1} \
+        --listening-port=3478 \
+        --listening-ip=0.0.0.0 \
+        --min-port=49160 --max-port=49200 \
+        --verbose"
+    restart: unless-stopped
+    depends_on:
+      proxysql:
+        condition: service_healthy
+      mariadb_galera1:
+        condition: service_healthy
+      mariadb_galera2:
+        condition: service_healthy
+      mariadb_galera3:
+        condition: service_healthy
+      mariadb_backup:
+        condition: service_healthy
+    networks:
+      - proxy
+
+  minio:
+    build:
+      context: ./server/Minio
+      dockerfile: Dockerfile
+    image: realtime-chat-minio:latest
+    container_name: chat-minio
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=adminadmin123
+      - S3_BUCKET=chat-bucket
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # MinIO Console
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+    depends_on:
+      proxysql:
+        condition: service_healthy
+      mariadb_galera1:
+        condition: service_healthy
+      mariadb_galera2:
+        condition: service_healthy
+      mariadb_galera3:
+        condition: service_healthy
+      mariadb_backup:
+        condition: service_healthy
+    networks:
+      - proxy
+      - stornet
+    labels:
+      - "traefik.enable=true"
+      # Route /minio -> MinIO S3 API (HTTP)
+      - "traefik.http.routers.minio.rule=PathPrefix(`/minio`)"
+      - "traefik.http.routers.minio.entrypoints=web"
+      - "traefik.http.routers.minio.service=minio"
+      - "traefik.http.routers.minio.middlewares=minio-strip"
+      - "traefik.http.middlewares.minio-strip.stripprefix.prefixes=/minio"
+      - "traefik.http.services.minio.loadbalancer.server.port=9000"
+      - "traefik.http.routers.minio.priority=100"
+      # Route /minio-console -> MinIO Console (HTTP)
+      - "traefik.http.routers.minioconsole.rule=PathPrefix(`/minio-console`)"
+      - "traefik.http.routers.minioconsole.entrypoints=web"
+      - "traefik.http.routers.minioconsole.service=minioconsole"
+      - "traefik.http.routers.minioconsole.middlewares=minioconsole-strip,minioconsole-auth,minio-allow"
+      - "traefik.http.middlewares.minioconsole-auth.basicauth.users=admin:$$apr1$$H6uskkkW$$IgXLP6ewTrSuBkTrqE8wj/"
+      - "traefik.http.middlewares.minioconsole-auth.basicauth.removeheader=true"
+      - "traefik.http.middlewares.minio-allow.ipwhitelist.sourcerange=127.0.0.1/32,172.30.0.0/24,::1/128"
+      - "traefik.http.middlewares.minioconsole-strip.stripprefix.prefixes=/minio-console"
+      - "traefik.http.services.minioconsole.loadbalancer.server.port=9001"
+      - "traefik.http.routers.minioconsole.priority=110"
+      - "traefik.docker.network=proxy"
+
+  redis:
+    build:
+      context: ./server/Redis
+      dockerfile: Dockerfile
+    image: realtime-chat-redis:latest
+    container_name: chat-redis
+    ports:
+      - "6379:6379"
+    # For dev you can inline a password; for production use secrets.
+    command: [ "sh", "-c", "exec redis-server --appendonly yes --requirepass \"${REDIS_PASSWORD:-changeme}\"" ]
+    environment:
+      # Set a strong password here (dev example)
+      REDIS_PASSWORD: changeme
+    depends_on:
+      proxysql:
+        condition: service_healthy
+      mariadb_galera1:
+        condition: service_healthy
+      mariadb_galera2:
+        condition: service_healthy
+      mariadb_galera3:
+        condition: service_healthy
+      mariadb_backup:
+        condition: service_healthy
+    volumes:
+      - redis_data:/data
+    networks:
+      - proxy
+      - cachenet
+    restart: unless-stopped
+    # No Traefik labels here: Redis is TCP on 6379 (not HTTP). Keep it internal.
+
+    # ProxySQL - Load balancer for Galera cluster
+
+  proxysql:
+    build:
+      context: ./server/Database/MariaDB/ProxySQL
+      dockerfile: Dockerfile
+    image: realtime-chat-proxysql:latest
+    container_name: chat-proxysql
+    volumes:
+      - ./server/Database/MariaDB/ProxySQL/proxysql.cnf:/etc/proxysql.cnf:ro
+      - proxysql_data:/var/lib/proxysql
+    ports:
+      - "127.0.0.1:6033:6033" # MySQL port for applications
+      - "127.0.0.1:6032:6032" # Admin interface
+    environment:
+      - PROXYSQL_ADMIN_USER=admin
+      - PROXYSQL_ADMIN_PASSWORD=admin
+      - MYSQL_USER=monitor
+      - MYSQL_PASSWORD=monitor
+    depends_on:
+      mariadb_galera1:
+        condition: service_healthy
+      mariadb_galera2:
+        condition: service_healthy
+      mariadb_galera3:
+        condition: service_healthy
+    networks:
+      - dbnet
+      - proxy
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "mysql", "-h127.0.0.1", "-P6032", "-uadmin", "-padmin", "-e", "SELECT 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Service pour initialiser ProxySQL automatiquement
+  proxysql-init:
+    build:
+      context: ./server/Database/MariaDB
+      dockerfile: Dockerfile
+    container_name: chat-proxysql-init
+    volumes:
+      - ./server/Database/MariaDB/ProxySQL/scripts:/scripts:ro
+    networks:
+      - dbnet
+    depends_on:
+      proxysql:
+        condition: service_healthy
+    command: |
+      bash -lc '
+        set -euo pipefail
+
+        echo "[proxysql-init] Waiting for Galera nodes (root ping)..."
+        for h in mariadb_galera1 mariadb_galera2 mariadb_galera3; do
+          for i in {1..60}; do
+            if mariadb-admin ping -h "$h" -P 3306 -uroot -proot --silent >/dev/null 2>&1; then
+              echo "[proxysql-init] $h is reachable"; break; fi
+            sleep 2; if [ $i -eq 60 ]; then echo "[proxysql-init] ERROR: $h not reachable" >&2; exit 1; fi
+          done
+        done
+
+        echo "[proxysql-init] Waiting for ProxySQL to be fully ready..."
+        sleep 15
+
+        echo "[proxysql-init] Ensuring monitor privileges exist on Galera (idempotent)..."
+        mysql -h mariadb_galera1 -P 3306 -u root -proot -e "GRANT PROCESS, REPLICATION CLIENT, REPLICATION SLAVE, SLAVE MONITOR ON *.* TO \'monitor\'@\'%\'; FLUSH PRIVILEGES;"
+
+        echo "[proxysql-init] Initializing ProxySQL configuration..."
+        mysql -h proxysql -P 6032 -u admin -padmin < /scripts/init_proxysql.sql
+
+        echo "[proxysql-init] Cleaning up legacy Hostgroup 0 entries and saving to disk..."
+        mysql -h proxysql -P 6032 -u admin -padmin -e "DELETE FROM mysql_servers WHERE hostgroup_id=0; LOAD MYSQL SERVERS TO RUNTIME; SAVE MYSQL SERVERS TO DISK;"
+
+        echo "[proxysql-init] Verifying runtime hostgroups..."
+        mysql -h proxysql -P 6032 -u admin -padmin -e "SELECT hostgroup_id, hostname, status FROM runtime_mysql_servers ORDER BY hostgroup_id, hostname;"
+
+        echo "[proxysql-init] Testing application connection via ProxySQL..."
+        mysql -h proxysql -P 6033 -u chat -pchat -D chat -e "SELECT \"ProxySQL connection test successful\" as status;"
+        echo "[proxysql-init] Done."
+      '
+    restart: "no"
+
+  # Galera Cluster Node 1 (Bootstrap node)
+  mariadb_galera1:
+    build:
+      context: ./server/Database/MariaDB
+      dockerfile: Dockerfile
+    image: realtime-chat-mariadb:latest
+    container_name: chat-galera-1
+    environment:
+      MARIADB_DATABASE: chat
+      MARIADB_USER: chat
+      MARIADB_PASSWORD: chat
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_GALERA_CLUSTER: "yes"
+      MARIADB_GALERA_MARIABACKUP_USER: "sst_user"
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: "sst_password"
+    volumes:
+      - galera_node1:/var/lib/mysql
+      - ./server/Database/MariaDB/conf.d/galera-node1.cnf:/etc/mysql/mariadb.conf.d/99-galera.cnf:ro
+      - ./server/Database/MariaDB/initdb/galera:/docker-entrypoint-initdb.d:ro
+    networks:
+      - dbnet
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+
+  # Galera Cluster Node 2
+  mariadb_galera2:
+    build:
+      context: ./server/Database/MariaDB
+      dockerfile: Dockerfile
+    image: realtime-chat-mariadb:latest
+    container_name: chat-galera-2
+    environment:
+      MARIADB_DATABASE: chat
+      MARIADB_USER: chat
+      MARIADB_PASSWORD: chat
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_GALERA_CLUSTER: "yes"
+      MARIADB_GALERA_MARIABACKUP_USER: "sst_user"
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: "sst_password"
+    volumes:
+      - galera_node2:/var/lib/mysql
+      - ./server/Database/MariaDB/conf.d/galera-node2.cnf:/etc/mysql/mariadb.conf.d/99-galera.cnf:ro
+      - ./server/Database/MariaDB/initdb/galera:/docker-entrypoint-initdb.d:ro
+    networks:
+      - dbnet
+    restart: unless-stopped
+    depends_on:
+      mariadb_galera1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+
+  # Galera Cluster Node 3
+  mariadb_galera3:
+    build:
+      context: ./server/Database/MariaDB
+      dockerfile: Dockerfile
+    image: realtime-chat-mariadb:latest
+    container_name: chat-galera-3
+    environment:
+      MARIADB_DATABASE: chat
+      MARIADB_USER: chat
+      MARIADB_PASSWORD: chat
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_GALERA_CLUSTER: "yes"
+      MARIADB_GALERA_MARIABACKUP_USER: "sst_user"
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: "sst_password"
+    volumes:
+      - galera_node3:/var/lib/mysql
+      - ./server/Database/MariaDB/conf.d/galera-node3.cnf:/etc/mysql/mariadb.conf.d/99-galera.cnf:ro
+      - ./server/Database/MariaDB/initdb/galera:/docker-entrypoint-initdb.d:ro
+    networks:
+      - dbnet
+    restart: unless-stopped
+    depends_on:
+      mariadb_galera1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+
+  # MaxScale - Binlog Server for replicas (stable binlog endpoint in front of Galera)
+  maxscale:
+    image: mariadb/maxscale:latest
+    container_name: chat-maxscale
+    volumes:
+      - ./server/Database/MariaDB/MaxScale/maxscale.cnf:/etc/maxscale.cnf:ro
+      - maxscale_data:/var/lib/maxscale
+    depends_on:
+      mariadb_galera1:
+        condition: service_healthy
+      mariadb_galera2:
+        condition: service_healthy
+      mariadb_galera3:
+        condition: service_healthy
+    networks:
+      - dbnet
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "maxctrl", "list", "services" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Backup/Replica MariaDB (optionnel, pour compatibilité)
+  mariadb_backup:
+    build:
+      context: ./server/Database/MariaDB
+      dockerfile: Dockerfile
+    image: realtime-chat-mariadb:latest
+    container_name: chat-mariadb-backup
+    ports:
+      - "127.0.0.1:3317:3306"
+    environment:
+      MARIADB_DATABASE: chat_backup
+      MARIADB_USER: chat_backup
+      MARIADB_PASSWORD: chat_backup
+      MARIADB_ROOT_PASSWORD: root
+      # Replication configuration (via MaxScale Binlog Server)
+      PRIMARY_HOST: maxscale
+      PRIMARY_PORT: 3306
+      REPL_USER: repl
+      REPL_PASSWORD: replpass
+    volumes:
+      - mariadb_backup_data:/var/lib/mysql
+      - ./server/Database/MariaDB/conf.d/replica.cnf:/etc/mysql/mariadb.conf.d/zz-replica.cnf:ro
+      - ./server/Database/MariaDB/initdb/replicaMaxScale:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: [ "CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      proxysql:
+        condition: service_healthy
+      mariadb_galera1:
+        condition: service_healthy
+      mariadb_galera2:
+        condition: service_healthy
+      mariadb_galera3:
+        condition: service_healthy
+      maxscale: 
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - dbnet
+      - proxy
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: chat-redis-commander-web
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379:0:changeme
+      - HTTP_USER=admin
+      - HTTP_PASSWORD=secret
+    depends_on:
+      redis:
+        condition: service_started
+      proxysql:
+        condition: service_healthy
+      mariadb_galera1:
+        condition: service_healthy
+      mariadb_galera2:
+        condition: service_healthy
+      mariadb_galera3:
+        condition: service_healthy
+      mariadb_backup:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      # Route /redis-commander -> Redis Commander Web UI (HTTP)
+      - "traefik.http.routers.rediscommander.rule=PathPrefix(`/redis-commander`)"
+      - "traefik.http.routers.rediscommander.entrypoints=web"
+      - "traefik.http.routers.rediscommander.service=rediscommander"
+      - "traefik.http.routers.rediscommander.middlewares=rediscommander-strip,rediscommander-auth,rediscommander-allow"
+      - "traefik.http.middlewares.rediscommander-strip.stripprefix.prefixes=/redis-commander"
+      - "traefik.http.middlewares.rediscommander-auth.basicauth.users=admin:$$apr1$$H6uskkkW$$IgXLP6ewTrSuBkTrqE8wj/"
+      - "traefik.http.middlewares.rediscommander-auth.basicauth.removeheader=true"
+      - "traefik.http.middlewares.rediscommander-allow.ipwhitelist.sourcerange=127.0.0.1/32,172.30.0.0/24,::1/128"
+      - "traefik.http.services.rediscommander.loadbalancer.server.port=8081"
+      - "traefik.docker.network=proxy"
+    networks:
+      - cachenet
+      - proxy
+
+volumes:
+  traefik_data:
+  redis_data:
+  minio_data:
+  proxysql_data:
+  maxscale_data:
+  galera_node1:
+  galera_node2:
+  galera_node3:
+  mariadb_backup_data:
+
+networks:
+  proxy:
+    name: proxy
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.30.0.0/24
+  dbnet:
+    internal: true
+    name: dbnet
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.31.10.0/24
+  cachenet:
+    internal: true
+    name: cachenet
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.31.20.0/24
+  stornet:
+    internal: true
+    name: stornet
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.31.30.0/24
