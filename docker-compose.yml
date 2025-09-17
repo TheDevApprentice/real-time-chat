@@ -115,8 +115,6 @@ services:
         condition: service_healthy
       proxysql:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
