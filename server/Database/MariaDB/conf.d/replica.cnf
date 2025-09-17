@@ -10,8 +10,9 @@ read_only=ON
 relay_log=mysqld-relay-bin
 
 # Binary log format
-binlog_format=mixed
+binlog_format=ROW
 binlog_row_image=FULL
+binlog_checksum=CRC32
 
 # GTID-based replication
 gtid_strict_mode=ON

@@ -20,6 +20,9 @@ wsrep_sst_auth="sst_user:sst_password"
 wsrep_slave_threads=4
 wsrep_log_conflicts=ON
 wsrep_retry_autocommit=3
+log_slave_updates=ON
+gtid_strict_mode=ON
+gtid_domain_id=1
 
 # Configuration de performance
 wsrep_provider_options="pc.recovery=TRUE;gcache.size=256M;gcache.page_size=128M;gcache.recover=yes"
@@ -35,6 +38,8 @@ innodb_doublewrite=1
 
 # Configuration binlog
 binlog_format=ROW
+binlog_row_image=FULL
+binlog_checksum=CRC32
 log_bin=mysql-bin
 expire_logs_days=3
 max_binlog_size=100M

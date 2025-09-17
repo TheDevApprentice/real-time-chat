@@ -42,6 +42,7 @@ monitor_interval=2000ms
 # --- Binlog router service ---
 [Binlog-Service]
 type=service
+select_master=true
 router=binlogrouter
 servers=server_galera1,server_galera2,server_galera3
 user=maxscale
@@ -53,6 +54,6 @@ server_id=4001
 type=listener
 service=Binlog-Service
 authenticator=MariaDBAuth
-protocol=MySQLClient
+protocol=MariaDBProtocol
 port=3306
 
