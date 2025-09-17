@@ -367,8 +367,6 @@ services:
       - ./server/Database/MariaDB/initdb/galera:/docker-entrypoint-initdb.d:ro
     networks:
       - dbnet
-    ports:
-      - "127.0.0.1:3306:3306" # Debug/admin access
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1"]
@@ -398,8 +396,6 @@ services:
       - ./server/Database/MariaDB/initdb/galera:/docker-entrypoint-initdb.d:ro
     networks:
       - dbnet
-    ports:
-      - "127.0.0.1:3307:3306" # Debug/admin access
     restart: unless-stopped
     depends_on:
       mariadb_galera1:
@@ -432,8 +428,6 @@ services:
       - ./server/Database/MariaDB/initdb/galera:/docker-entrypoint-initdb.d:ro
     networks:
       - dbnet
-    ports:
-      - "127.0.0.1:3308:3306" # Debug/admin access
     restart: unless-stopped
     depends_on:
       mariadb_galera1:

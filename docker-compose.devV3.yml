@@ -115,12 +115,6 @@ services:
         condition: service_healthy
       proxysql:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-      turn:
-        condition: service_healthy
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
@@ -335,7 +329,7 @@ services:
         sleep 15
 
         echo "[proxysql-init] Ensuring monitor privileges exist on Galera (idempotent)..."
-        mysql -h mariadb_galera1 -P 3306 -u root -proot -e "GRANT PROCESS, REPLICATION CLIENT, REPLICATION SLAVE ON *.* TO \'monitor\'@\'%\'; FLUSH PRIVILEGES;"
+        mysql -h mariadb_galera1 -P 3306 -u root -proot -e "GRANT PROCESS, REPLICATION CLIENT, REPLICATION SLAVE, SLAVE MONITOR ON *.* TO \'monitor\'@\'%\'; FLUSH PRIVILEGES;"
 
         echo "[proxysql-init] Initializing ProxySQL configuration..."
         mysql -h proxysql -P 6032 -u admin -padmin < /scripts/init_proxysql.sql
@@ -364,14 +358,15 @@ services:
       MARIADB_USER: chat
       MARIADB_PASSWORD: chat
       MARIADB_ROOT_PASSWORD: root
+      MARIADB_GALERA_CLUSTER: "yes"
+      MARIADB_GALERA_MARIABACKUP_USER: "sst_user"
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: "sst_password"
     volumes:
       - galera_node1:/var/lib/mysql
       - ./server/Database/MariaDB/conf.d/galera-node1.cnf:/etc/mysql/mariadb.conf.d/99-galera.cnf:ro
       - ./server/Database/MariaDB/initdb/galera:/docker-entrypoint-initdb.d:ro
     networks:
       - dbnet
-    ports:
-      - "127.0.0.1:3306:3306" # Debug/admin access
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1"]
@@ -392,14 +387,15 @@ services:
       MARIADB_USER: chat
       MARIADB_PASSWORD: chat
       MARIADB_ROOT_PASSWORD: root
+      MARIADB_GALERA_CLUSTER: "yes"
+      MARIADB_GALERA_MARIABACKUP_USER: "sst_user"
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: "sst_password"
     volumes:
       - galera_node2:/var/lib/mysql
       - ./server/Database/MariaDB/conf.d/galera-node2.cnf:/etc/mysql/mariadb.conf.d/99-galera.cnf:ro
       - ./server/Database/MariaDB/initdb/galera:/docker-entrypoint-initdb.d:ro
     networks:
       - dbnet
-    ports:
-      - "127.0.0.1:3307:3306" # Debug/admin access
     restart: unless-stopped
     depends_on:
       mariadb_galera1:
@@ -423,14 +419,15 @@ services:
       MARIADB_USER: chat
       MARIADB_PASSWORD: chat
       MARIADB_ROOT_PASSWORD: root
+      MARIADB_GALERA_CLUSTER: "yes"
+      MARIADB_GALERA_MARIABACKUP_USER: "sst_user"
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: "sst_password"
     volumes:
       - galera_node3:/var/lib/mysql
       - ./server/Database/MariaDB/conf.d/galera-node3.cnf:/etc/mysql/mariadb.conf.d/99-galera.cnf:ro
       - ./server/Database/MariaDB/initdb/galera:/docker-entrypoint-initdb.d:ro
     networks:
       - dbnet
-    ports:
-      - "127.0.0.1:3308:3306" # Debug/admin access
     restart: unless-stopped
     depends_on:
       mariadb_galera1:
