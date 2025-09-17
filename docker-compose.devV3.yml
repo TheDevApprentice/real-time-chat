@@ -105,8 +105,6 @@ services:
     depends_on:
       traefik:
         condition: service_started
-      proxysql:
-        condition: service_healthy
       mariadb_galera1:
         condition: service_healthy
       mariadb_galera2:
@@ -114,6 +112,14 @@ services:
       mariadb_galera3:
         condition: service_healthy
       mariadb_backup:
+        condition: service_healthy
+      proxysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      turn:
         condition: service_healthy
     restart: unless-stopped
     labels:
@@ -272,7 +278,6 @@ services:
     container_name: chat-proxysql
     volumes:
       - ./server/Database/MariaDB/ProxySQL/proxysql.cnf:/etc/proxysql.cnf:ro
-      - ./server/Database/MariaDB/ProxySQL/scripts:/var/lib/proxysql:ro
       - proxysql_data:/var/lib/proxysql
     ports:
       - "127.0.0.1:6033:6033" # MySQL port for applications
@@ -284,11 +289,11 @@ services:
       - MYSQL_PASSWORD=monitor
     depends_on:
       mariadb_galera1:
-        condition: service_started
+        condition: service_healthy
       mariadb_galera2:
-        condition: service_started
+        condition: service_healthy
       mariadb_galera3:
-        condition: service_started
+        condition: service_healthy
     networks:
       - dbnet
       - proxy
@@ -314,15 +319,37 @@ services:
       proxysql:
         condition: service_healthy
     command: |
-      bash -c "
-        echo 'Waiting for ProxySQL to be fully ready...'
+      bash -lc '
+        set -euo pipefail
+
+        echo "[proxysql-init] Waiting for Galera nodes (root ping)..."
+        for h in mariadb_galera1 mariadb_galera2 mariadb_galera3; do
+          for i in {1..60}; do
+            if mariadb-admin ping -h "$h" -P 3306 -uroot -proot --silent >/dev/null 2>&1; then
+              echo "[proxysql-init] $h is reachable"; break; fi
+            sleep 2; if [ $i -eq 60 ]; then echo "[proxysql-init] ERROR: $h not reachable" >&2; exit 1; fi
+          done
+        done
+
+        echo "[proxysql-init] Waiting for ProxySQL to be fully ready..."
         sleep 15
-        echo 'Initializing ProxySQL configuration...'
+
+        echo "[proxysql-init] Ensuring monitor privileges exist on Galera (idempotent)..."
+        mysql -h mariadb_galera1 -P 3306 -u root -proot -e "GRANT PROCESS, REPLICATION CLIENT, REPLICATION SLAVE ON *.* TO \'monitor\'@\'%\'; FLUSH PRIVILEGES;"
+
+        echo "[proxysql-init] Initializing ProxySQL configuration..."
         mysql -h proxysql -P 6032 -u admin -padmin < /scripts/init_proxysql.sql
-        echo 'ProxySQL initialized successfully'
-        echo 'Testing connection via ProxySQL...'
-        mysql -h proxysql -P 6033 -u chat -pchat -D chat -e 'SELECT \"ProxySQL connection test successful\" as status;'
-      "
+
+        echo "[proxysql-init] Cleaning up legacy Hostgroup 0 entries and saving to disk..."
+        mysql -h proxysql -P 6032 -u admin -padmin -e "DELETE FROM mysql_servers WHERE hostgroup_id=0; LOAD MYSQL SERVERS TO RUNTIME; SAVE MYSQL SERVERS TO DISK;"
+
+        echo "[proxysql-init] Verifying runtime hostgroups..."
+        mysql -h proxysql -P 6032 -u admin -padmin -e "SELECT hostgroup_id, hostname, status FROM runtime_mysql_servers ORDER BY hostgroup_id, hostname;"
+
+        echo "[proxysql-init] Testing application connection via ProxySQL..."
+        mysql -h proxysql -P 6033 -u chat -pchat -D chat -e "SELECT \"ProxySQL connection test successful\" as status;"
+        echo "[proxysql-init] Done."
+      '
     restart: "no"
 
   # Galera Cluster Node 1 (Bootstrap node)
@@ -333,20 +360,13 @@ services:
     image: realtime-chat-mariadb:latest
     container_name: chat-galera-1
     environment:
-      MARIADB_ROOT_PASSWORD: root
       MARIADB_DATABASE: chat
       MARIADB_USER: chat
       MARIADB_PASSWORD: chat
-      # Galera specific
-      MARIADB_GALERA_CLUSTER: "yes"
-      MARIADB_GALERA_CLUSTER_NAME: "chat_cluster"
-      MARIADB_GALERA_CLUSTER_ADDRESS: "gcomm://mariadb_galera1,mariadb_galera2,mariadb_galera3"
-      MARIADB_GALERA_NODE_ADDRESS: "mariadb_galera1"
-      MARIADB_GALERA_MARIABACKUP_USER: "sst_user"
-      MARIADB_GALERA_MARIABACKUP_PASSWORD: "sst_password"
+      MARIADB_ROOT_PASSWORD: root
     volumes:
       - galera_node1:/var/lib/mysql
-      - ./server/Database/MariaDB/conf.d/galera.cnf:/etc/mysql/mariadb.conf.d/99-galera.cnf:ro
+      - ./server/Database/MariaDB/conf.d/galera-node1.cnf:/etc/mysql/mariadb.conf.d/99-galera.cnf:ro
       - ./server/Database/MariaDB/initdb/galera:/docker-entrypoint-initdb.d:ro
     networks:
       - dbnet
@@ -354,11 +374,11 @@ services:
       - "127.0.0.1:3306:3306" # Debug/admin access
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-uroot", "-proot" ]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 60s
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
 
   # Galera Cluster Node 2
   mariadb_galera2:
@@ -368,20 +388,13 @@ services:
     image: realtime-chat-mariadb:latest
     container_name: chat-galera-2
     environment:
-      MARIADB_ROOT_PASSWORD: root
       MARIADB_DATABASE: chat
       MARIADB_USER: chat
       MARIADB_PASSWORD: chat
-      # Galera specific
-      MARIADB_GALERA_CLUSTER: "yes"
-      MARIADB_GALERA_CLUSTER_NAME: "chat_cluster"
-      MARIADB_GALERA_CLUSTER_ADDRESS: "gcomm://mariadb_galera1,mariadb_galera2,mariadb_galera3"
-      MARIADB_GALERA_NODE_ADDRESS: "mariadb_galera2"
-      MARIADB_GALERA_MARIABACKUP_USER: "sst_user"
-      MARIADB_GALERA_MARIABACKUP_PASSWORD: "sst_password"
+      MARIADB_ROOT_PASSWORD: root
     volumes:
       - galera_node2:/var/lib/mysql
-      - ./server/Database/MariaDB/conf.d/galera.cnf:/etc/mysql/mariadb.conf.d/99-galera.cnf:ro
+      - ./server/Database/MariaDB/conf.d/galera-node2.cnf:/etc/mysql/mariadb.conf.d/99-galera.cnf:ro
       - ./server/Database/MariaDB/initdb/galera:/docker-entrypoint-initdb.d:ro
     networks:
       - dbnet
@@ -392,11 +405,11 @@ services:
       mariadb_galera1:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-uroot", "-proot" ]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 90s
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
 
   # Galera Cluster Node 3
   mariadb_galera3:
@@ -406,20 +419,13 @@ services:
     image: realtime-chat-mariadb:latest
     container_name: chat-galera-3
     environment:
-      MARIADB_ROOT_PASSWORD: root
       MARIADB_DATABASE: chat
       MARIADB_USER: chat
       MARIADB_PASSWORD: chat
-      # Galera specific
-      MARIADB_GALERA_CLUSTER: "yes"
-      MARIADB_GALERA_CLUSTER_NAME: "chat_cluster"
-      MARIADB_GALERA_CLUSTER_ADDRESS: "gcomm://mariadb_galera1,mariadb_galera2,mariadb_galera3"
-      MARIADB_GALERA_NODE_ADDRESS: "mariadb_galera3"
-      MARIADB_GALERA_MARIABACKUP_USER: "sst_user"
-      MARIADB_GALERA_MARIABACKUP_PASSWORD: "sst_password"
+      MARIADB_ROOT_PASSWORD: root
     volumes:
       - galera_node3:/var/lib/mysql
-      - ./server/Database/MariaDB/conf.d/galera.cnf:/etc/mysql/mariadb.conf.d/99-galera.cnf:ro
+      - ./server/Database/MariaDB/conf.d/galera-node3.cnf:/etc/mysql/mariadb.conf.d/99-galera.cnf:ro
       - ./server/Database/MariaDB/initdb/galera:/docker-entrypoint-initdb.d:ro
     networks:
       - dbnet
@@ -430,13 +436,12 @@ services:
       mariadb_galera1:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-uroot", "-proot" ]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 120s
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
 
-  
   # Backup/Replica MariaDB (optionnel, pour compatibilité)
   mariadb_backup:
     build:
