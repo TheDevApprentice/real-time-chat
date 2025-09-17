@@ -1,0 +1,64 @@
+flowchart LR
+  %% === Entry ===
+  A["Clients<br/>(Browser, API clients)"] -->|HTTP/WS| T("Traefik<br/>:80/:443")
+
+  %% === Proxy network (public HTTP/WS) ===
+  subgraph NET_PROXY[network: proxy]
+    T -->|HTTP/WS routing| S1(Server #1)
+    T -->|HTTP/WS routing| S2(Server #2)
+  end
+
+  %% === Cache network ===
+  subgraph NET_CACHE[network: cachenet]
+    R["Redis<br/>:6379"]
+  end
+
+  %% === DB network ===
+  subgraph NET_DB[network: dbnet]
+    subgraph GALERA[MariaDB Galera Cluster]
+      G1["mariadb_galera1<br/>(wsrep node #1)"]
+      G2["mariadb_galera2<br/>(wsrep node #2)"]
+      G3["mariadb_galera3<br/>(wsrep node #3)"]
+    end
+
+    PX("ProxySQL<br/>Frontend :6033<br/>Admin :6032")
+    PXI["proxysql-init<br/>(one-shot init)"]
+
+    BK["mariadb-backup (async replica)<br/>chat_backup<br/>Host: 127.0.0.1:3317"]
+
+    %% ProxySQL <-> Galera
+    PX <-->|monitor + routing| G1
+    PX <-->|monitor + routing| G2
+    PX <-->|monitor + routing| G3
+
+    %% Init
+    PXI -->|root ping + GRANT monitor| G1
+    PXI -->|root ping + GRANT monitor| G2
+    PXI -->|root ping + GRANT monitor| G3
+    PXI -->|load cfg, verify HG| PX
+
+    %% Backup replica
+    BK -->|replicates from| G1
+  end
+
+  %% === Storage network ===
+  subgraph NET_STOR[network: stornet]
+    M["MinIO<br/>S3 API :9000<br/>Console :9001"]
+  end
+
+  %% === TURN (media relay) ===
+  U["TURN (coturn)<br/>:3478 (UDP/TCP)"]
+
+  %% === App servers wiring ===
+  S1 -->|MySQL| PX
+  S2 -->|MySQL| PX
+  S1 -->|pub/sub + sessions| R
+  S2 -->|pub/sub + sessions| R
+  S1 -.->|S3 SDK| M
+  S2 -.->|S3 SDK| M
+
+  %% Access points
+  A -->|optional Admin| PX:::admin
+  A -->|optional MinIO Console| M:::admin
+
+  classDef admin fill:#fff5cc,stroke:#e0c200,color:#333;
