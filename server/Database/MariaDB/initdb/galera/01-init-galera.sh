@@ -17,7 +17,7 @@ GRANT RELOAD, LOCK TABLES, PROCESS, REPLICATION CLIENT ON *.* TO 'sst_user'@'%';
 
 -- Utilisateur de monitoring pour ProxySQL
 CREATE USER IF NOT EXISTS 'monitor'@'%' IDENTIFIED BY 'monitor';
-GRANT REPLICATION CLIENT, REPLICATION SLAVE, PROCESS ON *.* TO 'monitor'@'%';
+GRANT PROCESS, REPLICATION CLIENT, REPLICATION SLAVE, SLAVE MONITOR ON *.* TO 'monitor'@'%';
 
 -- Utilisateur de backup/replication si nécessaire
 CREATE USER IF NOT EXISTS 'repl'@'%' IDENTIFIED BY 'replpass';
