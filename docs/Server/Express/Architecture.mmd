@@ -4,10 +4,13 @@ flowchart TB
 
     subgraph Client["Client"]
       direction TB
+      Browser["Browser (Vue App)"]
+      SocketClient["Socket.IO Client"]
     end
 
     subgraph API["API (HTTP & WS)"]
       direction TB
+      E["Enter"]
       subgraph Concerns["Concerns"]
         CACHEK["Cache Keys (Redis)"]
         DI["Dependencies Injection"]
@@ -15,11 +18,15 @@ flowchart TB
       subgraph Middlewares["Middlewares"]
         CSRFN["CSRF"]
         CORSN["CORS"]
+        AUTH["Authentication"]
+        BRFR["Brute force"]
+        ERR["Error handling"]
+        VAL["Validation"]
         RATES["RateLimits"]
       end
-      subgraph controllers["controllers (HTTP & WS)"]
+      subgraph Controllers["controllers (HTTP & WS)"]
         direction TB
-      J["JSON"]
+        J["JSON"]
 
         REST["REST Controllers"]
         WS["WebSocket Gateway & Router"]
@@ -29,12 +36,25 @@ flowchart TB
 
     subgraph Domain["Domain (Business)"]
       direction TB
-      DTO["DTO Mappers"]
-      ENT["Entities"]
-      SRV["Services / Use-Cases"]
-      IF["Ports (Interfaces)"]
-      REDIS["Redis Service"]
-      S3["S3/MinIO Service"]
+
+      subgraph Entities["Entities"]
+        direction TB
+        ENT["Entities"]
+      end
+      subgraph Mappers["Mappers"]
+        direction TB
+        DTO["DTO Mappers"]
+      end
+      subgraph Services["Services / Use-Cases"]
+        direction TB
+        SRV["Services / Use-Cases"]
+        REDIS["Redis Service"]
+        S3["S3/MinIO Service"]
+      end
+      subgraph Ports["Ports (Interfaces)"]
+        direction TB
+        IF["Ports (Interfaces)"]
+      end
     end
 
     subgraph Infra["Infrastructure (Adapters)"]
@@ -55,20 +75,18 @@ flowchart TB
 
   REST -->|invokes| SRV
   WS -->|emits/handles| SRV
-  CSRFN -..-> REST
-  CSRFN -..-> WS
-  CORSN -..-> REST
-  CORSN -..-> REST
-  RATES -..-> REST
-  RATES -..-> WS
   SRV -->|returns entities| ENT
   ENT -->|map to DTOs| DTO
   DTO --> J(( JSON ))
   J -->|serialize response| REST
   J -->|serialize response| WS
-
-  SRV -->|ports| IF
-  IF -->|implemented by| DBRepos
+  Browser -->|deserialize response| E(( Enter ))
+  SocketClient -->|deserialize response| E(( Enter ))
+  E(( Enter )) -.-> Middlewares
+  Middlewares -.-> Controllers
+  Middlewares -->|invokes| SRV
+  SRV -->|ports| Ports
+  Ports -->|implemented by| DBRepos
   IF -->|implemented by| REDIS --> RDS
   IF -->|implemented by| S3 --> MINIO
   DBRepos --> SQL --> DB
