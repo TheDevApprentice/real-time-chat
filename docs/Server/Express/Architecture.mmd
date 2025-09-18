@@ -1,60 +1,82 @@
 flowchart TB
   subgraph Server["Express Server (scaled)"]
     direction TB
-    subgraph API["API Delivery"]
-      REST["REST Routers & Controllers"]
-      WS["WebSocket Gateway & Router"]
+
+    subgraph API["API (HTTP & WS)"]
+      direction TB
       MW["Middlewares: CSRF, CORS, RateLimits"]
+      DI["Dependencies Injection: CSRF, CORS, RateLimits"]
+      CK["Cached Keys: Redis"]
+      subgraph controllers["controllers (HTTP & WS)"]
+        direction TB
+        REST["REST Controllers"]
+        WS["WebSocket Gateway & Router"]
+      end
     end
 
-    subgraph Domain["Domain Business"]
+    subgraph Domain["Domain (Business)"]
+      direction TB
       ENT["Entities"]
-      SRV["Services (Use-Cases)"]
-      IF["Interfaces (Ports)"]
+      SRV["Services / Use-Cases"]
+      IF["Ports (Interfaces)"]
       REDIS["Redis Service"]
-      S3["S3/MinIO Adapter"]
+      S3["S3/MinIO Service"]
     end
 
-    subgraph Infra["Infrastructure Adapters"]
-      DBRepos["SQL Repositories"]
+    subgraph Infra["Infrastructure (Adapters)"]
+      direction TB
+      DBRepos["SQL Repositories (Adapters)"]
       SQL["SQL Helpers / Executor"]
-      MIGR["Schema Init"]
+      UOW["Unit of Work / Transactions"]
+      MAP["Row Mappers / DTO Mapping"]
+      MIGR["Schema Init (DDL)"]
     end
   end
 
-  subgraph Data["Stateful Services"]
+  subgraph Data["External Stateful Systems"]
     direction TB
     RDS[("Redis")]
     DB[("MariaDB Galera via ProxySQL")]
     MINIO[("MinIO S3")]
   end
 
-  REST -->|calls| SRV
-  WS -->|events| SRV
-  MW -.-> REST
-  MW -.-> WS
+  REST -->|invokes| SRV
+  WS -->|emits/handles| SRV
+  MW --> REST
+  MW --> WS
 
   SRV -->|ports| IF
-  IF --> DBRepos
+  IF -->|implemented by| DBRepos
   DBRepos --> SQL --> DB
+  SQL --> UOW
+  DBRepos -.uses .-> MAP
+  DBRepos -.uses .-> ENT
   MIGR -.bootstraps .-> DB
 
   SRV --> REDIS --> RDS
   SRV --> S3 --> MINIO
 
-  classDef comp fill:#00,stroke:#88a,stroke-width:1px
-  classDef state fill:#ee,stroke:#6a6,stroke-width:1px
+  %% Visual styles (dark-friendly)
+  classDef comp fill:#1f2d3d,stroke:#7aa2f7,stroke-width:1px,color:#e6edf3
+  classDef state fill:#0b3d2e,stroke:#2ecc71,stroke-width:1px,color:#e6edf3
+  classDef dom fill:#3b2f1f,stroke:#f4a261,stroke-width:1px,color:#e6edf3
+  classDef adp fill:#22262e,stroke:#9aa5b1,stroke-width:1px,color:#e6edf3
 
   class Server,API,Domain,Infra comp
   class Data,RDS,DB,MINIO state
+  class ENT,SRV,IF,REDIS,S3 dom
+  class DBRepos,SQL,MIGR,UOW,MAP adp
 
   %% Legend
   subgraph Legend["Legend"]
     LC["Component (API / Domain / Infra)"]
     LS["Stateful Service (Redis / DB / MinIO)"]
+    LD["Domain nodes"]
+    LA["Adapter nodes"]
     LE1["Solid edge: call / data flow"]
     LE2["Dashed edge: middleware influence or bootstrap"]
-    LE3["Label 'ports': domain -> interface boundary"]
   end
   class LC comp
   class LS state
+  class LD dom
+  class LA adp
