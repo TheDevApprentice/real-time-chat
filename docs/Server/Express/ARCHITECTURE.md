@@ -2,8 +2,86 @@
 
 This document explains the overall architecture of the server under `server/Express/`, its layers, and the role of key files in each layer. It also walks through the end-to-end request/response and WebSocket flows and how dependencies are managed.
 
-> Layers follow Clean Architecture intent: `api` (delivery) -> `domain` (business) -> `infrastructure` (adapters). The `server.ts` is the composition root that wires everything and starts HTTP/WS services.
+![Architecture](./Architecture.png)
 
+
+> Architecture style
+>
+> Clean Architecture (Uncle Bob) organizes code in concentric layers with a strict dependency rule: source code dependencies point inward toward the domain. Outer layers (frameworks, I/O, UI) can change without forcing changes to the inner business rules. Typical layers are delivery (controllers), use-cases/services, and entities, with infrastructure at the outermost ring.
+>
+> Hexagonal Architecture (Ports & Adapters) expresses the same idea using “ports” (interfaces) that define how the domain talks to the outside world, and “adapters” (implementations) that plug concrete technologies into those ports. This makes the domain framework- and vendor-agnostic.
+>
+> This server applies both views in practice:
+> - Delivery layer: `api` (Express REST, Socket.IO WS) contains controllers, routers, and transport concerns.
+> - Domain layer: `domain` holds entities and services/use-cases plus ports in `domain/interfaces/*` for persistence, cache, and storage.
+> - Infrastructure layer: `infrastructure` implements those ports (SQL repositories, SQL helpers/executor, schema init) and stays outside the domain.
+> - Composition root: `server.ts` wires dependencies, configures middleware (CORS, Helmet/CSP, CSRF), attaches the WebSocket gateway, and starts the process.
+>
+> Dependency direction: `api -> domain (services & interfaces)` and `domain -> interfaces`; `infrastructure` implements the interfaces and is injected inward. The domain never imports Express, SQL clients, or Redis/MinIO SDKs directly.
+
+---
+```mermaid
+flowchart TB
+  subgraph Server["Express Server (scaled)"]
+    direction TB
+    subgraph API["API Delivery"]
+      REST["REST Routers & Controllers"]
+      WS["WebSocket Gateway & Router"]
+      MW["Middlewares: CSRF, CORS, RateLimits"]
+    end
+
+    subgraph Domain["Domain Business"]
+      ENT["Entities"]
+      SRV["Services (Use-Cases)"]
+      IF["Interfaces (Ports)"]
+      REDIS["Redis Service"]
+      S3["S3/MinIO Adapter"]
+    end
+
+    subgraph Infra["Infrastructure Adapters"]
+      DBRepos["SQL Repositories"]
+      SQL["SQL Helpers / Executor"]
+      MIGR["Schema Init"]
+    end
+  end
+
+  subgraph Data["Stateful Services"]
+    direction TB
+    RDS[("Redis")]
+    DB[("MariaDB Galera via ProxySQL")]
+    MINIO[("MinIO S3")]
+  end
+
+  REST -->|calls| SRV
+  WS -->|events| SRV
+  MW -.-> REST
+  MW -.-> WS
+
+  SRV -->|ports| IF
+  IF --> DBRepos
+  DBRepos --> SQL --> DB
+  MIGR -.bootstraps .-> DB
+
+  SRV --> REDIS --> RDS
+  SRV --> S3 --> MINIO
+
+  classDef comp fill:#00,stroke:#88a,stroke-width:1px
+  classDef state fill:#ee,stroke:#6a6,stroke-width:1px
+
+  class Server,API,Domain,Infra comp
+  class Data,RDS,DB,MINIO state
+
+  %% Legend
+  subgraph Legend["Legend"]
+    LC["Component (API / Domain / Infra)"]
+    LS["Stateful Service (Redis / DB / MinIO)"]
+    LE1["Solid edge: call / data flow"]
+    LE2["Dashed edge: middleware influence or bootstrap"]
+    LE3["Label 'ports': domain -> interface boundary"]
+  end
+  class LC comp
+  class LS state
+```
 ---
 
 ## Mini Table of Contents

@@ -4,10 +4,10 @@
  
  ## Quick Links
  
- - Dev Infrastructure (V4, official): [InfraDevV4.md](./InfraDevV4.md)
- - Dev Infrastructure Diagram (Mermaid): [infraDevV4.mmd](./infraDevV4.mmd)
- - Prod Infrastructure (V4, official): [InfraProdV4.md](./InfraProdV4.md)
- - Prod Infrastructure Diagram (Mermaid): [infraProdV4.mmd](./infraProdV4.mmd)
+ - Dev Infrastructure (V4, official): [InfraDevV4.md](./V4/InfraDevV4.md)
+ - Dev Infrastructure Diagram (Mermaid): [infraDevV4.mmd](./V4/infraDevV4.mmd)
+ - Prod Infrastructure (V4, official): [InfraProdV4.md](./V4/InfraProdV4.md)
+ - Prod Infrastructure Diagram (Mermaid): [infraProdV4.mmd](./V4/infraProdV4.mmd)
  
  ## What You’ll Find in Each Document
  

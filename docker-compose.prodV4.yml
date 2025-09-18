@@ -5,7 +5,7 @@ services:
     container_name: traefik
     command:
       - --api.dashboard=true
-      - --api.insecure=true
+      - --api.insecure=false
       - --log.level=DEBUG
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
@@ -13,7 +13,7 @@ services:
       # Enable HTTPS with Let's Encrypt (free). Uncomment the 4 lines below and set your email and domain DNS to this host.
       # - --entrypoints.websecure.address=:443
       # - --certificatesresolvers.le.acme.tlschallenge=true
-      # - --certificatesresolvers.le.acme.email=your-email@example.com
+      # - --certificatesresolvers.le.acme.email=your-menuwebservice@gmail.com
       # - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
       # NOTE: Do NOT enable HTTP->HTTPS redirection when using ngrok to port 80,
       # as TLS is terminated by ngrok and forwarded to local :80 (would cause loops)
@@ -21,12 +21,12 @@ services:
       # - --entrypoints.web.http.redirections.entryPoint.to=websecure
       # - --entrypoints.web.http.redirections.entryPoint.scheme=https
     ports:
-      - "80:80"
-      - "8080:8080"
-      - "443:443"
+      - "127.0.0.1:80:80"
+      # - "8080:8080"
+      # - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      # - traefik_data:/letsencrypt
+      - traefik_data:/letsencrypt
     depends_on:
       proxysql:
         condition: service_healthy
