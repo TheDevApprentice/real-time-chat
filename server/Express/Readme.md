@@ -1,6 +1,6 @@
  # Real-Time Chat Server (Node.js)
 
-A Node.js-based real-time chat server using Express, Socket.IO, SQLite, and strict object-oriented programming (OOP) principles. This backend powers a chat application with real-time messaging and persistent storage, intended to be paired with a Vue+Vite front-end.
+A Node.js-based real-time chat server using Express, Socket.IO, MariaDB (via ProxySQL), and strict object-oriented programming (OOP) principles. This backend powers a chat application with real-time messaging and persistent storage, intended to be paired with a Vue+Vite front-end.
 
 ---
 
@@ -17,7 +17,7 @@ A Node.js-based real-time chat server using Express, Socket.IO, SQLite, and stri
 
 ## Features
 - Real-time chat via WebSockets (Socket.IO)
-- Persistent storage with SQLite
+- Persistent storage with MariaDB (via ProxySQL)
 - Strict OOP for User and Message entities
 - REST API for fetching users and messages
 - Centralized logging utility
@@ -48,7 +48,11 @@ See `public/README.md` for the refactor and build flow. The UI compiles to a sin
 Minimal variables to start:
 ```
 PORT=3080
-SQLITE_FILE=./Database/SqlLite/data.sqlite
+MARIADB_HOST=proxysql
+MARIADB_PORT=6033
+MARIADB_DB=chat
+MARIADB_USER=chat
+MARIADB_PASSWORD=chat
 FRONTEND_URL=http://localhost:3080
 ```
 
@@ -58,16 +62,21 @@ For full environment coverage (drivers, Redis, trust proxy, etc.), see the dedic
 
 ## Environment Variables
 - **PORT**: The port number for the server to listen on (required)
-- **SQLITE_FILE**: Path to the SQLite database file (required)
+- **MARIADB_HOST**: Database host; use `proxysql` to reach the Galera cluster through ProxySQL (required)
+- **MARIADB_PORT**: ProxySQL listening port (default `6033`) (required)
+- **MARIADB_DB**: Database/schema name (required)
+- **MARIADB_USER**: Database user (required)
+- **MARIADB_PASSWORD**: Database password (required)
+- **MARIADB_SSL**: Enable TLS to the DB (optional; `false` by default)
 
-Both are validated at startup. The server will not start if either is missing.
+These are validated at startup. The server will not start if required variables are missing.
 
 ---
 
 ## How It Works (Overview)
 
 - Express serves REST routes and static assets; Socket.IO handles real-time.
-- Database adapter is selected by env (SQLite by default).
+- Database adapter is selected by env (MariaDB via ProxySQL by default).
 - CSRF protection, CORS and Helmet are configured in `server.ts`.
 
 For an end-to-end UI/WS/REST flow, see `ARCHITECTURE.md` (delivery, domain, infra) and `public/README.md` (UI responsibilities and build).
@@ -250,7 +259,11 @@ Server broadcasts (to `roomId`):
 
 ## Database & Drivers
 
-SQLite is the default (schema initialized automatically). MySQL adapters are wired via the factory but may be placeholders until fully implemented. See `ARCHITECTURE.md` for driver selection and environment variables.
+MariaDB via ProxySQL is the default. The server connects to `proxysql:6033`, which load‑balances and health‑checks requests across the MariaDB Galera cluster. This hides topology changes and provides pooling and failover. See `ARCHITECTURE.md` for driver selection and environment variables.
+
+Notes:
+- Default driver: `mariadb` (via ProxySQL)
+- Optional/testing: `sqlite` (local only) may still be supported for unit tests and simple demos, but production uses MariaDB through ProxySQL.
 
 ---
 
@@ -264,8 +277,8 @@ SQLite is the default (schema initialized automatically). MySQL adapters are wir
 ---
 
 ## Credits
-- Built with Node.js, Express, Socket.IO, SQLite, and TypeScript
-- OOP design for maintainability and clarity
+- Built with Node.js, Express, Socket.IO, MariaDB (via ProxySQL), and TypeScript
+  - OOP design for maintainability and clarity
 
 ---
 
@@ -275,7 +288,23 @@ For any questions or contributions, please open an issue or submit a pull reques
 
 ## Example .env (server-only)
 
-SQLite (default)
+MariaDB via ProxySQL (default)
+```
+PORT=3080
+FRONTEND_URL=http://localhost:3080
+TRUST_PROXY=false
+BCRYPT_COST=12
+
+DATABASE_DRIVER=mariadb
+MARIADB_HOST=proxysql
+MARIADB_PORT=6033
+MARIADB_DB=chat
+MARIADB_USER=chat
+MARIADB_PASSWORD=chat
+MARIADB_SSL=false
+```
+
+SQLite (optional/testing)
 ```
 PORT=3080
 FRONTEND_URL=http://localhost:3080
@@ -286,31 +315,7 @@ DATABASE_DRIVER=sqlite
 SQLITE_FILE=./Database/SqlLite/data.sqlite
 ```
 
-```
-PORT=3080
-FRONTEND_URL=http://localhost:3080
-TRUST_PROXY=false
-BCRYPT_COST=12
-
-```
-
-MySQL (stub; adapter not implemented yet)
-```
-PORT=3080
-FRONTEND_URL=http://localhost:3080
-TRUST_PROXY=false
-BCRYPT_COST=12
-
-DATABASE_DRIVER=mysql
-MYSQL_HOST=mysql
-MYSQL_PORT=3306
-MYSQL_DB=chat
-MYSQL_USER=chat
-MYSQL_PASSWORD=chat
-MYSQL_SSL=false
-```
-
-Redis (optional, for future use)
+Redis
 ```
 REDIS_URL=redis://redis:6379
 ```
@@ -322,14 +327,10 @@ REDIS_URL=redis://redis:6379
 - Port already in use (3080/8080/6379/5432/3306)
   - Stop conflicting services or change ports in `docker-compose.yml`.
 
-- Database file not created (SQLite)
-  - Ensure `SQLITE_FILE` points to a writable path.
-  - In Docker, the server mounts `sqlite_data:/data` and expects `/data/chat.sqlite`.
-
-- Cannot connect to MySQL
-  - Use the service name as host inside compose network (`mysql`).
-  - Verify env vars match compose and that the service is enabled and healthy.
-  - Note: Adapters are stubs; enable only after implementation.
+- Cannot connect to MariaDB (via ProxySQL)
+  - Use `proxysql` as host and `6033` as port when running inside the Compose network.
+  - Verify ProxySQL and Galera nodes are healthy (see `docker-compose.*.yml`).
+  - Confirm credentials: `MARIADB_DB`, `MARIADB_USER`, `MARIADB_PASSWORD`.
 
 - Redis not found
   - Ensure `redis` service is running or point `REDIS_URL` to a reachable instance. See `REDIS.md`.
@@ -338,5 +339,5 @@ REDIS_URL=redis://redis:6379
   - The per-user undo snapshot is stored in Redis with a 10-minute TTL. If `getUndoTTL` returns 0, the key expired or the action was not initiated by this user.
 
 - Wrong driver selected
-  - `DATABASE_DRIVER` must be one of `sqlite`, `mysql`.
-  - If unset, default is `sqlite`.
+  - `DATABASE_DRIVER` must be one of `mariadb`, `sqlite`.
+  - If unset, default is `mariadb`.
