@@ -40,17 +40,19 @@ flowchart TB
       subgraph Entities["Entities"]
         direction TB
         ENT["Entities"]
+        subgraph Mappers["Mappers"]
+          direction TB
+          DTO["DTO Mappers"]
+        end
       end
-      subgraph Mappers["Mappers"]
-        direction TB
-        DTO["DTO Mappers"]
-      end
+
       subgraph Services["Services / Use-Cases"]
         direction TB
         SRV["Services / Use-Cases"]
         REDIS["Redis Service"]
         S3["S3/MinIO Service"]
       end
+      
       subgraph Ports["Ports (Interfaces)"]
         direction TB
         IF["Ports (Interfaces)"]
