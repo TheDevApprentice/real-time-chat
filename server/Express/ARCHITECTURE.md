@@ -147,7 +147,7 @@ The server uses a Unit of Work (UoW) provider to make transaction intent explici
   - Example: `RoomService.addUsersToRoomBulk` uses `unitOfWork.tx` to add members atomically.
 
 - Nested transactions are flattened:
-  - The DB adapters (SQLite/MySQL) implement `withTransaction` so nested calls reuse the same connection/transaction instead of opening a new one.
+  - The DB adapters (SQLite/MariaDB) implement `withTransaction` so nested calls reuse the same connection/transaction instead of opening a new one.
 
 This approach keeps the domain in control of transactional boundaries while ensuring infra remains a thin persistence layer.
 

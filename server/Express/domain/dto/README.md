@@ -35,10 +35,10 @@ Mappers are used by controllers to serialize domain entities to DTOs.
 - Events:
   - `rooms` → `RoomDTO[]`
   - `roomUsers` → `{ roomId: string; users: UserDTO[] }`
-  - `roomHistory` → `{ roomId: string; messages: MessageDTO[] }` (compat)
-  - `loadRoomHistory(payload: RoomHistoryQueryDTO)` → returns:
-    - Compat: `{ success, roomId, cursor, size, ver, messages: MessageDTO[], nextCursor? }`
-    - New: `page: PageDTO<MessageDTO>` with `{ items, nextCursor? }`
+  - `roomHistory` → `{ roomId: string; messages: MessageDTO[] }` (legacy)
+  - `loadRoomHistory(payload: RoomHistoryQueryDTO)` → returns `{ success, page: PageDTO<MessageDTO> }`
+    - `page.items: MessageDTO[]`
+    - `page.nextCursor?: number`
 
 ### Messages
 - Controller: `api/routes/WS/controllers/MessagesWsController.ts`
@@ -52,10 +52,10 @@ Mappers are used by controllers to serialize domain entities to DTOs.
 - Requests (typed):
   - `login(payload: LoginRequestDTO)`
   - `refreshToken(payload: RefreshTokenRequestDTO)`
-- Responses include new DTO fields and keep backward-compat fields:
-  - `authenticate` → `{ success, user: UserDTO, id, name }`
-  - `login` → `{ user: UserDTO, token, refreshToken, expiresAt, id, name, refreshTokenExpiresAt }`
-  - `refreshToken` → `{ user?: UserDTO, token, refreshToken, expiresAt, id, name, refreshTokenExpiresAt }`
+- Responses (V4 contract):
+  - `authenticate` → `{ success, user: UserDTO }`
+  - `login` → `{ user: UserDTO, token, refreshToken, expiresAt, refreshTokenExpiresAt }`
+  - `refreshToken` → `{ user?: UserDTO, token, refreshToken, expiresAt, refreshTokenExpiresAt }`
   - `getSessions` → `{ success, sessions: SessionDTO[] }`
 
 ### Friends
@@ -103,24 +103,24 @@ Mappers are used by controllers to serialize domain entities to DTOs.
 
 ### Auth
 - Controller: `api/routes/REST/controllers/AuthRESTController.ts`
-- Routes (responses include DTOs and legacy fields for compatibility):
-  - `POST /api/auth/register` → `{ user: UserDTO, id, name }`
-  - `GET /api/auth/me` → `{ user: UserDTO, id, name }`
-  - `POST /api/auth/refresh-token` → `{ user?: UserDTO, id, name, refreshToken, refreshTokenExpiresAt, expiresAt }`
+- Routes (V4 responses):
+  - `POST /api/auth/register` → `{ user: UserDTO }`
+  - `GET /api/auth/me` → `{ user: UserDTO }`
+  - `POST /api/auth/refresh-token` → `{ user?: UserDTO, refreshToken, refreshTokenExpiresAt, expiresAt }`
 
 ---
 
 ## Pagination (PageDTO)
 
 - DTO: `PageDTO<T> = { items: T[]; nextCursor?: number }`
-- WS `loadRoomHistory` now also returns `page: PageDTO<MessageDTO>` alongside legacy fields.
+- WS `loadRoomHistory` returns only `page: PageDTO<MessageDTO>`.
 
 ---
 
 ## Backward compatibility notes
 
-- WS Auth responses keep legacy fields (`id`, `name`, `refreshTokenExpiresAt`) while adding DTO fields (`user`, `expiresAt`).
-- `loadRoomHistory` continues returning `messages` and `nextCursor` directly, with an additional `page` object.
+- As of V4, WS/REST Auth responses no longer include legacy `id` and `name` when returning `user: UserDTO`.
+- WS `loadRoomHistory` returns only `PageDTO<MessageDTO>` via `page.items` and `page.nextCursor`.
 - Calls `callRequest` accepts either `calleeId` or `targetUserId` in the payload.
 
 ---
@@ -166,8 +166,6 @@ Mappers are used by controllers to serialize domain entities to DTOs.
   "token": "...",
   "refreshToken": "...",
   "expiresAt": 1711711111111,
-  "id": "u1",
-  "name": "Alice",
   "refreshTokenExpiresAt": 1711411111111
 }
 ```
