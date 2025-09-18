@@ -5,8 +5,16 @@ flowchart TB
     subgraph API["API (HTTP & WS)"]
       direction TB
       MW["Middlewares: CSRF, CORS, RateLimits"]
-      DI["Dependencies Injection: CSRF, CORS, RateLimits"]
-      CK["Cached Keys: Redis"]
+      DI["Dependencies Injection"]
+      subgraph Concerns["Concerns"]
+        RATES["RateLimits"]
+        CACHEK["Cache Keys (Redis)"]
+      end
+      subgraph Middlewares["Middlewares"]
+        CSRFN["CSRF"]
+        CORSN["CORS"]
+        RATES["RateLimits"]
+      end
       subgraph controllers["controllers (HTTP & WS)"]
         direction TB
         REST["REST Controllers"]
@@ -14,11 +22,14 @@ flowchart TB
       end
     end
 
+
     subgraph Domain["Domain (Business)"]
       direction TB
       ENT["Entities"]
       SRV["Services / Use-Cases"]
-      IF["Ports (Interfaces)"]
+      IFSERVICE["Ports (Interfaces)"]
+      IFREDIS["Ports (Interfaces)"]
+      IFS3["Ports (Interfaces)"]
       REDIS["Redis Service"]
       S3["S3/MinIO Service"]
     end
@@ -45,16 +56,16 @@ flowchart TB
   MW --> REST
   MW --> WS
 
-  SRV -->|ports| IF
-  IF -->|implemented by| DBRepos
+  SRV -->|ports| IFSERVICE
+  IFSERVICE -->|implemented by| DBRepos
   DBRepos --> SQL --> DB
   SQL --> UOW
   DBRepos -.uses .-> MAP
   DBRepos -.uses .-> ENT
   MIGR -.bootstraps .-> DB
 
-  SRV --> REDIS --> RDS
-  SRV --> S3 --> MINIO
+  SRV -->|ports| IFREDIS  -->|implemented by| REDIS --> RDS
+  SRV -->|ports| IFS3 -->|implemented by| S3 --> MINIO
 
   %% Visual styles (dark-friendly)
   classDef comp fill:#1f2d3d,stroke:#7aa2f7,stroke-width:1px,color:#e6edf3
@@ -67,16 +78,3 @@ flowchart TB
   class ENT,SRV,IF,REDIS,S3 dom
   class DBRepos,SQL,MIGR,UOW,MAP adp
 
-  %% Legend
-  subgraph Legend["Legend"]
-    LC["Component (API / Domain / Infra)"]
-    LS["Stateful Service (Redis / DB / MinIO)"]
-    LD["Domain nodes"]
-    LA["Adapter nodes"]
-    LE1["Solid edge: call / data flow"]
-    LE2["Dashed edge: middleware influence or bootstrap"]
-  end
-  class LC comp
-  class LS state
-  class LD dom
-  class LA adp
