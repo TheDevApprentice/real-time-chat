@@ -351,11 +351,29 @@ services:
   # Galera Cluster Node 1 (Bootstrap node)
   mariadb_galera1:
     build:
-      context: ./server/Database/MariaDB
+      context: ./server/Database/MariaDB/GaleraNode
       dockerfile: Dockerfile
-    image: realtime-chat-mariadb:latest
+    image: realtime-chat-mariadb-galera:latest
     container_name: chat-galera-1
+    entrypoint: ["/usr/local/bin/galera-entrypoint.sh"]
     environment:
+      GALERA: "1"
+      NODE_ID: "1"
+      NODE_NAME: "mariadb_galera1"
+      NODE_ADDRESS: "mariadb_galera1"
+      CLUSTER_NAME: "chat_cluster"
+      # Pour fonctionnement normal, TOUJOURS liste complète (aucun bootstrap implicite)
+      CLUSTER_SEEDS: ""
+      BOOTSTRAP: "1"
+      SST_USER: "sst_user"
+      SST_PASSWORD: "sst_password"
+      GCACHE_SIZE: "256M"
+      GCACHE_PAGE_SIZE: "128M"
+      INNODB_BUFFER_POOL_SIZE: "256M"
+      INNODB_LOG_FILE_SIZE: "64M"
+      BINLOG_EXPIRE_DAYS: "3"
+      BINLOG_MAX_SIZE: "100M"
+      GTID_DOMAIN_ID: "1"
       MARIADB_DATABASE: chat
       MARIADB_USER: chat
       MARIADB_PASSWORD: chat
@@ -365,7 +383,7 @@ services:
       MARIADB_GALERA_MARIABACKUP_PASSWORD: "sst_password"
     volumes:
       - galera_node1:/var/lib/mysql
-      - ./server/Database/MariaDB/conf.d/galera-node1.cnf:/etc/mysql/mariadb.conf.d/99-galera.cnf:ro
+      # - ./server/Database/MariaDB/conf.d/galera-node1.cnf:/etc/mysql/mariadb.conf.d/99-galera.cnf:ro
       - ./server/Database/MariaDB/initdb/galera:/docker-entrypoint-initdb.d:ro
     networks:
       - dbnet
@@ -380,11 +398,29 @@ services:
   # Galera Cluster Node 2
   mariadb_galera2:
     build:
-      context: ./server/Database/MariaDB
+      context: ./server/Database/MariaDB/GaleraNode
       dockerfile: Dockerfile
-    image: realtime-chat-mariadb:latest
+    image: realtime-chat-mariadb-galera:latest
     container_name: chat-galera-2
+    entrypoint: ["/usr/local/bin/galera-entrypoint.sh"]
     environment:
+      GALERA: "1"
+      NODE_ID: "2"
+      NODE_NAME: "mariadb_galera2"
+      NODE_ADDRESS: "mariadb_galera2"
+      CLUSTER_NAME: "chat_cluster"
+      # Pour fonctionnement normal, TOUJOURS liste complète (aucun bootstrap implicite)
+      CLUSTER_SEEDS: "mariadb_galera1,mariadb_galera2,mariadb_galera3"
+      BOOTSTRAP: "0"
+      SST_USER: "sst_user"
+      SST_PASSWORD: "sst_password"
+      GCACHE_SIZE: "256M"
+      GCACHE_PAGE_SIZE: "128M"
+      INNODB_BUFFER_POOL_SIZE: "256M"
+      INNODB_LOG_FILE_SIZE: "64M"
+      BINLOG_EXPIRE_DAYS: "3"
+      BINLOG_MAX_SIZE: "100M"
+      GTID_DOMAIN_ID: "1"
       MARIADB_DATABASE: chat
       MARIADB_USER: chat
       MARIADB_PASSWORD: chat
@@ -394,7 +430,7 @@ services:
       MARIADB_GALERA_MARIABACKUP_PASSWORD: "sst_password"
     volumes:
       - galera_node2:/var/lib/mysql
-      - ./server/Database/MariaDB/conf.d/galera-node2.cnf:/etc/mysql/mariadb.conf.d/99-galera.cnf:ro
+      # - ./server/Database/MariaDB/conf.d/galera-node2.cnf:/etc/mysql/mariadb.conf.d/99-galera.cnf:ro
       - ./server/Database/MariaDB/initdb/galera:/docker-entrypoint-initdb.d:ro
     networks:
       - dbnet
@@ -412,11 +448,29 @@ services:
   # Galera Cluster Node 3
   mariadb_galera3:
     build:
-      context: ./server/Database/MariaDB
+      context: ./server/Database/MariaDB/GaleraNode
       dockerfile: Dockerfile
-    image: realtime-chat-mariadb:latest
+    image: realtime-chat-mariadb-galera:latest
     container_name: chat-galera-3
+    entrypoint: ["/usr/local/bin/galera-entrypoint.sh"]
     environment:
+      GALERA: "1"
+      NODE_ID: "3"
+      NODE_NAME: "mariadb_galera3"
+      NODE_ADDRESS: "mariadb_galera3"
+      CLUSTER_NAME: "chat_cluster"
+      # Pour fonctionnement normal, TOUJOURS liste complète (aucun bootstrap implicite)
+      CLUSTER_SEEDS: "mariadb_galera1,mariadb_galera2,mariadb_galera3"
+      BOOTSTRAP: "0"
+      SST_USER: "sst_user"
+      SST_PASSWORD: "sst_password"
+      GCACHE_SIZE: "256M"
+      GCACHE_PAGE_SIZE: "128M"
+      INNODB_BUFFER_POOL_SIZE: "256M"
+      INNODB_LOG_FILE_SIZE: "64M"
+      BINLOG_EXPIRE_DAYS: "3"
+      BINLOG_MAX_SIZE: "100M"
+      GTID_DOMAIN_ID: "1"
       MARIADB_DATABASE: chat
       MARIADB_USER: chat
       MARIADB_PASSWORD: chat
@@ -426,7 +480,7 @@ services:
       MARIADB_GALERA_MARIABACKUP_PASSWORD: "sst_password"
     volumes:
       - galera_node3:/var/lib/mysql
-      - ./server/Database/MariaDB/conf.d/galera-node3.cnf:/etc/mysql/mariadb.conf.d/99-galera.cnf:ro
+      # - ./server/Database/MariaDB/conf.d/galera-node3.cnf:/etc/mysql/mariadb.conf.d/99-galera.cnf:ro
       - ./server/Database/MariaDB/initdb/galera:/docker-entrypoint-initdb.d:ro
     networks:
       - dbnet
