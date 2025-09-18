@@ -52,7 +52,7 @@ flowchart TB
         REDIS["Redis Service"]
         S3["S3/MinIO Service"]
       end
-      
+
       subgraph Ports["Ports (Interfaces)"]
         direction TB
         IF["Ports (Interfaces)"]
@@ -65,6 +65,8 @@ flowchart TB
       SQL["SQL Helpers / Executor"]
       UOW["Unit of Work / Transactions"]
       MIGR["Schema Init (DDL)"]
+      POOL["Connection Pooling / Drivers"]
+      HEALTH["Health Checks / Heartbeat"]
     end
   end
 
@@ -95,6 +97,9 @@ flowchart TB
   SQL --> UOW
   DBRepos -.uses .-> ENT
   MIGR -.bootstraps .-> DB
+  SQL --> POOL
+  POOL -.monitors .-> HEALTH
+  HEALTH -.checks .-> DB
 
   %% Visual styles (dark-friendly)
   classDef comp fill:#1f2d3d,stroke:#7aa2f7,stroke-width:1px,color:#e6edf3
@@ -105,4 +110,4 @@ flowchart TB
   class Server,API,Domain,Infra comp
   class Data,RDS,DB,MINIO state
   class ENT,SRV,IF,REDIS,S3 dom
-  class DBRepos,SQL,MIGR,UOW adp
+  class DBRepos,SQL,MIGR,UOW,POOL,HEALTH adp
