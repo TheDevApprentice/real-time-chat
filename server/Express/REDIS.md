@@ -17,6 +17,14 @@ Paths are relative to `server/Express/`.
   - Composes the app, obtains `RedisService` singleton and calls `connect()` on boot.
   - Manages graceful shutdown and calls `disconnect()` on SIGINT/SIGTERM.
 
+- `api/routes/WS/router/WebSocketGateway.ts`
+  - Enables Socket.IO clustering with the Redis adapter via `@socket.io/redis-adapter` and `ioredis` clients (pub/sub).
+  - Builds config either from `REDIS_URL` or individual env vars (`REDIS_HOST`, `REDIS_PORT`, `REDIS_USER`, `REDIS_PASSWORD|REDIS_PASS`, `REDIS_TLS`).
+  - Adapter connections retry with backoff and log warnings on errors; the gateway keeps working even if the adapter is unavailable.
+
+- Rate limiting and brute-force protections
+  - `api/routes/REST/middleware/*Redis*Middleware.ts`, `api/routes/WS/middlewares/*Redis*Middleware.ts` use Redis for cluster-safe rate limits and brute-force guards.
+
 > Business code (controllers/services) should depend on the `IRedisService` interface in `domain/interfaces/cacheInterfaces/IRedisService.ts` rather than node-redis directly. This allows mocking in tests and easy replacement.
 
 ---
@@ -47,6 +55,54 @@ or with TLS:
 ```
 rediss://[user[:pass]@]host:port
 ```
+
+---
+
+## Socket.IO adapter (cluster)
+
+The WebSocket gateway uses the Redis adapter for cross-instance event propagation when running multiple app replicas.
+
+- Adapter: `@socket.io/redis-adapter`
+- Client: `ioredis` (pub/sub pair)
+- Source: `api/routes/WS/router/WebSocketGateway.ts`
+
+Example wiring (simplified):
+
+```ts
+import { createAdapter } from "@socket.io/redis-adapter";
+import { Redis as IoRedis } from "ioredis";
+
+async function configureRedisAdapter(io: import("socket.io").Server) {
+  const url = process.env.REDIS_URL;
+  const retryStrategy = (times: number) => Math.min(5000, 300 + times * 200);
+
+  let pub: IoRedis;
+  let sub: IoRedis;
+  if (url) {
+    pub = new IoRedis(url, { retryStrategy, connectionName: "ws-pub" } as any);
+    sub = pub.duplicate({ retryStrategy, connectionName: "ws-sub" } as any);
+  } else {
+    const host = process.env.REDIS_HOST || "redis";
+    const port = Number(process.env.REDIS_PORT || "6379");
+    const username = process.env.REDIS_USER || undefined;
+    const password = process.env.REDIS_PASSWORD || process.env.REDIS_PASS || undefined;
+    const useTLS = (process.env.REDIS_TLS || "false").toLowerCase() === "true";
+    const options: any = { host, port, retryStrategy, connectionName: "ws-pub" };
+    if (username) options.username = username;
+    if (password) options.password = password;
+    if (useTLS) options.tls = {};
+    pub = new IoRedis(options);
+    sub = pub.duplicate({ retryStrategy, connectionName: "ws-sub" } as any);
+  }
+
+  pub.on("error", (err) => console.warn("ioredis pub error:", String(err)));
+  sub.on("error", (err) => console.warn("ioredis sub error:", String(err)));
+
+  io.adapter(createAdapter(pub as any, sub as any));
+}
+```
+
+If the adapter cannot connect, the gateway logs a warning and continues in single-instance mode.
 
 ---
 
@@ -86,24 +142,65 @@ All methods below implicitly call a guarded `ensure()` that throws if Redis is n
 - `subscribe(channel: string, handler: (message: string, channel: string) => void): Promise<() => Promise<void>>`
   - Returns an `unsubscribe` function that will unsubscribe and quit the dedicated subscriber client.
 
+Additional helpers implemented and used in the codebase:
+
+- Sets:
+  - `sAdd(key: string, member: string): Promise<number>`
+  - `sRem(key: string, member: string): Promise<number>`
+  - `sMembers(key: string): Promise<string[]>`
+- Sorted sets:
+  - `zAdd(key: string, score: number, member: string): Promise<number>`
+  - `zIncrBy(key: string, increment: number, member: string): Promise<number>`
+  - `zRange(key: string, start: number, stop: number, opts?: { REV?: boolean; WITHSCORES?: boolean }): Promise<string[] | { value: string; score: number }[]>`
+- Hashes:
+  - `hSet(key: string, field: string, value: string): Promise<number>`
+  - `hIncrBy(key: string, field: string, by: number): Promise<number>`
+  - `hGetAll(key: string): Promise<Record<string, string>>`
+- Atomic helpers:
+  - `setNxExpire(key: string, value: string, exSeconds: number): Promise<boolean>` (NX + EX lock)
+  - `getDel(key: string): Promise<string | null>` (get and delete atomically)
+
 ---
 
 ## Recommended Key Conventions
 
-These are recommended patterns to keep keys consistent across features. Adjust as needed per feature set.
+Centralized in `api/cache/cacheKeys.ts` (see that file for exact builders and TTL constants). Key families used in the codebase include:
 
-- Presence / Last Seen
-  - Online marker: `presence:online:<userId>` → value `"1"`, TTL short (e.g., 60s) refreshed by heartbeats.
-  - Last seen: `presence:last:<userId>` → value `timestamp` (ms since epoch), set on disconnect or inactivity.
+- Presence & session
+  - Presence (TTL-refresh heartbeat): `presence:user:<userId>`
+  - Last seen timestamp (ms): `lastseen:user:<userId>`
+  - Map socket to user (short TTL): `socket:user:<socketId>`
+  - Set of sockets for a user: `user:sockets:<userId>`
 
-- Unread counts
-  - Per user and room: `unread:<userId>:<roomId>` → value integer, increment on incoming messages when room not active; reset when user enters the room.
+- Rooms & messaging
+  - Cached room history pages: `cache:room:history:<roomId>:v<ver>:page:<cursor>:<size>`
+  - History version: `history:ver:<roomId>`
+  - Room online count: `room:online:<roomId>`
+  - Typing flags/counters: `typing:<roomId>:<userId>`, `typing:<roomId>:count`
+  - Last message cache: `cache:room:lastMessage:<roomId>`
+  - Idempotency for client message ids: `idemp:msg:<clientMsgId>`
 
-- Rate limiting
-  - `rate:<action>:<key>:<timeBucket>` (e.g., `rate:login:ip:2025-09-06T14:00`) with TTL to the end of the bucket.
+- Users, friends, avatars
+  - Visible rooms list cache: `cache:rooms:visible:<userId>`
+  - Friends list cache: `cache:friends:<userId>`
+  - User cache: `cache:user:<userId>`
+  - Avatar cache: `cache:user:avatar:<userId>`
 
-- Pub/Sub
-  - Channels: `events:room:<roomId>` to publish room events to workers or other instances (optional depending on deployment).
+- Rate limiting / brute force (cluster-safe)
+  - REST rate-limit key: `rl:rest:<routeKey>:<fingerprint>`
+  - WS rate-limit keys: `rl:ws:<subKey>:socket:<socketId>`, `rl:ws:<subKey>:user:<userId>`, `rl:ws:<subKey>:ip:<ip>`
+  - Brute-force attempts/blocks: `bf:attempts:ip:<ip>`, `bf:attempts:key:<action>:<key>`, `bf:blocked:ip:<ip>`, `bf:blocked:key:<action>:<key>`
+
+- Aggregations & stats
+  - Active rooms ZSET: `cache:stats:rooms:active`
+  - Message counters: `stats:room:msgs:hour:<roomId>:<hourKey>`, `stats:room:msgs:day:<roomId>:<dayKey>`
+  - Cache hit/miss counters: `stats:cache:hit:<prefix>`, `stats:cache:miss:<prefix>`
+
+- Calls
+  - Call session: `call:<callId>`
+  - User→call mapping: `user:call:<userId>`
+
+TTL recommendations are defined in `TTL` within `cacheKeys.ts` (e.g., presence 120s, undo 600s, counters retention, etc.).
 
 ---
 
@@ -117,23 +214,23 @@ import { RedisService } from "../domain/services/cacheServices/RedisService";
 const redis = RedisService.getInstance();
 await redis.connect();
 
-const ONLINE_TTL = 60; // seconds
+const ONLINE_TTL = 120; // seconds (see TTL.presenceOnline)
 
 export async function markOnline(userId: string) {
-  await redis.set(`presence:online:${userId}`, "1", { EX: ONLINE_TTL });
+  await redis.set(`presence:user:${userId}`, "online", { EX: ONLINE_TTL });
 }
 
 export async function markOffline(userId: string) {
-  await redis.del(`presence:online:${userId}`);
-  await redis.set(`presence:last:${userId}`, String(Date.now()));
+  await redis.del(`presence:user:${userId}`);
+  await redis.set(`lastseen:user:${userId}`, String(Date.now()));
 }
 
 export async function isOnline(userId: string): Promise<boolean> {
-  return (await redis.get(`presence:online:${userId}`)) === "1";
+  return (await redis.get(`presence:user:${userId}`)) != null;
 }
 
 export async function getLastSeen(userId: string): Promise<number | null> {
-  const v = await redis.get(`presence:last:${userId}`);
+  const v = await redis.get(`lastseen:user:${userId}`);
   return v ? Number(v) : null;
 }
 ```
@@ -142,7 +239,7 @@ export async function getLastSeen(userId: string): Promise<number | null> {
 
 ```ts
 export async function incUnread(userId: string, roomId: string) {
-  await redis.incrBy(`unread:${userId}:${roomId}`, 1);
+  await redis.incrBy(`unread:${userId}:${roomId}`, 1); // example pattern; see cacheKeys for actual keys used
 }
 
 export async function resetUnread(userId: string, roomId: string) {
@@ -159,10 +256,10 @@ export async function getUnread(userId: string, roomId: string): Promise<number>
 
 ```ts
 // Publisher (e.g., when a message is created)
-await redis.publish(`events:room:${roomId}`, JSON.stringify({ type: "message", messageId, roomId }));
+await redis.publish("events:messageCreated", JSON.stringify({ messageId, roomId }));
 
 // Subscriber (e.g., in another worker)
-const unsubscribe = await redis.subscribe(`events:room:${roomId}`, (msg) => {
+const unsubscribe = await redis.subscribe("events:messageCreated", (msg) => {
   const evt = JSON.parse(msg);
   // handle evt
 });
