@@ -79,13 +79,20 @@ export function initializeSchema(
             FOREIGN KEY (userB) REFERENCES users(id)
           )`,
           indexes: [
-            `CREATE INDEX IF NOT EXISTS idx_user_sessions_refresh ON user_sessions(refreshToken)`,
             `CREATE UNIQUE INDEX IF NOT EXISTS uniq_user_sessions_token ON user_sessions(token)`,
-            `CREATE UNIQUE INDEX IF NOT EXISTS uniq_user_sessions_refresh ON user_sessions(refreshToken)`,
             `CREATE INDEX IF NOT EXISTS idx_friends_userA ON friends(userA)`,
             `CREATE INDEX IF NOT EXISTS idx_friends_userB ON friends(userB)`,
-          ],
-          // sqliteAlters: [],
+            `CREATE INDEX IF NOT EXISTS idx_friends_userA_status ON friends(userA, status)`,
+            `CREATE INDEX IF NOT EXISTS idx_friends_userB_status ON friends(userB, status)`,
+            // Performance indexes
+            `CREATE INDEX IF NOT EXISTS idx_messages_roomId_ts ON messages(roomId, timestamp)`,
+            `CREATE INDEX IF NOT EXISTS idx_messages_authorId ON messages(authorId)`,
+            `CREATE INDEX IF NOT EXISTS idx_user_rooms_roomId ON user_rooms(roomId)`,
+            `CREATE INDEX IF NOT EXISTS idx_user_sessions_userId ON user_sessions(userId)`,
+            `CREATE INDEX IF NOT EXISTS idx_rooms_creatorId ON rooms(creatorId)`,
+            `CREATE INDEX IF NOT EXISTS idx_rooms_isPublic ON rooms(isPublic)`,
+            `CREATE INDEX IF NOT EXISTS idx_rooms_name ON rooms(name)`,
+          ]
         };
       case "sqlite":
       default:
@@ -146,11 +153,20 @@ export function initializeSchema(
             FOREIGN KEY (userB) REFERENCES users(id)
           )`,
           indexes: [
-            `CREATE INDEX IF NOT EXISTS idx_user_sessions_refresh ON user_sessions(refreshToken)`,
             `CREATE UNIQUE INDEX IF NOT EXISTS uniq_user_sessions_token ON user_sessions(token)`,
             `CREATE UNIQUE INDEX IF NOT EXISTS uniq_user_sessions_refresh ON user_sessions(refreshToken)`,
             `CREATE INDEX IF NOT EXISTS idx_friends_userA ON friends(userA)`,
             `CREATE INDEX IF NOT EXISTS idx_friends_userB ON friends(userB)`,
+            `CREATE INDEX IF NOT EXISTS idx_friends_userA_status ON friends(userA, status)`,
+            `CREATE INDEX IF NOT EXISTS idx_friends_userB_status ON friends(userB, status)`,
+            // Performance indexes
+            `CREATE INDEX IF NOT EXISTS idx_messages_roomId_ts ON messages(roomId, timestamp)`,
+            `CREATE INDEX IF NOT EXISTS idx_messages_authorId ON messages(authorId)`,
+            `CREATE INDEX IF NOT EXISTS idx_user_rooms_roomId ON user_rooms(roomId)`,
+            `CREATE INDEX IF NOT EXISTS idx_user_sessions_userId ON user_sessions(userId)`,
+            `CREATE INDEX IF NOT EXISTS idx_rooms_creatorId ON rooms(creatorId)`,
+            `CREATE INDEX IF NOT EXISTS idx_rooms_isPublic ON rooms(isPublic)`,
+            `CREATE INDEX IF NOT EXISTS idx_rooms_name ON rooms(name)`,
           ],
           sqliteAlters: [
             `ALTER TABLE user_sessions ADD COLUMN refreshToken TEXT`,
