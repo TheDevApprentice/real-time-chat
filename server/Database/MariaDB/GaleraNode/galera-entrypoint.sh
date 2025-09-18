@@ -46,6 +46,9 @@ BOOTSTRAP="${BOOTSTRAP:-0}"
 SST_USER="${SST_USER:-sst_user}"
 SST_PASSWORD="${SST_PASSWORD:-sst_password}"
 GCACHE_SIZE="${GCACHE_SIZE:-256M}"
+GCACHE_PAGE_SIZE="${GCACHE_PAGE_SIZE:-128M}"
+INNODB_BUFFER_POOL_SIZE="${INNODB_BUFFER_POOL_SIZE:-256M}"
+INNODB_LOG_FILE_SIZE="${INNODB_LOG_FILE_SIZE:-64M}"
 BINLOG_EXPIRE_DAYS="${BINLOG_EXPIRE_DAYS:-3}"
 BINLOG_MAX_SIZE="${BINLOG_MAX_SIZE:-100M}"
 GTID_DOMAIN_ID="${GTID_DOMAIN_ID:-1}"
@@ -76,7 +79,7 @@ skip-name-resolve=1
 # --- Galera ---
 wsrep_on=ON
 wsrep_cluster_name="${CLUSTER_NAME}"
-wsrep_cluster_address="gcomm://${WSREP_CLUSTER_ADDRESS}"
+wsrep_cluster_address="${WSREP_CLUSTER_ADDRESS}"
 wsrep_node_address="${NODE_ADDRESS}"
 wsrep_node_name="${NODE_NAME}"
 wsrep_provider=/usr/lib/galera/libgalera_smm.so
@@ -139,5 +142,20 @@ EOF
 echo "[galera-entrypoint] Rendered ${GALERA_CNF}:"
 sed -n '1,120p' "$GALERA_CNF" || true
 
-echo "[galera-entrypoint] Chaining to MariaDB entrypoint..."
-exec "$DEFAULT_ENTRYPOINT" "$@"
+# Determine daemon binary name (MariaDB 10.x/11.x use 'mariadbd'; some builds accept 'mysqld')
+DAEMON="mariadbd"
+if ! command -v "$DAEMON" >/dev/null 2>&1; then
+  if command -v mysqld >/dev/null 2>&1; then
+    DAEMON="mysqld"
+  fi
+fi
+
+if [ "$BOOTSTRAP" = "1" ]; then
+  echo "[galera-entrypoint] BOOTSTRAP=1 -> starting $DAEMON with --wsrep-new-cluster"
+  # Run the official entrypoint with explicit daemon command and the bootstrap flag
+  exec "$DEFAULT_ENTRYPOINT" "$DAEMON" --wsrep-new-cluster
+else
+  echo "[galera-entrypoint] Chaining to MariaDB entrypoint (normal join) with $DAEMON..."
+  # Ensure daemon is launched even if no CMD was provided in compose (so $@ may be empty)
+  exec "$DEFAULT_ENTRYPOINT" "$DAEMON"
+fi

@@ -355,6 +355,7 @@ services:
       dockerfile: Dockerfile
     image: realtime-chat-mariadb-galera:latest
     container_name: chat-galera-1
+    entrypoint: ["/usr/local/bin/galera-entrypoint.sh"]
     environment:
       GALERA: "1"
       NODE_ID: "1"
@@ -397,10 +398,11 @@ services:
   # Galera Cluster Node 2
   mariadb_galera2:
     build:
-      context: ./server/Database/MariaDB
+      context: ./server/Database/MariaDB/GaleraNode
       dockerfile: Dockerfile
-    image: realtime-chat-mariadb:latest
+    image: realtime-chat-mariadb-galera:latest
     container_name: chat-galera-2
+    entrypoint: ["/usr/local/bin/galera-entrypoint.sh"]
     environment:
       GALERA: "1"
       NODE_ID: "2"
@@ -446,10 +448,11 @@ services:
   # Galera Cluster Node 3
   mariadb_galera3:
     build:
-      context: ./server/Database/MariaDB
+      context: ./server/Database/MariaDB/GaleraNode
       dockerfile: Dockerfile
-    image: realtime-chat-mariadb:latest
+    image: realtime-chat-mariadb-galera:latest
     container_name: chat-galera-3
+    entrypoint: ["/usr/local/bin/galera-entrypoint.sh"]
     environment:
       GALERA: "1"
       NODE_ID: "3"
