@@ -160,6 +160,11 @@ This approach keeps the domain in control of transactional boundaries while ensu
 - Presence is cached (Redis) and queried via a domain service; clients display `online/last seen` indicators.
 - Unread counts are computed on server and emitted via `unreadCounts` to subscribed clients.
 
+See also:
+
+- Redis usage and keys: `REDIS.md`
+- Centralized key builders and TTLs: `api/cache/cacheKeys.ts`
+
 ---
 
 ## Environment & Security
@@ -167,6 +172,12 @@ This approach keeps the domain in control of transactional boundaries while ensu
 - `.env` read via `@dotenvx/dotenvx` in `server.ts`.
 - Key variables: `FRONTEND_URL`, `PORT`, `TRUST_PROXY`, database (`MARIADB_HOST`, `MARIADB_PORT`, `MARIADB_DB`, `MARIADB_USER`, `MARIADB_PASSWORD`, `MARIADB_SSL`), cache (`REDIS_URL`), object storage (`S3_ENDPOINT`, `S3_BUCKET`, `S3_PUBLIC_URL_BASE`, `S3_USE_PATH_STYLE`), and TURN/STUN (`WEBRTC_*`).
 - Helmet CSP is set to allow Socket.IO and the static UI; review production policy depending on deployment.
+
+See also:
+
+- Redis usage and keys: `REDIS.md`
+- Centralized key builders and TTLs: `api/cache/cacheKeys.ts`
+- Object storage (MinIO/S3): `Minio.md`
 
 ---
 
