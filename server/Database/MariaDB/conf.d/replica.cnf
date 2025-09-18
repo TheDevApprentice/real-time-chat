@@ -10,7 +10,7 @@ read_only=ON
 relay_log=mysqld-relay-bin
 
 # Binary log format
-binlog_format=ROW
+binlog_format=ROW # Value need to be the same as the primary config : if primary ROW then ROW, if mixed, mixed
 binlog_row_image=FULL
 binlog_checksum=CRC32
 
