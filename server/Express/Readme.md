@@ -95,6 +95,7 @@ For an end-to-end UI/WS/REST flow, see `ARCHITECTURE.md` (delivery, domain, infr
 - Architecture, layers & flows: `ARCHITECTURE.md`
 - Code standards (SOLID, Clean, security, testing): `CODE_STANDARDS.md`
 - Redis usage & conventions: `REDIS.md`
+- Object storage (MinIO/S3): `Minio.md`
 - Test UI (public/) structure and build: `public/README.md`
 
 ---
@@ -334,6 +335,12 @@ REDIS_URL=redis://redis:6379
 
 - Redis not found
   - Ensure `redis` service is running or point `REDIS_URL` to a reachable instance. See `REDIS.md`.
+
+- Rate limits or brute-force blocks
+  - See `REDIS.md` for cluster-safe rate limits and brute-force guards, including TTL windows and key patterns (`rl:*`, `bf:*`). Adjust thresholds in middlewares or clear keys to unblock in dev.
+
+- Presence shows offline unexpectedly
+  - Presence TTL is short by design (see `TTL.presenceOnline` in `api/cache/cacheKeys.ts`, default 120s). The gateway refreshes `presence:user:<userId>` periodically. Check that heartbeats run and Redis keys exist; see `REDIS.md` for details.
 
 - Undo window not available
   - The per-user undo snapshot is stored in Redis with a 10-minute TTL. If `getUndoTTL` returns 0, the key expired or the action was not initiated by this user.
