@@ -103,7 +103,7 @@ Directory: `domain/`
 Directory: `infrastructure/`
 
 - `db/`
-  - Implementations of the repository interfaces (`domain/interfaces/dbInterfaces/*`), using SQLite/MySQL drivers depending on environment.
+  - Implementations of the repository interfaces (`domain/interfaces/dbInterfaces/*`). Default driver is MariaDB via ProxySQL (production/default). SQLite adapter may exist for tests/dev-only scenarios.
   - Responsible for schema bootstrap, migrations, connection pooling, and mapping DB rows <-> domain entities/DTOs.
 
 - Cache and storage adapters (if present) are implemented here as well, e.g. Redis, MinIO.
@@ -151,6 +151,11 @@ The server uses a Unit of Work (UoW) provider to make transaction intent explici
 
 This approach keeps the domain in control of transactional boundaries while ensuring infra remains a thin persistence layer.
 
+### Database Access (MariaDB via ProxySQL)
+- The application connects to MariaDB through ProxySQL (host `proxysql`, port `6033` inside the Compose network).
+- ProxySQL performs health checks, pooling, and load balancing across the Galera cluster, hiding topology changes from the application.
+- Required env vars (see `Readme.md` for full list): `MARIADB_HOST`, `MARIADB_PORT`, `MARIADB_DB`, `MARIADB_USER`, `MARIADB_PASSWORD`, `MARIADB_SSL`.
+
 ### Presence & unread counts
 - Presence is cached (Redis) and queried via a domain service; clients display `online/last seen` indicators.
 - Unread counts are computed on server and emitted via `unreadCounts` to subscribed clients.
@@ -160,7 +165,7 @@ This approach keeps the domain in control of transactional boundaries while ensu
 ## Environment & Security
 
 - `.env` read via `@dotenvx/dotenvx` in `server.ts`.
-- `FRONTEND_URL`, `PORT`, `SQLITE_FILE`, `TRUST_PROXY`, `S3_PUBLIC_URL_BASE`, etc., inform middleware and infra.
+- Key variables: `FRONTEND_URL`, `PORT`, `TRUST_PROXY`, database (`MARIADB_HOST`, `MARIADB_PORT`, `MARIADB_DB`, `MARIADB_USER`, `MARIADB_PASSWORD`, `MARIADB_SSL`), cache (`REDIS_URL`), object storage (`S3_ENDPOINT`, `S3_BUCKET`, `S3_PUBLIC_URL_BASE`, `S3_USE_PATH_STYLE`), and TURN/STUN (`WEBRTC_*`).
 - Helmet CSP is set to allow Socket.IO and the static UI; review production policy depending on deployment.
 
 ---

@@ -8,7 +8,9 @@ A real-time chat application built with a Node.js/Express backend (Socket.IO) an
 See the CHANGELOG for the latest features and improvements.
 
 - What's New: [CHANGELOG.md](./CHANGELOG.md)
+- Server Infrastructure: [ServerInfrastructure.md](./docs/DockerInfra/DockerInfrastructure.md)
 - Backend docs: [server/Express/README.md](./server/Express/README.md)
+- Frontend docs: [interface/Vue/README.md](./interface/Vue/README.md)
 - Test UI (public) docs: [server/Express/public/README.md](./server/Express/public/README.md)
 
 ## Quick Start (Docker Compose)
@@ -39,8 +41,7 @@ docker compose up -d --build
 - Real-time messaging with WebSockets
 - OOP server design with service/repo layers
 - Message edit / delete with per-user Undo window
-- Persistent Undo snackbar (client) that survives reload and is confined to the initiating browser
-- "(edited)" badge persistence across reload; delete-undo restores content without the badge
+- "(edited) (deleted)" badge persistence across reload; delete-undo restores content without the badge
 
 ## Contributing
 
