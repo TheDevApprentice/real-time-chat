@@ -189,9 +189,6 @@ services:
       - MINIO_ROOT_USER=admin
       - MINIO_ROOT_PASSWORD=adminadmin123
       - S3_BUCKET=chat-bucket
-    # ports:
-    #   - "9000:9000" # S3 API
-    #   - "9001:9001" # MinIO Console
     volumes:
       - minio_data:/data
     restart: unless-stopped
@@ -207,7 +204,7 @@ services:
       mariadb_backup:
         condition: service_healthy
     networks:
-      # - proxy
+      - proxy
       - stornet
     labels:
       - "traefik.enable=true"
@@ -238,8 +235,6 @@ services:
       dockerfile: Dockerfile
     image: realtime-chat-redis:latest
     container_name: chat-redis
-    # ports:
-    #   - "6379:6379"
     # For dev you can inline a password; for production use secrets.
     command: [ "sh", "-c", "exec redis-server --appendonly yes --requirepass \"${REDIS_PASSWORD:-changeme}\"" ]
     environment:
@@ -263,8 +258,7 @@ services:
     restart: unless-stopped
     # No Traefik labels here: Redis is TCP on 6379 (not HTTP). Keep it internal.
 
-    # ProxySQL - Load balancer for Galera cluster
-
+  # ProxySQL - Load balancer for Galera cluster
   proxysql:
     build:
       context: ./server/Database/MariaDB/ProxySQL
@@ -274,9 +268,6 @@ services:
     volumes:
       - ./server/Database/MariaDB/ProxySQL/proxysql.cnf:/etc/proxysql.cnf:ro
       - proxysql_data:/var/lib/proxysql
-    # ports:
-    #   - "127.0.0.1:6033:6033" # MySQL port for applications
-    #   - "127.0.0.1:6032:6032" # Admin interface
     environment:
       - PROXYSQL_ADMIN_USER=admin
       - PROXYSQL_ADMIN_PASSWORD=admin
