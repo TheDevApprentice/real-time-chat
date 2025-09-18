@@ -2,13 +2,15 @@ flowchart TB
   subgraph Server["Express Server (scaled)"]
     direction TB
 
+    subgraph Client["Client"]
+      direction TB
+    end
+
     subgraph API["API (HTTP & WS)"]
       direction TB
-      MW["Middlewares: CSRF, CORS, RateLimits"]
-      DI["Dependencies Injection"]
       subgraph Concerns["Concerns"]
-        RATES["RateLimits"]
         CACHEK["Cache Keys (Redis)"]
+        DI["Dependencies Injection"]
       end
       subgraph Middlewares["Middlewares"]
         CSRFN["CSRF"]
@@ -17,19 +19,20 @@ flowchart TB
       end
       subgraph controllers["controllers (HTTP & WS)"]
         direction TB
+      J["JSON"]
+
         REST["REST Controllers"]
         WS["WebSocket Gateway & Router"]
       end
-    end
 
+    end
 
     subgraph Domain["Domain (Business)"]
       direction TB
+      DTO["DTO Mappers"]
       ENT["Entities"]
       SRV["Services / Use-Cases"]
-      IFSERVICE["Ports (Interfaces)"]
-      IFREDIS["Ports (Interfaces)"]
-      IFS3["Ports (Interfaces)"]
+      IF["Ports (Interfaces)"]
       REDIS["Redis Service"]
       S3["S3/MinIO Service"]
     end
@@ -39,7 +42,6 @@ flowchart TB
       DBRepos["SQL Repositories (Adapters)"]
       SQL["SQL Helpers / Executor"]
       UOW["Unit of Work / Transactions"]
-      MAP["Row Mappers / DTO Mapping"]
       MIGR["Schema Init (DDL)"]
     end
   end
@@ -53,19 +55,26 @@ flowchart TB
 
   REST -->|invokes| SRV
   WS -->|emits/handles| SRV
-  MW --> REST
-  MW --> WS
+  CSRFN -..-> REST
+  CSRFN -..-> WS
+  CORSN -..-> REST
+  CORSN -..-> REST
+  RATES -..-> REST
+  RATES -..-> WS
+  SRV -->|returns entities| ENT
+  ENT -->|map to DTOs| DTO
+  DTO --> J(( JSON ))
+  J -->|serialize response| REST
+  J -->|serialize response| WS
 
-  SRV -->|ports| IFSERVICE
-  IFSERVICE -->|implemented by| DBRepos
+  SRV -->|ports| IF
+  IF -->|implemented by| DBRepos
+  IF -->|implemented by| REDIS --> RDS
+  IF -->|implemented by| S3 --> MINIO
   DBRepos --> SQL --> DB
   SQL --> UOW
-  DBRepos -.uses .-> MAP
   DBRepos -.uses .-> ENT
   MIGR -.bootstraps .-> DB
-
-  SRV -->|ports| IFREDIS  -->|implemented by| REDIS --> RDS
-  SRV -->|ports| IFS3 -->|implemented by| S3 --> MINIO
 
   %% Visual styles (dark-friendly)
   classDef comp fill:#1f2d3d,stroke:#7aa2f7,stroke-width:1px,color:#e6edf3
@@ -76,5 +85,4 @@ flowchart TB
   class Server,API,Domain,Infra comp
   class Data,RDS,DB,MINIO state
   class ENT,SRV,IF,REDIS,S3 dom
-  class DBRepos,SQL,MIGR,UOW,MAP adp
-
+  class DBRepos,SQL,MIGR,UOW adp
