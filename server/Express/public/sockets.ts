@@ -27,6 +27,50 @@ var socket: any =
   w.unreadCounts = w.unreadCounts || {};
   w.typingUsers = w.typingUsers || new Set<string>();
   w.dmPresenceInterval = w.dmPresenceInterval || null;
+  w.__presenceByUser = w.__presenceByUser || ({} as Record<string, { online: boolean; lastSeen: number | null }>);
+
+  // --- PRESENCE CHANGES (server-pushed) ---
+  socket.on("presenceChanged", (evt: { userId: string; status: "online" | "offline"; lastSeen: number | null }) => {
+    try {
+      if (!evt || !evt.userId) return;
+      const online = evt.status === "online";
+      (w.__presenceByUser as any)[evt.userId] = { online, lastSeen: evt.lastSeen ?? null };
+      // If selected room is a DM and involves this user, update the presence label immediately
+      const room = w.selectedRoom;
+      if (room && room.type === "user" && Array.isArray(room.users)) {
+        const others = room.users.filter((u: any) => u && w.currentUser && u.id !== w.currentUser.id);
+        const other = others && others[0];
+        if (other && other.id === evt.userId) {
+          if (typeof updatePresenceLabel === "function") {
+            if (online) updatePresenceLabel("• en ligne");
+            else {
+              const ls = typeof evt.lastSeen === "number" ? evt.lastSeen : null;
+              const text = humanizeAgo(ls);
+              updatePresenceLabel(text ? `• vu ${text}` : "");
+            }
+          }
+        }
+      }
+      // Update DM room presence dot immediately if visible
+      try { if (typeof w.updateRoomPresenceDot === "function") w.updateRoomPresenceDot(evt.userId); } catch {}
+      // Optionally refresh room list to reflect badges if needed elsewhere
+      if (typeof w.renderRoomList === "function") w.renderRoomList();
+    } catch {}
+  });
+
+  function humanizeAgo(ts: number | null): string {
+    try {
+      if (!ts || !Number.isFinite(ts)) return "il y a …";
+      const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+      if (s < 60) return "il y a quelques secondes";
+      const m = Math.floor(s / 60);
+      if (m < 60) return `${m} min`;
+      const h = Math.floor(m / 60);
+      if (h < 24) return `${h} h`;
+      const d = Math.floor(h / 24);
+      return `${d} j`;
+    } catch { return ""; }
+  }
 
   // --- AUTH ON LOAD via cookie ---
   try {

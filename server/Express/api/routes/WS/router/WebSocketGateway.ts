@@ -477,7 +477,7 @@ export class WebSocketGateway {
         }
       }
       // Logger.info(`Client connected: ${socket.id}`);
-      const { redisService } = services as any;
+      const { redisService } = services;
       let presenceInterval: NodeJS.Timeout | null = null;
 
       const touchPresence = async (uid: string) => {
@@ -514,10 +514,20 @@ export class WebSocketGateway {
         const uid = (socket.data as any)?.userId as string | undefined;
         if (uid) {
           try {
-            await redisService.set(`lastseen:user:${uid}`, String(Date.now()));
             await redisService.del(`socket:user:${socket.id}`);
             try { await redisService.sRem(K.userSockets(uid), socket.id); } catch {}
             // presence key will expire by itself shortly
+            // If this was the last socket for this user, set last seen now and clear presence immediately
+            try {
+              const devs = await redisService.sMembers(K.userSockets(uid));
+              if (!devs || devs.length === 0) {
+                const now = Date.now();
+                try { await redisService.set(`lastseen:user:${uid}`, String(now)); } catch { RateLimitedLogger.warn("ws:disconnect:lastseen", `Failed to set lastseen for ${uid}`); }
+                try { await redisService.del(`presence:user:${uid}`); } catch { RateLimitedLogger.warn("ws:disconnect:presenceDel", `Failed to delete presence for ${uid}`); }
+                // Broadcast presenceChanged (offline)
+                try { this.io.emit("presenceChanged", { userId: uid, status: "offline", lastSeen: now }); } catch {}
+              }
+            } catch { RateLimitedLogger.warn("ws:disconnect:userSockets", `Failed to inspect userSockets for ${uid}`); }
           } catch { RateLimitedLogger.warn("ws:disconnect:presence", `Failed to update presence for ${uid}:${socket.id}`); }
         }
         // Decrement room online counters for all joined rooms (except the private room with the socket id)
@@ -545,9 +555,9 @@ export class WebSocketGateway {
           roomService: services.roomService,
           messageService: services.messageService,
           redisService: services.redisService,
-          s3Service: (services as any).s3Service,
-          attachmentFinalizer: (services as any).attachmentFinalizer,
-          messageEffects: (services as any).messageEffects,
+          s3Service: services.s3Service,
+          attachmentFinalizer: services.attachmentFinalizer,
+          messageEffects: services.messageEffects,
         },
         env: {
           FRONTEND_URL: process.env.FRONTEND_URL,

@@ -6,6 +6,7 @@ import { Logger } from "../../../../utils/LoggerUtil";
 import { mapSessionToDTO, mapUserToDTO } from "../../../../domain/dto";
 import type { LoginRequestDTO, RefreshTokenRequestDTO } from "../../../../domain/dto";
 import { RateLimitedLogger } from "../../../../utils/RateLimitedLogger";
+import { K, TTL } from "../../../cache/cacheKeys";
 
 export class AuthWsController {
   // authenticate via token (auto-login)
@@ -20,6 +21,14 @@ export class AuthWsController {
     }
     ctx.socket.data.userId = session.user.id;
     ctx.socket.data.user = session.user;
+    try {
+      const { redisService } = ctx.services;
+      await redisService.set(`presence:user:${session.user.id}`, "online", { EX: TTL.presenceOnline });
+      await redisService.set(`socket:user:${ctx.socket.id}`, session.user.id, { EX: TTL.presenceOnline });
+      try { await redisService.sAdd(K.userSockets(session.user.id), ctx.socket.id); } catch {}
+    } catch { RateLimitedLogger.warn("ws:auth:touchPresence", `Failed to touch presence on authenticate for ${session.user.id}`); }
+    // Broadcast presenceChanged (online)
+    try { ctx.io.emit("presenceChanged", { userId: session.user.id, status: "online", lastSeen: null }); } catch {}
     // initial unread counts
     try {
       const counts = await messageService.getUnreadCountsForUser(session.user.id);
@@ -63,6 +72,15 @@ export class AuthWsController {
       user
     );
     await authService.addUserSession(session);
+    // Touch presence immediately
+    try {
+      const { redisService } = ctx.services;
+      await redisService.set(`presence:user:${user.id}`, "online", { EX: TTL.presenceOnline });
+      await redisService.set(`socket:user:${ctx.socket.id}`, user.id, { EX: TTL.presenceOnline });
+      try { await redisService.sAdd(K.userSockets(user.id), ctx.socket.id); } catch {}
+    } catch { RateLimitedLogger.warn("ws:auth:touchPresence", `Failed to touch presence on login for ${user.id}`); }
+    // Broadcast presenceChanged (online)
+    try { ctx.io.emit("presenceChanged", { userId: user.id, status: "online", lastSeen: null }); } catch {}
 
     return {
       user: mapUserToDTO(user),
@@ -117,6 +135,25 @@ export class AuthWsController {
     const { authService } = ctx.services;
     const { token } = ctx.payload!;
     await authService.deleteUserSession(token);
+    // Handle presence cleanup BEFORE clearing userId so disconnect flow has the right uid
+    try {
+      const uid = (ctx.socket.data as any)?.userId as string | undefined;
+      if (uid) {
+        const { redisService } = ctx.services;
+        try { await redisService.del(`socket:user:${ctx.socket.id}`); } catch {}
+        try { await redisService.sRem(K.userSockets(uid), ctx.socket.id); } catch {}
+        try {
+          const devs = await redisService.sMembers(K.userSockets(uid));
+          if (!devs || devs.length === 0) {
+            const now = Date.now();
+            try { await redisService.set(`lastseen:user:${uid}`, String(now)); } catch {}
+            try { await redisService.del(`presence:user:${uid}`); } catch {}
+            try { ctx.io.emit("presenceChanged", { userId: uid, status: "offline", lastSeen: now }); } catch {}
+          }
+        } catch {}
+      }
+    } catch {}
+    // Now clear local session data
     ctx.socket.data.userId = undefined;
     ctx.socket.data.user = undefined;
     // Important: return success first so the WS ack can be sent,

@@ -56,6 +56,37 @@
                 try { w.renderRoomList?.(); } catch {}
               }
             };
+
+  // Real-time presence dot updater for DM rooms
+  if (!w.updateRoomPresenceDot)
+    w.updateRoomPresenceDot = function updateRoomPresenceDot(userId: string) {
+      try {
+        if (!userId) return;
+        const meId = (w.currentUser && w.currentUser.id) || null;
+        const rooms: any[] = Array.isArray(w.rooms) ? w.rooms : [];
+        const matches = rooms.filter((r) => {
+          if (!r || r.type !== 'user') return false;
+          const users = Array.isArray(r.users) ? r.users : [];
+          const ids = users.map((u:any)=>u&&u.id).filter(Boolean);
+          return meId && ids.includes(meId) && ids.includes(userId);
+        });
+        if (!matches.length) return;
+        const state = (w as any).__presenceByUser && (w as any).__presenceByUser[String(userId)];
+        const online = !!(state && state.online);
+        const list = document.getElementById('room-list-all') as HTMLElement | null;
+        if (!list) return;
+        for (const room of matches) {
+          const li = list.querySelector(`li.room-list-item[data-room-id="${CSS.escape(String(room.id))}"]`) as HTMLElement | null;
+          if (!li) continue;
+          const dot = li.querySelector('.presence-dot') as HTMLElement | null;
+          if (!dot) continue;
+          try {
+            dot.classList.remove('presence-online','presence-offline');
+            dot.classList.add(online ? 'presence-online' : 'presence-offline');
+          } catch {}
+        }
+      } catch {}
+    };
             const clearBtn = document.createElement('button');
             clearBtn.type = 'button';
             clearBtn.className = 'icon-btn';
@@ -275,14 +306,25 @@
             const meId = currentUser?.id;
             const members: Array<{ id: string; name: string }> = Array.isArray(room.users) ? room.users : [];
             const other = meId ? members.find((u) => u && u.id !== meId) : null;
-            if (presEl && other && typeof (w.fetchPresence) === 'function') {
-              (w.fetchPresence as any)(other.id).then((pr: any) => {
-                try {
-                  presEl.classList.remove('presence-online','presence-offline');
-                  if (pr && pr.status === 'online') presEl.classList.add('presence-online');
-                  else presEl.classList.add('presence-offline');
-                } catch {}
-              }).catch(() => undefined);
+            if (presEl && other) {
+              // Prefer cached server-pushed presence if available for instant update
+              const cache = (w as any).__presenceByUser && (w as any).__presenceByUser[String(other.id)];
+              presEl.classList.remove('presence-online','presence-offline');
+              if (cache) {
+                if (cache.online) presEl.classList.add('presence-online');
+                else presEl.classList.add('presence-offline');
+              } else if (typeof (w.fetchPresence) === 'function') {
+                // Fallback to REST presence fetch when cache not available yet
+                (w.fetchPresence as any)(other.id).then((pr: any) => {
+                  try {
+                    presEl.classList.remove('presence-online','presence-offline');
+                    if (pr && pr.status === 'online') presEl.classList.add('presence-online');
+                    else presEl.classList.add('presence-offline');
+                  } catch {}
+                }).catch(() => undefined);
+              } else {
+                presEl.classList.add('presence-offline');
+              }
             }
           } catch {}
         }

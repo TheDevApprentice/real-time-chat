@@ -33,7 +33,7 @@ export class CallsWsController {
     }
     if (targetUserId === callerId) return { success: false, error: "Cannot call yourself." };
 
-    const { friendService, roomService, redisService, userService } = services as any;
+    const { friendService, roomService, redisService, userService } = services;
 
     // Permission: accepted friends OR share at least one room
     let allowed = false;
@@ -116,7 +116,7 @@ export class CallsWsController {
     const { callId } = (ctx.payload || {}) as any;
     if (!callId) return { success: false, error: "Missing callId." };
 
-    const { redisService } = services as any;
+    const { redisService } = services;
     const sess = await jsonGet<CallSession>(redisService, K.callSession(callId));
     if (!sess) return { success: false, error: "Call not found." };
     if (sess.status !== "ringing") return { success: false, error: "Call not in ringing state." };
@@ -143,7 +143,7 @@ export class CallsWsController {
     const { callId } = (ctx.payload || {}) as any;
     if (!callId) return { success: false, error: "Missing callId." };
 
-    const { redisService } = services as any;
+    const { redisService } = services;
     const sess = await jsonGet<CallSession>(redisService, K.callSession(callId));
     if (!sess) return { success: false, error: "Call not found." };
     if (uid !== sess.callerId && uid !== sess.calleeId) return { success: false, error: "Not part of this call." };
@@ -167,7 +167,7 @@ export class CallsWsController {
     const { callId, reason } = (ctx.payload || {}) as any;
     if (!callId) return { success: false, error: "Missing callId." };
 
-    const { redisService } = services as any;
+    const { redisService } = services;
     const sess = await jsonGet<CallSession>(redisService, K.callSession(callId));
     if (!sess) return { success: false, error: "Call not found." };
     if (sess.status === "ended") return { success: true };
@@ -195,7 +195,7 @@ export class CallsWsController {
     const { callId } = (ctx.payload || {}) as any;
     if (!callId) return { success: false, error: "Missing callId." };
 
-    const { redisService } = services as any;
+    const { redisService } = services;
     const sess = await jsonGet<CallSession>(redisService, K.callSession(callId));
     if (!sess) return { success: false, error: "Call not found." };
     if (sess.callerId !== uid) return { success: false, error: "Only caller can cancel ringing." };
@@ -206,7 +206,7 @@ export class CallsWsController {
 
     // Notify callee devices
     try {
-      const sockets = await (services as any).redisService.sMembers(K.userSockets(sess.calleeId));
+      const sockets = await (services).redisService.sMembers(K.userSockets(sess.calleeId));
       for (const sid of sockets || []) io.to(sid).emit("callCanceled", { callId });
     } catch {}
 
@@ -221,7 +221,7 @@ export class CallsWsController {
     if (!uid) return { success: false, error: "Not authenticated." };
     const { callId, sdp } = (ctx.payload || {}) as any;
     if (!callId || !sdp) return { success: false, error: "Missing fields." };
-    const { redisService } = services as any;
+    const { redisService } = services;
     const sess = await jsonGet<CallSession>(redisService, K.callSession(callId));
     if (!sess) return { success: false, error: "Call not found." };
     if (uid !== sess.callerId && uid !== sess.calleeId) return { success: false, error: "Not part of this call." };
@@ -239,7 +239,7 @@ export class CallsWsController {
     if (!uid) return { success: false, error: "Not authenticated." };
     const { callId, sdp } = (ctx.payload || {}) as any;
     if (!callId || !sdp) return { success: false, error: "Missing fields." };
-    const { redisService } = services as any;
+    const { redisService } = services;
     const sess = await jsonGet<CallSession>(redisService, K.callSession(callId));
     if (!sess) return { success: false, error: "Call not found." };
     if (uid !== sess.callerId && uid !== sess.calleeId) return { success: false, error: "Not part of this call." };
@@ -257,7 +257,7 @@ export class CallsWsController {
     if (!uid) return { success: false, error: "Not authenticated." };
     const { callId, candidate } = (ctx.payload || {}) as any;
     if (!callId || !candidate) return { success: false, error: "Missing fields." };
-    const { redisService } = services as any;
+    const { redisService } = services;
     const sess = await jsonGet<CallSession>(redisService, K.callSession(callId));
     if (!sess) return { success: false, error: "Call not found." };
     if (uid !== sess.callerId && uid !== sess.calleeId) return { success: false, error: "Not part of this call." };
