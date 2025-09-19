@@ -45,7 +45,7 @@ export function initializeSchema(
           )`,
           messages: `CREATE TABLE IF NOT EXISTS messages (
             id BIGINT AUTO_INCREMENT PRIMARY KEY,
-            authorId VARCHAR(255),
+            authorId VARCHAR(255) NOT NULL,
             authorName VARCHAR(255),
             content TEXT,
             timestamp BIGINT,
@@ -119,7 +119,7 @@ export function initializeSchema(
           )`,
           messages: `CREATE TABLE IF NOT EXISTS messages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            authorId TEXT,
+            authorId TEXT NOT NULL,
             authorName TEXT,
             content TEXT,
             timestamp INTEGER,

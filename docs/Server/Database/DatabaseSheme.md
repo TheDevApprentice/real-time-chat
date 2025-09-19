@@ -98,8 +98,8 @@ erDiagram
 ### messages
 - Columns
   - `id` (INTEGER AUTOINCREMENT / BIGINT AUTO_INCREMENT, PK)
-  - `authorId` (TEXT/VARCHAR)
-  - `authorName` (TEXT/VARCHAR)
+  - `authorId` (TEXT/VARCHAR, NOT NULL)
+  - `authorName` (TEXT/VARCHAR, NULLABLE)
   - `content` (TEXT)
   - `timestamp` (INTEGER/BIGINT)
   - `roomId` (TEXT/VARCHAR, NOT NULL) → FK to `rooms(id)`
