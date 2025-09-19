@@ -154,12 +154,6 @@ class AppServer {
       const mariadbUser = process.env.MARIADB_USER as string;
       const mariadbPassword = process.env.MARIADB_PASSWORD as string;
 
-      const replicaHost = process.env.MARIADB_HOST_BACKUP as string;
-      const replicaPort = Number(process.env.MARIADB_PORT_BACKUP || 3306);
-      const replicaDb = process.env.MARIADB_DB_BACKUP as string;
-      const replicaUser = process.env.MARIADB_USER_BACKUP as string;
-      const replicaPassword = process.env.MARIADB_PASSWORD_BACKUP as string;
-
       const timeoutMs = Number(process.env.DB_WAIT_TIMEOUT_MS || 120_000);
       const started = Date.now();
 
@@ -179,8 +173,7 @@ class AppServer {
       while (true) {
         try {
           await check(mariadbHost, mariadbPort, mariadbUser, mariadbPassword, mariadbDb);
-          await check(replicaHost, replicaPort, replicaUser, replicaPassword, replicaDb);
-          Logger.info("MariaDB primary and replica are healthy. Proceeding to start server.");
+          Logger.info("MariaDB primary is healthy. Proceeding to start server.");
           return;
         } catch (e: any) {
           if (Date.now() - started > timeoutMs) {
