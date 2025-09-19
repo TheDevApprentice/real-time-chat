@@ -3,6 +3,7 @@ import { Room, Message, User } from "../../../../domain/entities";
 import { K, TTL } from "../../../cache/cacheKeys";
 import { mapRoomToDTO, mapUserToDTO, mapMessageToDTO } from "../../../../domain/dto";
 import type { RoomHistoryQueryDTO, PageDTO } from "../../../../domain/dto";
+import { RateLimitedLogger } from "../../../../utils/RateLimitedLogger";
 
 export class RoomsWsController {
   async createRoom(
@@ -102,7 +103,7 @@ export class RoomsWsController {
       } catch {}
       try {
         await redisService?.set?.(cacheKey, JSON.stringify(roomsJson), { EX: 60 });
-      } catch {}
+      } catch { RateLimitedLogger.warn("ws:rooms:setVisible", `Failed to set visible rooms cache for ${userId}`); }
     }
 
     ctx.socket.emit("rooms", roomsJson);
@@ -123,7 +124,7 @@ export class RoomsWsController {
         counts = await messageService.getUnreadCountsForUser(userId);
         try {
           await redisService?.set?.(unreadKey, JSON.stringify(counts), { EX: 45 });
-        } catch {}
+        } catch { RateLimitedLogger.warn("ws:rooms:setUnread", `Failed to set unread counts for ${userId}`); }
       }
       ctx.socket.emit("unreadCounts", { counts });
     } catch {}
@@ -183,7 +184,7 @@ export class RoomsWsController {
       historyJson = messages.map((m: Message) => mapMessageToDTO(m));
       try {
         await redisService?.set?.(historyKey, JSON.stringify(historyJson), { EX: 60 });
-      } catch {}
+      } catch { RateLimitedLogger.warn("ws:rooms:setHistory", `Failed to set room history for ${roomId}`); }
     }
     ctx.socket.emit("roomHistory", { roomId, messages: historyJson });
 
@@ -207,10 +208,10 @@ export class RoomsWsController {
       // Aggregate typing count and broadcast
       try {
         const cnt = await redisService.incrBy(K.typingCount(roomId), 1);
-        try { await redisService.expire(K.typingCount(roomId), 10); } catch {}
+        try { await redisService.expire(K.typingCount(roomId), 10); } catch { RateLimitedLogger.warn("ws:typing:expireCount", `Failed to set TTL on typing count for ${roomId}`); }
         ctx.io.to(roomId).emit("typingCount", { roomId, count: Math.max(0, cnt) });
-      } catch {}
-    } catch {}
+      } catch { RateLimitedLogger.warn("ws:typing:incrCount", `Failed to increment typing count for ${roomId}`); }
+    } catch { RateLimitedLogger.warn("ws:typing:setKey", `Failed to set typing key for ${roomId}:${userId}`); }
     ctx.io.to(roomId).emit("typing", { roomId, userId, typing: true });
     return { success: true };
   }
@@ -226,10 +227,10 @@ export class RoomsWsController {
       // Decrement typing count and broadcast
       try {
         const cnt = await redisService.incrBy(K.typingCount(roomId), -1);
-        try { await redisService.expire(K.typingCount(roomId), 10); } catch {}
+        try { await redisService.expire(K.typingCount(roomId), 10); } catch { RateLimitedLogger.warn("ws:typing:expireCount", `Failed to set TTL on typing count for ${roomId}`); }
         ctx.io.to(roomId).emit("typingCount", { roomId, count: Math.max(0, cnt) });
-      } catch {}
-    } catch {}
+      } catch { RateLimitedLogger.warn("ws:typing:decrCount", `Failed to decrement typing count for ${roomId}`); }
+    } catch { RateLimitedLogger.warn("ws:typing:delKey", `Failed to delete typing key for ${roomId}:${userId}`); }
     ctx.io.to(roomId).emit("typing", { roomId, userId, typing: false });
     return { success: true };
   }
@@ -279,7 +280,7 @@ export class RoomsWsController {
       .sort((a: Message, b: Message) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
       .slice(cursor, cursor + size)
       .map((m: Message) => mapMessageToDTO(m));
-    try { await redisService.set(pageKey, JSON.stringify(sliced), { EX: TTL.roomHistoryPage }); } catch {}
+    try { await redisService.set(pageKey, JSON.stringify(sliced), { EX: TTL.roomHistoryPage }); } catch { RateLimitedLogger.warn("ws:rooms:setHistoryPage", `Failed to set history page ${pageKey}`); }
     const nextCursor = cursor + size < all.length ? cursor + size : undefined;
     const page: PageDTO<ReturnType<typeof mapMessageToDTO>> = { items: sliced, nextCursor };
     return { success: true, roomId, cursor, size, ver, page };

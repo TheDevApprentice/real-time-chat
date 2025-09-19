@@ -5,6 +5,7 @@ import { User, UserSession } from "../../../../domain/entities";
 import { Logger } from "../../../../utils/LoggerUtil";
 import { mapSessionToDTO, mapUserToDTO } from "../../../../domain/dto";
 import type { LoginRequestDTO, RefreshTokenRequestDTO } from "../../../../domain/dto";
+import { RateLimitedLogger } from "../../../../utils/RateLimitedLogger";
 
 export class AuthWsController {
   // authenticate via token (auto-login)
@@ -23,7 +24,7 @@ export class AuthWsController {
     try {
       const counts = await messageService.getUnreadCountsForUser(session.user.id);
       ctx.socket.emit("unreadCounts", { counts });
-    } catch {}
+    } catch { RateLimitedLogger.warn("ws:auth:unreadCounts", `Failed to emit unreadCounts for ${session.user.id}`); }
     return {
       success: true,
       user: mapUserToDTO(session.user),
@@ -121,7 +122,7 @@ export class AuthWsController {
     // Important: return success first so the WS ack can be sent,
     // then disconnect on a short delay to avoid dropping the ack.
     setTimeout(() => {
-      try { ctx.socket.disconnect(true); } catch {}
+      try { ctx.socket.disconnect(true); } catch { RateLimitedLogger.warn("ws:auth:disconnect", `Failed to disconnect socket on logout`); }
     }, 25);
     return { success: true };
   }

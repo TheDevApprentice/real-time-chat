@@ -12,7 +12,7 @@ export type FinalizeResult = {
 export class AttachmentFinalizer {
   constructor(private readonly s3Service: IS3Service | undefined) {}
 
-  normalize(rawAttachments: unknown): string[] {
+  private normalize(rawAttachments: unknown): string[] {
     const attRaw: string[] = Array.isArray(rawAttachments) ? (rawAttachments as any[]).map(String) : [];
     const normalized: string[] = attRaw.map((raw) => {
       try {

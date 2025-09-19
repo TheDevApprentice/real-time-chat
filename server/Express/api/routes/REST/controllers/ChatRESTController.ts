@@ -13,6 +13,7 @@ import { K, TTL, incrWithTtl, jsonGet } from "../../../cache/cacheKeys";
 import { Message, User } from "../../../../domain/entities";
 import { mapUserToDTO, mapRoomToDTO, mapMessageToDTO } from "../../../../domain/dto";
 import { randomUUID } from "crypto";
+import { RateLimitedLogger } from "../../../../utils/RateLimitedLogger";
 // Note: invites use Redis-only tokens (no cross-instance signing)
 
 const router = Router();
@@ -48,8 +49,8 @@ router.post(
     if (!snap || snap.roomId !== roomId) return res.status(404).json({ error: "Nothing to undo" });
     const prev = String(snap.prevContent || "").slice(0, 2000);
     await messageService.updateMessageContent(messageId, prev);
-    try { await redisService.del(K.msgUndo(me.id, messageId)); } catch {}
-    try { req.app.get("io")?.to(roomId)?.emit("messageEdited", { roomId, messageId, content: prev }); } catch {}
+    try { await redisService.del(K.msgUndo(me.id, messageId)); } catch { RateLimitedLogger.warn("rest:chat:undo:del", `Failed to delete undo snapshot for ${me.id}:${messageId}`); }
+    try { req.app.get("io")?.to(roomId)?.emit("messageEdited", { roomId, messageId, content: prev }); } catch { RateLimitedLogger.warn("rest:chat:undo:emit", `Failed to emit messageEdited for ${roomId}:${messageId}`); }
     res.json({ success: true });
   })
 );
@@ -162,14 +163,14 @@ router.get(
         try { await redisService.incrBy(K.statsHit('searchUsers')); } catch {}
         return res.json(JSON.parse(cached));
       }
-    } catch {}
+    } catch { RateLimitedLogger.warn("rest:chat:searchUsers:get", `Failed to get searchUsers for ${userId}:${q}:${lim}`); }
 
     const users = await userService.searchUsersByName(q, lim);
     const payload = users.map((u: User) => mapUserToDTO(u));
     try {
       await redisService?.set?.(key, JSON.stringify(payload), { EX: TTL.searchShort });
-    } catch {}
-    try { await redisService.incrBy(K.statsMiss('searchUsers')); } catch {}
+    } catch { RateLimitedLogger.warn("rest:chat:searchUsers:set", `Failed to set searchUsers for ${userId}:${q}:${lim}`); }
+    try { await redisService.incrBy(K.statsMiss('searchUsers')); } catch { RateLimitedLogger.warn("rest:chat:searchUsers:incrBy", `Failed to incrBy searchUsers for ${userId}:${q}:${lim}`); }
     res.json(payload);
   })
 );
@@ -229,7 +230,7 @@ router.post(
     const payload = { roomId, ...(invitedUserId ? { invitedUserId } : {}), ...(role ? { role } : {}) };
     try {
       await redisService.set(K.invite(token), JSON.stringify(payload), { EX: TTL.invite });
-    } catch {}
+    } catch { RateLimitedLogger.warn("rest:chat:createInvite:set", `Failed to set invite for ${me.id}:${roomId}:${invitedUserId}:${role}`); }
     res.json({ token, expiresIn: TTL.invite });
   })
 );
@@ -260,7 +261,7 @@ router.get(
         try { await redisService.del(K.roomsVisible(me.id)); } catch {}
         return res.json({ token, payload: { roomId } });
       }
-    } catch {}
+    } catch { RateLimitedLogger.warn("rest:chat:consumeInvite:get", `Failed to get invite for ${me.id}:${token}`); }
       // No portable token: if not found in Redis, we consider it invalid/expired
     return res.status(404).json({ error: "Invalid or expired invite" });
   })

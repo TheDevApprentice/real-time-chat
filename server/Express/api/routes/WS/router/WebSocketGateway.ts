@@ -37,6 +37,7 @@ import { bruteForceRedisWSMiddleware } from "../middlewares/bruteForceRedisWSMid
 import { requireCsrfWSMiddleware } from "../middlewares/requireCsrfWSMiddleware";
 import type { z } from "zod";
 import { getServices } from "../../../di/container";
+import { RateLimitedLogger } from "../../../../utils/RateLimitedLogger";
 import { K, TTL } from "../../../cache/cacheKeys";
 
 export class WebSocketGateway {
@@ -483,7 +484,7 @@ export class WebSocketGateway {
         try {
           await redisService.set(`presence:user:${uid}`, "online", { EX: 120 });
           await redisService.set(`socket:user:${socket.id}`, uid, { EX: 120 });
-        } catch {}
+        } catch { RateLimitedLogger.warn("ws:presence:touch", `Failed to update presence for ${uid}:${socket.id}`); }
       };
 
       const setupPresence = async () => {
@@ -505,7 +506,7 @@ export class WebSocketGateway {
         if (uid) {
           await redisService.sAdd(K.userSockets(uid), socket.id);
         }
-      } catch {}
+      } catch { RateLimitedLogger.warn("ws:connect:userSockets", `Failed to update userSockets for ${socket.id}`); }
 
       socket.on("disconnect", async () => {
         this.socketRates.delete(socket.id);
@@ -517,7 +518,7 @@ export class WebSocketGateway {
             await redisService.del(`socket:user:${socket.id}`);
             try { await redisService.sRem(K.userSockets(uid), socket.id); } catch {}
             // presence key will expire by itself shortly
-          } catch {}
+          } catch { RateLimitedLogger.warn("ws:disconnect:presence", `Failed to update presence for ${uid}:${socket.id}`); }
         }
         // Decrement room online counters for all joined rooms (except the private room with the socket id)
         try {
@@ -528,9 +529,9 @@ export class WebSocketGateway {
               const newCount = await redisService.incrBy(K.roomOnline(rid), -1);
               try { await redisService.expire(K.roomOnline(rid), TTL.roomOnlineExpire); } catch {}
               this.io.to(rid).emit("roomOnline", { roomId: rid, count: Math.max(0, newCount) });
-            } catch {}
+            } catch { RateLimitedLogger.warn("ws:disconnect:roomOnline", `Failed to update roomOnline for ${rid}:${socket.id}`); }
           }
-        } catch {}
+        } catch { RateLimitedLogger.warn("ws:disconnect:roomOnline", `Failed to update roomOnline for ${socket.id}`); }
       });
 
       // ---------------- WS ROUTER ATTACHMENT ----------------

@@ -9,6 +9,7 @@ import { validateRESTMiddlewareParams } from "../middleware/validateRESTMiddlewa
 import { SessionTokenParamsSchema } from "../../../../utils/ValidationUtil";
 import { getServices } from "../../../di/container";
 import { bruteForceRedisRESTMiddleware } from "../middleware/bruteForceRedisRESTMiddleware";
+import { RateLimitedLogger } from "../../../../utils/RateLimitedLogger";
 
 const router = Router();
 
@@ -151,7 +152,7 @@ router.get(
         const n = parseInt(ls, 10);
         lastSeen = Number.isFinite(n) ? n : null;
       }
-    } catch {}
+    } catch { RateLimitedLogger.warn("rest:user:getPresence", `Failed to get presence for ${userId}`); }
     res.json({ userId, status, lastSeen });
   })
 );

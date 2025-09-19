@@ -13,6 +13,14 @@ export class RedisService implements IRedisService {
     return this.instance;
   }
 
+  async zRemRangeByRank(key: string, start: number, stop: number): Promise<number> {
+    return await (this.ensure() as any).zRemRangeByRank(key, start, stop);
+  }
+
+  async zCard(key: string): Promise<number> {
+    return await (this.ensure() as any).zCard(key);
+  }
+
   // Sets helpers (for tracking user sockets, etc.)
   async sAdd(key: string, member: string): Promise<number> {
     return await (this.ensure() as any).sAdd(key, member);

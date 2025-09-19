@@ -1,6 +1,7 @@
 import { WsContext } from "../router/WsContext";
 import { K } from "../../../cache/cacheKeys";
 import type { FriendDTO, FriendListItemDTO, FriendRequestDTO, FriendRespondDTO } from "../../../../domain/dto";
+import { RateLimitedLogger } from "../../../../utils/RateLimitedLogger";
 
 export class FriendsWsController {
   async friendRequest(ctx: WsContext<FriendRequestDTO>) {
@@ -19,7 +20,7 @@ export class FriendsWsController {
         `cache:friends:${requesterId}`,
         `cache:friends:${targetUserId}`,
       ]) ?? Promise.resolve(0));
-    } catch {}
+    } catch { RateLimitedLogger.warn("ws:friends:invalidate", `Failed to invalidate friends cache for ${requesterId} or ${targetUserId}`); }
 
     // Notify target user's sockets
     const sockets = await ctx.io.fetchSockets();
@@ -49,7 +50,7 @@ export class FriendsWsController {
         `cache:friends:${userId}`,
         `cache:friends:${otherUserId}`,
       ]) ?? Promise.resolve(0));
-    } catch {}
+    } catch { RateLimitedLogger.warn("ws:friends:invalidate", `Failed to invalidate friends cache for ${userId} or ${otherUserId}`); }
 
     const sockets = await ctx.io.fetchSockets();
     for (const s of sockets) {
@@ -75,11 +76,11 @@ export class FriendsWsController {
       } else {
         try { await redisService.incrBy(K.statsMiss('friendsList')); } catch {}
       }
-    } catch {}
+    } catch { RateLimitedLogger.warn("ws:friends:getCache", `Failed to read friends cache for ${userId}`); }
     const list = await friendService.listFriendsAndRequests(userId);
     try {
       await redisService?.set?.(key, JSON.stringify(list), { EX: 300 });
-    } catch {}
+    } catch { RateLimitedLogger.warn("ws:friends:setCache", `Failed to set friends cache for ${userId}`); }
     return { success: true, items: list as FriendListItemDTO[] };
   }
 }

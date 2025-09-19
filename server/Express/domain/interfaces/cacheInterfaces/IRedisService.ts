@@ -34,6 +34,8 @@ export interface IRedisService {
     stop: number,
     opts?: { REV?: boolean; WITHSCORES?: boolean }
   ): Promise<string[] | Array<{ value: string; score: number }>>;
+  zRemRangeByRank(key: string, start: number, stop: number): Promise<number>;
+  zCard(key: string): Promise<number>;
 
   // hashes
   hSet(key: string, field: string, value: string): Promise<number>;
