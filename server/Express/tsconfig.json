@@ -9,21 +9,11 @@
     "skipLibCheck": true
   },
   "include": [
-    "*.ts",
-    "api/routes/**/*.ts",
-    "utils/**/*.ts",
-    "models/**/*.ts",
-    "server.ts",
-    "domain/services/dbServices/DatabaseService.ts",
-    "api/routes/WS/router/WebSocketGateway.ts",
-    "domain/entities/Friend.ts",
-    "domain/entities/index.ts",
-    "domain/entities/Message.ts",
-    "domain/entities/Room.ts",
-    "domain/entities/User.ts",
-    "domain/entities/UserSession.ts",
-    "utils/TextUtil.ts",
-    "utils/ValidationUtil.ts",
-    
+    "**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "public"
   ]
 }
