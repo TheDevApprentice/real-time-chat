@@ -51,10 +51,8 @@ var socket: any =
           }
         }
       }
-      // Update DM room presence dot immediately if visible
+      // Update DM room presence dot immediately if visible (no full re-render)
       try { if (typeof w.updateRoomPresenceDot === "function") w.updateRoomPresenceDot(evt.userId); } catch {}
-      // Optionally refresh room list to reflect badges if needed elsewhere
-      if (typeof w.renderRoomList === "function") w.renderRoomList();
     } catch {}
   });
 
