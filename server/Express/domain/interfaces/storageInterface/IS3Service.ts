@@ -4,4 +4,7 @@ export interface IS3Service {
     key: string,
     contentType: string
   ): Promise<{ key: string; url: string }>;
-}   
+  copyObject(srcKey: string, dstKey: string): Promise<void>;
+  deleteObject(key: string): Promise<void>;
+  publicUrl(key: string): string;
+}

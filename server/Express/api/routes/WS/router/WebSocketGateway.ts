@@ -545,6 +545,8 @@ export class WebSocketGateway {
           messageService: services.messageService,
           redisService: services.redisService,
           s3Service: (services as any).s3Service,
+          attachmentFinalizer: (services as any).attachmentFinalizer,
+          messageEffects: (services as any).messageEffects,
         },
         env: {
           FRONTEND_URL: process.env.FRONTEND_URL,
