@@ -10,8 +10,6 @@ import { IS3Service } from "../../domain/interfaces/storageInterface/IS3Service"
 import { RedisService } from "../../domain/services/cacheServices/RedisService";
 import { IRedisService } from "../../domain/interfaces/cacheInterfaces/IRedisService";
 import { createUnitOfWork, UnitOfWorkProvider } from "../../infrastructure/transaction/UnitOfWork";
-import { AttachmentFinalizer } from "../../domain/services/appServices/AttachmentFinalizer";
-import { MessageEffects } from "../../domain/services/appServices/MessageEffects";
 import { IAuthService } from "../../domain/interfaces/dbInterfaces/Iservices/IAuthService";
 import { IFriendsService } from "../../domain/interfaces/dbInterfaces/Iservices/IFriendsService";
 import { IMessageService } from "../../domain/interfaces/dbInterfaces/Iservices/IMessageService";
@@ -27,8 +25,6 @@ export type Services = {
   redisService: IRedisService;
   s3Service: IS3Service;
   unitOfWork: UnitOfWorkProvider;
-  attachmentFinalizer: AttachmentFinalizer;
-  messageEffects: MessageEffects;
 };
 
 let servicesSingleton: Services | null = null;
@@ -48,8 +44,6 @@ export function getServices(): Services {
   const messageService = new MessageService(unitOfWork);
   const friendService = new FriendService(unitOfWork);
   const s3Service = S3Service.getInstance();
-  const attachmentFinalizer = new AttachmentFinalizer(s3Service);
-  const messageEffects = new MessageEffects(redisService);
 
   servicesSingleton = {
     authService,
@@ -60,8 +54,6 @@ export function getServices(): Services {
     s3Service,
     redisService,
     unitOfWork,
-    attachmentFinalizer,
-    messageEffects,
   };
   return servicesSingleton;
 }

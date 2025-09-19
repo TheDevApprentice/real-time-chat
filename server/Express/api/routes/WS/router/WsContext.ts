@@ -1,6 +1,4 @@
 import { Server as SocketServer, Socket } from "socket.io";
-import { AttachmentFinalizer } from "../../../../domain/services/appServices/AttachmentFinalizer";
-import { MessageEffects } from "../../../../domain/services/appServices/MessageEffects";
 import { IRedisService } from "../../../../domain/interfaces/cacheInterfaces/IRedisService";
 import { IS3Service } from "../../../../domain/interfaces/storageInterface/IS3Service";
 import { IRoomService } from "../../../../domain/interfaces/dbInterfaces/Iservices/IRoomService";
@@ -22,8 +20,6 @@ export interface WsServices {
   messageService: IMessageService;
   redisService: IRedisService;
   s3Service: IS3Service;
-  attachmentFinalizer: AttachmentFinalizer;
-  messageEffects: MessageEffects;
 }
 
 export interface WsContext<TPayload = any> {

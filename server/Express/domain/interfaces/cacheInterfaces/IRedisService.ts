@@ -50,5 +50,9 @@ export interface IRedisService {
     channel: string,
     handler: (message: string, channel: string) => void
   ): Promise<() => Promise<void>>;
+
+  onMessageCreated(roomId: string, authorUserId: string, message: any, timestamp: number): Promise<void>;
+  invalidateRoomHistory(roomId: string): Promise<void>;
+  invalidateUnreadForUsers(userIds: Set<string>): Promise<void>;
 }
  

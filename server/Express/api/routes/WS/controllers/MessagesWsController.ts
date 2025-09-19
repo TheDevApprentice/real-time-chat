@@ -10,7 +10,7 @@ export class MessagesWsController {
   async sendMessageToRoom(
     ctx: WsContext<CreateMessageDTO & { timestamp?: number; attachments?: string[] }>
   ) {
-    const { userService, messageService, roomService, redisService, attachmentFinalizer, messageEffects } = ctx.services;
+    const { userService, messageService, roomService, redisService, s3Service } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId)
       return { error: "Vous devez être connecté pour envoyer un message." };
@@ -53,7 +53,7 @@ export class MessagesWsController {
     let copyFailed: string[] = [];
     let finalUrls: string[] = [];
     try {
-      const fin = await attachmentFinalizer.finalize(roomId, userId, ts, attachments);
+      const fin = await s3Service.finalize(roomId, userId, ts, attachments);
       normalizedKeys = fin.normalizedKeys;
       copyFailed = fin.copyFailed;
       finalUrls = fin.finalUrls;
@@ -69,7 +69,7 @@ export class MessagesWsController {
     const msgObj = new Message(user, safeContent, ts);
     await messageService.addMessageToRoom(msgObj, roomId);
     // Update caches/stats via service
-    try { await messageEffects.onMessageCreated(roomId, userId, msgObj, ts); } catch { RateLimitedLogger.warn("ws:msg:effects", `Failed to apply message effects for ${roomId}`); }
+    try { await redisService.onMessageCreated(roomId, userId, msgObj, ts); } catch { RateLimitedLogger.warn("ws:msg:effects", `Failed to apply message effects for ${roomId}`); }
 
     // Emit to all sockets of room members (not only joined sockets)
     try {
@@ -83,8 +83,8 @@ export class MessagesWsController {
         }
       }
       // Invalidate caches
-      try { await messageEffects.invalidateRoomHistory(roomId); } catch { RateLimitedLogger.warn("ws:msg:invalidate:history", `Failed to invalidate room history for ${roomId}`); }
-      try { await messageEffects.invalidateUnreadForUsers(memberIds); } catch { RateLimitedLogger.warn("ws:msg:invalidate:unread", `Failed to invalidate unread for ${roomId}`); }
+      try { await redisService.invalidateRoomHistory(roomId); } catch { RateLimitedLogger.warn("ws:msg:invalidate:history", `Failed to invalidate room history for ${roomId}`); }
+      try { await redisService.invalidateUnreadForUsers(memberIds); } catch { RateLimitedLogger.warn("ws:msg:invalidate:unread", `Failed to invalidate unread for ${roomId}`); }
     } catch {
       RateLimitedLogger.warn("ws:msg:broadcastFallback", `Falling back to room emit for ${roomId}`);
       ctx.io.to(roomId).emit("message", { roomId, message: mapMessageToDTO(msgObj) });
@@ -102,7 +102,7 @@ export class MessagesWsController {
   async messageDelivered(
     ctx: WsContext<MessageDeliveryReceiptDTO & { timestamp?: number }>
   ) {
-    const { messageService, roomService, messageEffects } = ctx.services;
+    const { messageService, roomService, redisService } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const { messageId, roomId, timestamp } = (ctx.payload || {}) as any;
@@ -125,7 +125,7 @@ export class MessagesWsController {
         }
       }
       // Invalidate unread cache for all members
-      try { await messageEffects.invalidateUnreadForUsers(memberIds); } catch {}
+      try { await redisService.invalidateUnreadForUsers(memberIds); } catch {}
     } catch {
       RateLimitedLogger.warn("ws:msg:delivered:broadcastFallback", `Falling back room emit for delivered ${roomId}`);
       ctx.io
