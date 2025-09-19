@@ -8,6 +8,23 @@ import type { LoginRequestDTO, RefreshTokenRequestDTO } from "../../../../domain
 import { RateLimitedLogger } from "../../../../utils/RateLimitedLogger";
 import { K, TTL } from "../../../cache/cacheKeys";
 
+// Redis-backed helper to fetch friend ids (uses K.friends cache, falls back to FriendService, caches for TTL.friendsList)
+async function getFriendIdsCached(userId: string, redisService: any, friendService: any): Promise<string[]> {
+  try {
+    const key = K.friends(String(userId));
+    const raw = await redisService.get(key).catch(() => null);
+    let rel: any[] | null = null;
+    if (raw) {
+      try { rel = JSON.parse(raw); } catch { rel = null; }
+    }
+    if (!Array.isArray(rel)) {
+      rel = await friendService.listFriendsAndRequests(userId);
+      try { await redisService.set(key, JSON.stringify(rel), { EX: TTL.friendsList }); } catch {}
+    }
+    return (rel || []).filter((r: any) => r && r.status === 'accepted').map((r: any) => String(r.userId));
+  } catch { return []; }
+}
+
 export class AuthWsController {
   // authenticate via token (auto-login)
   async authenticate(ctx: WsContext<{ token: string }>) {
@@ -27,16 +44,14 @@ export class AuthWsController {
       await redisService.set(K.socketUser(ctx.socket.id), session.user.id, { EX: TTL.presenceOnline });
       try { await redisService.sAdd(K.userSockets(session.user.id), ctx.socket.id); } catch {}
     } catch { RateLimitedLogger.warn("ws:auth:touchPresence", `Failed to touch presence on authenticate for ${session.user.id}`); }
-    // Broadcast presenceChanged (online) to friends' sockets only
+    // Broadcast presenceChanged (online) to friends' sockets only (cached friendIds + dedup sockets)
     try {
-      const rel = await friendService.listFriendsAndRequests(session.user.id);
-      const friendIds = (rel || []).filter((r: any) => r && r.status === 'accepted').map((r: any) => String(r.userId));
+      const friendIds = await getFriendIdsCached(session.user.id, redisService, friendService);
+      const targetSids = new Set<string>();
       for (const fid of friendIds) {
-        try {
-          const sids = await redisService.sMembers(K.userSockets(fid));
-          for (const sid of sids || []) ctx.io.to(sid).emit("presenceChanged", { userId: session.user.id, status: "online", lastSeen: null });
-        } catch {}
+        try { (await redisService.sMembers(K.userSockets(fid)) || []).forEach((sid) => targetSids.add(String(sid))); } catch {}
       }
+      for (const sid of targetSids) ctx.io.to(sid).emit("presenceChanged", { userId: session.user.id, status: "online", lastSeen: null });
     } catch {}
     // initial unread counts
     try {
@@ -87,16 +102,14 @@ export class AuthWsController {
       await redisService.set(K.socketUser(ctx.socket.id), user.id, { EX: TTL.presenceOnline });
       try { await redisService.sAdd(K.userSockets(user.id), ctx.socket.id); } catch {}
     } catch { RateLimitedLogger.warn("ws:auth:touchPresence", `Failed to touch presence on login for ${user.id}`); }
-    // Broadcast presenceChanged (online) to friends' sockets only
+    // Broadcast presenceChanged (online) to friends' sockets only (cached + dedup)
     try {
-      const rel = await friendService.listFriendsAndRequests(user.id);
-      const friendIds = (rel || []).filter((r: any) => r && r.status === 'accepted').map((r: any) => String(r.userId));
+      const friendIds = await getFriendIdsCached(user.id, redisService, friendService);
+      const targetSids = new Set<string>();
       for (const fid of friendIds) {
-        try {
-          const sids = await redisService.sMembers(K.userSockets(fid));
-          for (const sid of sids || []) ctx.io.to(sid).emit("presenceChanged", { userId: user.id, status: "online", lastSeen: null });
-        } catch {}
+        try { (await redisService.sMembers(K.userSockets(fid)) || []).forEach((sid) => targetSids.add(String(sid))); } catch {}
       }
+      for (const sid of targetSids) ctx.io.to(sid).emit("presenceChanged", { userId: user.id, status: "online", lastSeen: null });
     } catch {}
 
     return {
@@ -164,16 +177,14 @@ export class AuthWsController {
             const now = Date.now();
             try { await redisService.set(K.lastSeen(uid), String(now)); } catch {}
             try { await redisService.del(K.presence(uid)); } catch {}
-            // Broadcast to friends only
+            // Broadcast to friends only (cached + dedup)
             try {
-              const rel = await friendService.listFriendsAndRequests(uid);
-              const friendIds = (rel || []).filter((r: any) => r && r.status === 'accepted').map((r: any) => String(r.userId));
+              const friendIds = await getFriendIdsCached(uid, redisService, friendService);
+              const targetSids = new Set<string>();
               for (const fid of friendIds) {
-                try {
-                  const sids = await redisService.sMembers(K.userSockets(fid));
-                  for (const sid of sids || []) ctx.io.to(sid).emit("presenceChanged", { userId: uid, status: "offline", lastSeen: now });
-                } catch {}
+                try { (await redisService.sMembers(K.userSockets(fid)) || []).forEach((sid) => targetSids.add(String(sid))); } catch {}
               }
+              for (const sid of targetSids) ctx.io.to(sid).emit("presenceChanged", { userId: uid, status: "offline", lastSeen: now });
             } catch {}
           }
         } catch {}
