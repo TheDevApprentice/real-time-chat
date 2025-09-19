@@ -16,6 +16,7 @@ export interface IRedisService {
   expire(key: string, seconds: number): Promise<boolean>;
   ttl(key: string): Promise<number>;
   incrBy(key: string, by?: number): Promise<number>;
+  setNxExpire(key: string, value: string, exSeconds: number): Promise<boolean>;
 
   // sets
   sAdd(key: string, member: string): Promise<number>;
@@ -25,6 +26,17 @@ export interface IRedisService {
   // sorted sets
   zAdd(key: string, score: number, member: string): Promise<number>;
   zIncrBy(key: string, increment: number, member: string): Promise<number>;
+  zRange(
+    key: string,
+    start: number,
+    stop: number,
+    opts?: { REV?: boolean; WITHSCORES?: boolean }
+  ): Promise<string[] | Array<{ value: string; score: number }>>;
+
+  // hashes
+  hSet(key: string, field: string, value: string): Promise<number>;
+  hIncrBy(key: string, field: string, by: number): Promise<number>;
+  hGetAll(key: string): Promise<Record<string, string>>;
 
   // pub/sub
   publish(channel: string, message: string): Promise<number>;

@@ -4,8 +4,7 @@ import type { FriendDTO, FriendListItemDTO, FriendRequestDTO, FriendRespondDTO }
 
 export class FriendsWsController {
   async friendRequest(ctx: WsContext<FriendRequestDTO>) {
-    const { friendService } = ctx.services;
-    const { redisService } = ctx.services as any;
+    const { friendService, redisService } = ctx.services;
     const requesterId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!requesterId) return { success: false, error: "Not authenticated." };
     const { targetUserId } = (ctx.payload || {}) as any;
@@ -35,8 +34,7 @@ export class FriendsWsController {
   async friendRespond(
     ctx: WsContext<FriendRespondDTO>
   ) {
-    const { friendService } = ctx.services;
-    const { redisService } = ctx.services as any;
+    const { friendService, redisService } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const { otherUserId, action } = (ctx.payload || {}) as any;
@@ -64,8 +62,7 @@ export class FriendsWsController {
   }
 
   async friendList(ctx: WsContext) {
-    const { friendService } = ctx.services;
-    const { redisService } = ctx.services as any;
+    const { friendService, redisService } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const key = `cache:friends:${userId}`;

@@ -12,15 +12,20 @@ import { IRedisService } from "../../domain/interfaces/cacheInterfaces/IRedisSer
 import { createUnitOfWork, UnitOfWorkProvider } from "../../infrastructure/transaction/UnitOfWork";
 import { AttachmentFinalizer } from "../../domain/services/appServices/AttachmentFinalizer";
 import { MessageEffects } from "../../domain/services/appServices/MessageEffects";
+import { IAuthService } from "../../domain/interfaces/dbInterfaces/Iservices/IAuthService";
+import { IFriendsService } from "../../domain/interfaces/dbInterfaces/Iservices/IFriendsService";
+import { IMessageService } from "../../domain/interfaces/dbInterfaces/Iservices/IMessageService";
+import { IRoomService } from "../../domain/interfaces/dbInterfaces/Iservices/IRoomService";
+import { IUserService } from "../../domain/interfaces/dbInterfaces/Iservices/IUserService";
 
 export type Services = {
-  authService: AuthService;
-  userService: UserService;
-  roomService: RoomService;
-  messageService: MessageService;
-  friendService: FriendService;
-  s3Service: IS3Service;
+  authService: IAuthService;
+  friendService: IFriendsService;
+  userService: IUserService;
+  roomService: IRoomService;
+  messageService: IMessageService;
   redisService: IRedisService;
+  s3Service: IS3Service;
   unitOfWork: UnitOfWorkProvider;
   attachmentFinalizer: AttachmentFinalizer;
   messageEffects: MessageEffects;

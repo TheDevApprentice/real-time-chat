@@ -1,9 +1,13 @@
 import { Server as SocketServer, Socket } from "socket.io";
-import { AuthService, FriendService, UserService, RoomService, MessageService } from "../../../../domain/services";
 import { AttachmentFinalizer } from "../../../../domain/services/appServices/AttachmentFinalizer";
 import { MessageEffects } from "../../../../domain/services/appServices/MessageEffects";
 import { IRedisService } from "../../../../domain/interfaces/cacheInterfaces/IRedisService";
 import { IS3Service } from "../../../../domain/interfaces/storageInterface/IS3Service";
+import { IRoomService } from "../../../../domain/interfaces/dbInterfaces/Iservices/IRoomService";
+import { IUserService } from "../../../../domain/interfaces/dbInterfaces/Iservices/IUserService";
+import { IFriendsService } from "../../../../domain/interfaces/dbInterfaces/Iservices/IFriendsService";
+import { IMessageService } from "../../../../domain/interfaces/dbInterfaces/Iservices/IMessageService";
+import { IAuthService } from "../../../../domain/interfaces/dbInterfaces/Iservices/IAuthService";
 
 export interface WsEnv {
   FRONTEND_URL?: string;
@@ -11,11 +15,11 @@ export interface WsEnv {
 }
 
 export interface WsServices {
-  authService: AuthService;
-  friendService: FriendService;
-  userService: UserService;
-  roomService: RoomService;
-  messageService: MessageService;
+  authService: IAuthService;
+  friendService: IFriendsService;
+  userService: IUserService;
+  roomService: IRoomService;
+  messageService: IMessageService;
   redisService: IRedisService;
   s3Service: IS3Service;
   attachmentFinalizer: AttachmentFinalizer;

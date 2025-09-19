@@ -8,7 +8,7 @@ export function rateLimitRedisWSMiddleware<T = any>(options: { key: (ctx: WsCont
   return (next) => async (ctx: WsContext<T>) => {
     try {
       const k = key(ctx);
-      const { redisService } = ctx.services as any;
+      const { redisService } = ctx.services;
       const n = await incrWithTtl(redisService, k, windowSec, 1);
       if (n > limit) {
         return { success: false, error: "Rate limit exceeded." } as any;

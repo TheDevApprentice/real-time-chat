@@ -9,8 +9,7 @@ export class MessagesWsController {
   async sendMessageToRoom(
     ctx: WsContext<CreateMessageDTO & { timestamp?: number; attachments?: string[] }>
   ) {
-    const { userService, messageService, roomService } = ctx.services;
-    const { redisService, attachmentFinalizer, messageEffects } = ctx.services as any;
+    const { userService, messageService, roomService, redisService, attachmentFinalizer, messageEffects } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId)
       return { error: "Vous devez être connecté pour envoyer un message." };
@@ -101,8 +100,7 @@ export class MessagesWsController {
   async messageDelivered(
     ctx: WsContext<MessageDeliveryReceiptDTO & { timestamp?: number }>
   ) {
-    const { messageService, roomService } = ctx.services;
-    const { redisService, messageEffects } = ctx.services as any;
+    const { messageService, roomService, messageEffects } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const { messageId, roomId, timestamp } = (ctx.payload || {}) as any;
@@ -141,8 +139,7 @@ export class MessagesWsController {
   async messageRead(
     ctx: WsContext<MessageReadReceiptDTO & { timestamp?: number }>
   ) {
-    const {   messageService, roomService } = ctx.services;
-    const { redisService, messageEffects } = ctx.services as any;
+    const { messageService, roomService, redisService} = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const { messageId, roomId, timestamp } = (ctx.payload || {}) as any;
@@ -191,7 +188,7 @@ export class MessagesWsController {
   async messageEdit(
     ctx: WsContext<EditMessageDTO>
   ) {
-    const { messageService, roomService, redisService } = ctx.services as any;
+    const { messageService, roomService, redisService } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const { roomId, messageId, newContent } = (ctx.payload || {}) as any;
@@ -221,7 +218,7 @@ export class MessagesWsController {
   async messageDelete(
     ctx: WsContext<DeleteMessageDTO>
   ) {
-    const { messageService, roomService, redisService } = ctx.services as any;
+    const { messageService, roomService, redisService } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const { roomId, messageId } = (ctx.payload || {}) as any;
@@ -231,7 +228,7 @@ export class MessagesWsController {
     // Author or room owner can delete
     let allowed = orig.author?.id === userId;
     if (!allowed) {
-      try { const room = await roomService.getRoomById(roomId); allowed = room && room.creatorId === userId; } catch {}
+      try { const room = await roomService.getRoomById(roomId); allowed = !!room && room.creatorId === userId; } catch {}
     }
     if (!allowed) return { success: false, error: 'Not allowed' };
     // Snapshot for undo (per user)
@@ -253,7 +250,7 @@ export class MessagesWsController {
   async messageUndo(
     ctx: WsContext<DeleteMessageDTO>
   ) {
-    const { messageService, redisService } = ctx.services as any;
+    const { messageService, redisService } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const { roomId, messageId } = (ctx.payload || {}) as any;
@@ -271,7 +268,7 @@ export class MessagesWsController {
   async getUndoTTL(
     ctx: WsContext<DeleteMessageDTO>
   ) {
-    const { redisService } = ctx.services as any;
+    const { redisService } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const { roomId, messageId } = (ctx.payload || {}) as any;

@@ -22,7 +22,7 @@ export function bruteForceRedisWSMiddleware<T = any>(options: {
     const blockedKeyKey = K.bfBlockedKey(action, keyVal);
 
     try {
-      const { redisService } = ctx.services as any;
+      const { redisService } = ctx.services;
       const blocked = (await redisService.exists(blockedIpKey)) || (await redisService.exists(blockedKeyKey));
       if (blocked) {
         return { success: false, error: "Too many attempts. Try again later." } as any;
@@ -47,7 +47,7 @@ export function bruteForceRedisWSMiddleware<T = any>(options: {
       } else {
         // On success, clear attempt counters
         try {
-          await (ctx.services as any).redisService.del([K.bfAttemptsIp(ip), K.bfAttemptsKey(action, keyVal)]);
+          await (ctx.services).redisService.del([K.bfAttemptsIp(ip), K.bfAttemptsKey(action, keyVal)]);
         } catch {}
       }
       return result;
