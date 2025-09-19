@@ -21,6 +21,7 @@ export class AuthWsController {
     }
     ctx.socket.data.userId = session.user.id;
     ctx.socket.data.user = session.user;
+    // Touch presence immediately (in case presence interval hasn't started yet)
     try {
       const { redisService } = ctx.services;
       await redisService.set(`presence:user:${session.user.id}`, "online", { EX: TTL.presenceOnline });
