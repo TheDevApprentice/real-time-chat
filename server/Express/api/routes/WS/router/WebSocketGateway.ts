@@ -482,8 +482,8 @@ export class WebSocketGateway {
 
       const touchPresence = async (uid: string) => {
         try {
-          await redisService.set(`presence:user:${uid}`, "online", { EX: 120 });
-          await redisService.set(`socket:user:${socket.id}`, uid, { EX: 120 });
+          await redisService.set(K.presence(uid), "online", { EX: TTL.presenceOnline });
+          await redisService.set(K.socketUser(socket.id), uid, { EX: TTL.presenceOnline });
         } catch { RateLimitedLogger.warn("ws:presence:touch", `Failed to update presence for ${uid}:${socket.id}`); }
       };
 
@@ -514,7 +514,7 @@ export class WebSocketGateway {
         const uid = (socket.data as any)?.userId as string | undefined;
         if (uid) {
           try {
-            await redisService.del(`socket:user:${socket.id}`);
+            await redisService.del(K.socketUser(socket.id));
             try { await redisService.sRem(K.userSockets(uid), socket.id); } catch {}
             // presence key will expire by itself shortly
             // If this was the last socket for this user, set last seen now and clear presence immediately
@@ -522,10 +522,19 @@ export class WebSocketGateway {
               const devs = await redisService.sMembers(K.userSockets(uid));
               if (!devs || devs.length === 0) {
                 const now = Date.now();
-                try { await redisService.set(`lastseen:user:${uid}`, String(now)); } catch { RateLimitedLogger.warn("ws:disconnect:lastseen", `Failed to set lastseen for ${uid}`); }
-                try { await redisService.del(`presence:user:${uid}`); } catch { RateLimitedLogger.warn("ws:disconnect:presenceDel", `Failed to delete presence for ${uid}`); }
-                // Broadcast presenceChanged (offline)
-                try { this.io.emit("presenceChanged", { userId: uid, status: "offline", lastSeen: now }); } catch {}
+                try { await redisService.set(K.lastSeen(uid), String(now)); } catch { RateLimitedLogger.warn("ws:disconnect:lastseen", `Failed to set lastseen for ${uid}`); }
+                try { await redisService.del(K.presence(uid)); } catch { RateLimitedLogger.warn("ws:disconnect:presenceDel", `Failed to delete presence for ${uid}`); }
+                // Broadcast presenceChanged (offline) ONLY to friends' sockets
+                try {
+                  const rel = await services.friendService.listFriendsAndRequests(uid);
+                  const friendIds = (rel || []).filter((r: any) => r && r.status === 'accepted').map((r: any) => String(r.userId));
+                  for (const fid of friendIds) {
+                    try {
+                      const sids = await redisService.sMembers(K.userSockets(fid));
+                      for (const sid of sids || []) this.io.to(sid).emit("presenceChanged", { userId: uid, status: "offline", lastSeen: now });
+                    } catch {}
+                  }
+                } catch {}
               }
             } catch { RateLimitedLogger.warn("ws:disconnect:userSockets", `Failed to inspect userSockets for ${uid}`); }
           } catch { RateLimitedLogger.warn("ws:disconnect:presence", `Failed to update presence for ${uid}:${socket.id}`); }

@@ -11,7 +11,7 @@ import { K, TTL } from "../../../cache/cacheKeys";
 export class AuthWsController {
   // authenticate via token (auto-login)
   async authenticate(ctx: WsContext<{ token: string }>) {
-    const { authService, messageService } = ctx.services;
+    const { authService, messageService, friendService, redisService } = ctx.services;
     const { token } = ctx.payload!;
     Logger.info("Authenticating via token");
     Logger.infoObj("token", token);
@@ -23,13 +23,21 @@ export class AuthWsController {
     ctx.socket.data.user = session.user;
     // Touch presence immediately (in case presence interval hasn't started yet)
     try {
-      const { redisService } = ctx.services;
-      await redisService.set(`presence:user:${session.user.id}`, "online", { EX: TTL.presenceOnline });
-      await redisService.set(`socket:user:${ctx.socket.id}`, session.user.id, { EX: TTL.presenceOnline });
+      await redisService.set(K.presence(session.user.id), "online", { EX: TTL.presenceOnline });
+      await redisService.set(K.socketUser(ctx.socket.id), session.user.id, { EX: TTL.presenceOnline });
       try { await redisService.sAdd(K.userSockets(session.user.id), ctx.socket.id); } catch {}
     } catch { RateLimitedLogger.warn("ws:auth:touchPresence", `Failed to touch presence on authenticate for ${session.user.id}`); }
-    // Broadcast presenceChanged (online)
-    try { ctx.io.emit("presenceChanged", { userId: session.user.id, status: "online", lastSeen: null }); } catch {}
+    // Broadcast presenceChanged (online) to friends' sockets only
+    try {
+      const rel = await friendService.listFriendsAndRequests(session.user.id);
+      const friendIds = (rel || []).filter((r: any) => r && r.status === 'accepted').map((r: any) => String(r.userId));
+      for (const fid of friendIds) {
+        try {
+          const sids = await redisService.sMembers(K.userSockets(fid));
+          for (const sid of sids || []) ctx.io.to(sid).emit("presenceChanged", { userId: session.user.id, status: "online", lastSeen: null });
+        } catch {}
+      }
+    } catch {}
     // initial unread counts
     try {
       const counts = await messageService.getUnreadCountsForUser(session.user.id);
@@ -43,7 +51,7 @@ export class AuthWsController {
 
   // login
   async login(ctx: WsContext<LoginRequestDTO>) {
-    const { userService, authService } = ctx.services;
+    const { userService, authService, friendService, redisService } = ctx.services;
     const { username, password } = ctx.payload!;
 
     const users = await userService.getUsers();
@@ -75,13 +83,21 @@ export class AuthWsController {
     await authService.addUserSession(session);
     // Touch presence immediately
     try {
-      const { redisService } = ctx.services;
-      await redisService.set(`presence:user:${user.id}`, "online", { EX: TTL.presenceOnline });
-      await redisService.set(`socket:user:${ctx.socket.id}`, user.id, { EX: TTL.presenceOnline });
+      await redisService.set(K.presence(user.id), "online", { EX: TTL.presenceOnline });
+      await redisService.set(K.socketUser(ctx.socket.id), user.id, { EX: TTL.presenceOnline });
       try { await redisService.sAdd(K.userSockets(user.id), ctx.socket.id); } catch {}
     } catch { RateLimitedLogger.warn("ws:auth:touchPresence", `Failed to touch presence on login for ${user.id}`); }
-    // Broadcast presenceChanged (online)
-    try { ctx.io.emit("presenceChanged", { userId: user.id, status: "online", lastSeen: null }); } catch {}
+    // Broadcast presenceChanged (online) to friends' sockets only
+    try {
+      const rel = await friendService.listFriendsAndRequests(user.id);
+      const friendIds = (rel || []).filter((r: any) => r && r.status === 'accepted').map((r: any) => String(r.userId));
+      for (const fid of friendIds) {
+        try {
+          const sids = await redisService.sMembers(K.userSockets(fid));
+          for (const sid of sids || []) ctx.io.to(sid).emit("presenceChanged", { userId: user.id, status: "online", lastSeen: null });
+        } catch {}
+      }
+    } catch {}
 
     return {
       user: mapUserToDTO(user),
@@ -94,7 +110,7 @@ export class AuthWsController {
 
   // refresh token
   async refreshToken(ctx: WsContext<RefreshTokenRequestDTO>) {
-    const { authService } = ctx.services;
+    const { authService, friendService, redisService } = ctx.services;
     const { refreshToken } = ctx.payload!;
     const session = await authService.getUserSessionByRefreshToken(refreshToken);
     if (!session) return { error: "Invalid refresh token." };
@@ -133,23 +149,32 @@ export class AuthWsController {
   async logout(ctx: WsContext<{ token: string }>) {
     Logger.info("Logout requested");
     // Logger.infoObj("token", ctx.payload?.token);
-    const { authService } = ctx.services;
+    const { authService, friendService, redisService } = ctx.services;
     const { token } = ctx.payload!;
     await authService.deleteUserSession(token);
     // Handle presence cleanup BEFORE clearing userId so disconnect flow has the right uid
     try {
       const uid = (ctx.socket.data as any)?.userId as string | undefined;
       if (uid) {
-        const { redisService } = ctx.services;
-        try { await redisService.del(`socket:user:${ctx.socket.id}`); } catch {}
+        try { await redisService.del(K.socketUser(ctx.socket.id)); } catch {}
         try { await redisService.sRem(K.userSockets(uid), ctx.socket.id); } catch {}
         try {
           const devs = await redisService.sMembers(K.userSockets(uid));
           if (!devs || devs.length === 0) {
             const now = Date.now();
-            try { await redisService.set(`lastseen:user:${uid}`, String(now)); } catch {}
-            try { await redisService.del(`presence:user:${uid}`); } catch {}
-            try { ctx.io.emit("presenceChanged", { userId: uid, status: "offline", lastSeen: now }); } catch {}
+            try { await redisService.set(K.lastSeen(uid), String(now)); } catch {}
+            try { await redisService.del(K.presence(uid)); } catch {}
+            // Broadcast to friends only
+            try {
+              const rel = await friendService.listFriendsAndRequests(uid);
+              const friendIds = (rel || []).filter((r: any) => r && r.status === 'accepted').map((r: any) => String(r.userId));
+              for (const fid of friendIds) {
+                try {
+                  const sids = await redisService.sMembers(K.userSockets(fid));
+                  for (const sid of sids || []) ctx.io.to(sid).emit("presenceChanged", { userId: uid, status: "offline", lastSeen: now });
+                } catch {}
+              }
+            } catch {}
           }
         } catch {}
       }
