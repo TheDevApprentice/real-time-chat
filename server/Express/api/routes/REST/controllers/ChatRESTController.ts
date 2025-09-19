@@ -36,7 +36,7 @@ router.post(
   validateRESTMiddlewareParams(MessageIdParamsSchema),
   validateRESTMiddlewareBody(MessageUndoBodySchema),
   asyncHandlerRESTMiddleware(async (req: AuthenticatedRequest, res: Response) => {
-    const { messageService, redisService } = getServices() as any;
+    const { messageService, redisService } = getServices();
     const me = (req as any).user as { id: string } | undefined;
     if (!me?.id) return res.status(401).json({ error: "Not authenticated" });
     const messageId = (req as any).validated.params.messageId as number;
@@ -68,7 +68,7 @@ router.patch(
   validateRESTMiddlewareParams(MessageIdParamsSchema),
   validateRESTMiddlewareBody(MessageEditBodySchema),
   asyncHandlerRESTMiddleware(async (req: AuthenticatedRequest, res: Response) => {
-    const { messageService, roomService } = getServices() as any;
+    const { messageService, roomService } = getServices();
     const me = (req as any).user as { id: string } | undefined;
     if (!me?.id) return res.status(401).json({ error: "Not authenticated" });
     const messageId = (req as any).validated.params.messageId as number;
@@ -95,7 +95,7 @@ router.delete(
   validateRESTMiddlewareParams(MessageIdParamsSchema),
   validateRESTMiddlewareBody(MessageDeleteBodySchema),
   asyncHandlerRESTMiddleware(async (req: AuthenticatedRequest, res: Response) => {
-    const { messageService, roomService } = getServices() as any;
+    const { messageService, roomService } = getServices();
     const me = (req as any).user as { id: string } | undefined;
     if (!me?.id) return res.status(401).json({ error: "Not authenticated" });
     const messageId = (req as any).validated.params.messageId as number;
@@ -104,7 +104,7 @@ router.delete(
     if (!orig) return res.status(404).json({ error: "Message not found" });
     let allowed = orig.author?.id === me.id;
     if (!allowed) {
-      try { const room = await roomService.getRoomById(roomId); allowed = room && room.creatorId === me.id; } catch {}
+      try { const room = await roomService.getRoomById(roomId); allowed = !!room && room.creatorId === me.id; } catch {}
     }
     if (!allowed) return res.status(403).json({ error: "Not allowed" });
     await messageService.softDeleteMessage(messageId);
@@ -141,7 +141,7 @@ router.get(
     res: Response
   ) => {
     const { q, limit } = (req.validated!.query as any)!;
-    const { userService, redisService } = getServices() as any;
+    const { userService, redisService } = getServices();
     const me = (req as any).user as { id: string } | undefined;
     const userId = me?.id || "anonymous";
 
@@ -212,7 +212,7 @@ router.post(
   }),
   validateRESTMiddlewareBody(InviteCreateBodySchema),
   asyncHandlerRESTMiddleware(async (req: RequestWithValidated<{ roomId: string; invitedUserId?: string; role?: string }>, res: Response) => {
-    const { redisService, roomService } = getServices() as any;
+    const { redisService, roomService } = getServices();
     const { roomId, invitedUserId, role } = (req.validated!.body as any);
     const me = (req as any).user as { id: string } | undefined;
     if (!me?.id) return res.status(401).json({ error: "Not authenticated" });
@@ -244,7 +244,7 @@ router.get(
     maxAttempts: 120,
   }),
   asyncHandlerRESTMiddleware(async (req: AuthenticatedRequest, res: Response) => {
-    const { redisService, roomService } = getServices() as any;
+    const { redisService, roomService } = getServices();
     const token = String(req.params.token || "");
     if (!token) return res.status(400).json({ error: "Missing token" });
     const me = (req as any).user as { id: string } | undefined;

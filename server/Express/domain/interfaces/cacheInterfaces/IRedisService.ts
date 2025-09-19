@@ -11,6 +11,8 @@ export interface IRedisService {
     options?: { EX?: number; PX?: number }
   ): Promise<void>;
   del(key: string | string[]): Promise<number>;
+  exists(key: string | string[]): Promise<number>;
+  getDel(key: string): Promise<string | null>;
 
   // ttl & counters
   expire(key: string, seconds: number): Promise<boolean>;

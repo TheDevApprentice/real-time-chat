@@ -16,7 +16,7 @@ export function bruteForceRedisRESTMiddleware(options: {
 
   return async function (req: Request, res: Response, next: NextFunction) {
     try {
-      const { redisService } = getServices() as any;
+      const { redisService } = getServices();
       const ip = (req.ip || "unknown").toString();
       const keyVal = (keyFrom(req) || "unknown").toString();
       const blockedIpKey = K.bfBlockedIp(ip);

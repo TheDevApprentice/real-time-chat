@@ -4,7 +4,6 @@ import { Router, Request, Response } from "express";
 import { User } from "../../../../domain/entities/User";
 import { mapUserToDTO } from "../../../../domain/dto";
 import { getServices } from "../../../di/container";
-
 import { bruteForceRedisRESTMiddleware } from "../middleware/bruteForceRedisRESTMiddleware";
 import { rateLimitRedisRESTMiddleware } from "../middleware/rateLimitRedisRESTMiddleware";
 import { TTL } from "../../../cache/cacheKeys";

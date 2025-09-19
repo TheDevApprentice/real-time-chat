@@ -124,6 +124,11 @@ export class RedisService implements IRedisService {
     return await this.ensure().del(key);
   }
 
+  async exists(key: string | string[]): Promise<number> {
+    if (Array.isArray(key)) return await (this.ensure() as any).exists(...key);
+    return await (this.ensure() as any).exists(key);
+  }
+
   async expire(key: string, seconds: number): Promise<boolean> {
     const res = await this.ensure().expire(key, seconds);
     return res === 1;
