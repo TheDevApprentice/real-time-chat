@@ -49,8 +49,8 @@
  
  - messages
    - id: bigint/integer (PK, autoincrement)
-   - authorId: string (optional)
-   - authorName: string (optional, legacy denormalized)
+   - authorId: string
+   - authorName: string
    - content: text
    - timestamp: integer (ms epoch)
    - roomId: string (FK → rooms.id, NOT NULL)
@@ -125,63 +125,70 @@ Source of truth for entities: `domain/entities/*` and DTO mappers in `domain/dto
  - Friendships
    - `friends` rows model an undirected relation between two users (`userA`, `userB`) plus status and requester; a UNIQUE constraint prevents duplicates.
  
- ```mermaid
- erDiagram
-   USERS ||--o{ USER_SESSIONS : has
-   USERS ||--o{ USER_ROOMS : is_member
-   ROOMS ||--o{ USER_ROOMS : has_members
-   ROOMS ||--o{ MESSAGES : contains
-   USERS ||--o{ FRIENDS : participates
- 
-   USERS {
-     string id PK
-     string name
-     string password
-   }
-   ROOMS {
-     string id PK
-     string name
-     string creatorId
-     bigint createdAt
-     string type
-     boolean isPublic
-   }
-   USER_ROOMS {
-     string userId PK,FK
-     string roomId PK,FK
-   }
-   MESSAGES {
-     bigint id PK
-     string authorId
-     string authorName
-     text content
-     bigint timestamp
-     string roomId FK
-     string status
-     bigint sentAt
-     bigint deliveredAt
-     bigint readAt
-   }
-   USER_SESSIONS {
-     string id PK
-     string userId FK
-     string token
-     bigint createdAt
-     bigint expiresAt
-     string refreshToken
-     bigint refreshTokenExpiresAt
-   }
-   FRIENDS {
-     string id PK
-     string userA FK
-     string userB FK
-     string status
-     string requesterId FK
-     bigint createdAt
-     bigint updatedAt
-   }
- ```
- 
+```mermaid
+erDiagram
+  users ||--o{ rooms : creates
+  users ||--o{ user_rooms : member
+  users ||--o{ user_sessions : has
+  users ||--o{ messages : authors
+  users ||--o{ friends : userA
+  users ||--o{ friends : userB
+  rooms ||--o{ user_rooms : has_members
+  rooms ||--o{ messages : contains
+  
+  users {
+    string id PK
+    string name
+    string password
+  }
+
+  rooms {
+    string id PK
+    string name
+    string creatorId FK
+    bigint createdAt
+    string type
+    boolean isPublic
+  }
+
+  user_rooms {
+    string userId FK 
+    string roomId FK
+  }
+
+  messages {
+    int id PK
+    string authorId
+    string authorName
+    string content
+    bigint timestamp
+    string roomId FK
+    string status
+    bigint sentAt
+    bigint deliveredAt
+    bigint readAt
+  }
+
+  user_sessions {
+    string id PK
+    string userId FK
+    string token
+    bigint createdAt
+    bigint expiresAt
+    string refreshToken
+    bigint refreshTokenExpiresAt
+  }
+
+  friends {
+    string id PK
+    string userA FK
+    string userB FK
+    string status
+    string requesterId
+    bigint createdAt
+    bigint updatedAt
+  }
+```
  ---
  
  ## Creation order and idempotency
