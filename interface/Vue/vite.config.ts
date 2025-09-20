@@ -173,7 +173,7 @@ export default defineConfig(({ mode }) => ({
       "localhost",
       "127.0.0.1",
       "0.0.0.0",
-      "8a1d4529a9e9.ngrok-free.app",
+      "20a6278382a8.ngrok-free.app",
     ],
     cors: true,
     strictPort: false,

@@ -1,0 +1,62 @@
+erDiagram
+  users ||--o{ rooms : creates
+  users ||--o{ user_rooms : member
+  users ||--o{ user_sessions : has
+  users ||--o{ messages : authors
+  users ||--o{ friends : userA
+  users ||--o{ friends : userB
+  rooms ||--o{ user_rooms : has_members
+  rooms ||--o{ messages : contains
+  
+  users {
+    string id PK
+    string name
+    string password
+  }
+
+  rooms {
+    string id PK
+    string name
+    string creatorId FK
+    bigint createdAt
+    string type
+    boolean isPublic
+  }
+
+  user_rooms {
+    string userId FK 
+    string roomId FK
+  }
+
+  messages {
+    int id PK
+    string authorId
+    string authorName
+    string content
+    bigint timestamp
+    string roomId FK
+    string status
+    bigint sentAt
+    bigint deliveredAt
+    bigint readAt
+  }
+
+  user_sessions {
+    string id PK
+    string userId FK
+    string token
+    bigint createdAt
+    bigint expiresAt
+    string refreshToken
+    bigint refreshTokenExpiresAt
+  }
+
+  friends {
+    string id PK
+    string userA FK
+    string userB FK
+    string status
+    string requesterId
+    bigint createdAt
+    bigint updatedAt
+  }

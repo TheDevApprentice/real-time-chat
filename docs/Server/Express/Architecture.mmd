@@ -1,0 +1,113 @@
+flowchart TB
+  subgraph Server["Express Server (scaled)"]
+    direction TB
+
+    subgraph Client["Client"]
+      direction TB
+      Browser["Browser (Vue App)"]
+      SocketClient["Socket.IO Client"]
+    end
+
+    subgraph API["API (HTTP & WS)"]
+      direction TB
+      E["Enter"]
+      subgraph Concerns["Concerns"]
+        CACHEK["Cache Keys (Redis)"]
+        DI["Dependencies Injection"]
+      end
+      subgraph Middlewares["Middlewares"]
+        CSRFN["CSRF"]
+        CORSN["CORS"]
+        AUTH["Authentication"]
+        BRFR["Brute force"]
+        ERR["Error handling"]
+        VAL["Validation"]
+        RATES["RateLimits"]
+      end
+      subgraph Controllers["controllers (HTTP & WS)"]
+        direction TB
+        J["JSON"]
+
+        REST["REST Controllers"]
+        WS["WebSocket Gateway & Router"]
+      end
+
+    end
+
+    subgraph Domain["Domain (Business)"]
+      direction TB
+
+      subgraph Entities["Entities"]
+        direction TB
+        ENT["Entities"]
+        subgraph Mappers["Mappers"]
+          direction TB
+          DTO["DTO Mappers"]
+        end
+      end
+
+      subgraph Services["Services / Use-Cases"]
+        direction TB
+        SRV["Services / Use-Cases"]
+        REDIS["Redis Service"]
+        S3["S3/MinIO Service"]
+      end
+
+      subgraph Ports["Ports (Interfaces)"]
+        direction TB
+        IF["Ports (Interfaces)"]
+      end
+    end
+
+    subgraph Infra["Infrastructure (Adapters)"]
+      direction TB
+      DBRepos["SQL Repositories (Adapters)"]
+      SQL["SQL Helpers / Executor"]
+      UOW["Unit of Work / Transactions"]
+      MIGR["Schema Init (DDL)"]
+      POOL["Connection Pooling / Drivers"]
+      HEALTH["Health Checks / Heartbeat"]
+    end
+  end
+
+  subgraph Data["External Stateful Systems"]
+    direction TB
+    RDS[("Redis")]
+    DB[("MariaDB Galera via ProxySQL")]
+    MINIO[("MinIO S3")]
+  end
+
+  REST -->|invokes| SRV
+  WS -->|emits/handles| SRV
+  SRV -->|returns entities| ENT
+  ENT -->|map to DTOs| DTO
+  DTO --> J(( JSON ))
+  J -->|serialize response| REST
+  J -->|serialize response| WS
+  Browser -->|deserialize response| E(( Enter ))
+  SocketClient -->|deserialize response| E(( Enter ))
+  E(( Enter )) -.-> Middlewares
+  Middlewares -.-> Controllers
+  Middlewares -->|invokes| SRV
+  SRV -->|ports| Ports
+  Ports -->|implemented by| DBRepos
+  IF -->|implemented by| REDIS --> RDS
+  IF -->|implemented by| S3 --> MINIO
+  DBRepos --> SQL --> DB
+  SQL --> UOW
+  DBRepos -.uses .-> ENT
+  MIGR -.bootstraps .-> DB
+  SQL --> POOL
+  POOL -.monitors .-> HEALTH
+  HEALTH -.checks .-> DB
+
+  %% Visual styles (dark-friendly)
+  classDef comp fill:#1f2d3d,stroke:#7aa2f7,stroke-width:1px,color:#e6edf3
+  classDef state fill:#0b3d2e,stroke:#2ecc71,stroke-width:1px,color:#e6edf3
+  classDef dom fill:#3b2f1f,stroke:#f4a261,stroke-width:1px,color:#e6edf3
+  classDef adp fill:#22262e,stroke:#9aa5b1,stroke-width:1px,color:#e6edf3
+
+  class Server,API,Domain,Infra comp
+  class Data,RDS,DB,MINIO state
+  class ENT,SRV,IF,REDIS,S3 dom
+  class DBRepos,SQL,MIGR,UOW,POOL,HEALTH adp

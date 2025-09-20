@@ -1,0 +1,86 @@
+import { WsContext } from "../router/WsContext";
+import { K } from "../../../cache/cacheKeys";
+import type { FriendDTO, FriendListItemDTO, FriendRequestDTO, FriendRespondDTO } from "../../../../domain/dto";
+import { RateLimitedLogger } from "../../../../utils/RateLimitedLogger";
+
+export class FriendsWsController {
+  async friendRequest(ctx: WsContext<FriendRequestDTO>) {
+    const { friendService, redisService } = ctx.services;
+    const requesterId = (ctx.socket.data as any)?.userId as string | undefined;
+    if (!requesterId) return { success: false, error: "Not authenticated." };
+    const { targetUserId } = (ctx.payload || {}) as any;
+    if (!targetUserId || targetUserId === requesterId) {
+      return { success: false, error: "Invalid targetUserId." };
+    }
+    const fr = await friendService.createFriendRequest(requesterId, targetUserId);
+
+    // Invalidate both users' friends cache
+    try {
+      await (redisService?.del?.([
+        `cache:friends:${requesterId}`,
+        `cache:friends:${targetUserId}`,
+      ]) ?? Promise.resolve(0));
+    } catch { RateLimitedLogger.warn("ws:friends:invalidate", `Failed to invalidate friends cache for ${requesterId} or ${targetUserId}`); }
+
+    // Notify target user's sockets
+    const sockets = await ctx.io.fetchSockets();
+    for (const s of sockets) {
+      if ((s.data as any)?.userId === targetUserId) {
+        s.emit("friendUpdated", { type: "request", data: fr as FriendDTO });
+      }
+    }
+    return { success: true, request: fr as FriendDTO };
+  }
+
+  async friendRespond(
+    ctx: WsContext<FriendRespondDTO>
+  ) {
+    const { friendService, redisService } = ctx.services;
+    const userId = (ctx.socket.data as any)?.userId as string | undefined;
+    if (!userId) return { success: false, error: "Not authenticated." };
+    const { otherUserId, action } = (ctx.payload || {}) as any;
+    if (!otherUserId || (action !== "accept" && action !== "reject")) {
+      return { success: false, error: "Invalid payload." };
+    }
+    const res = await friendService.respondFriendRequest(userId, otherUserId, action);
+
+    // Invalidate both users' friends cache
+    try {
+      await (redisService?.del?.([
+        `cache:friends:${userId}`,
+        `cache:friends:${otherUserId}`,
+      ]) ?? Promise.resolve(0));
+    } catch { RateLimitedLogger.warn("ws:friends:invalidate", `Failed to invalidate friends cache for ${userId} or ${otherUserId}`); }
+
+    const sockets = await ctx.io.fetchSockets();
+    for (const s of sockets) {
+      const uid = (s.data as any)?.userId as string | undefined;
+      if (uid === userId || uid === otherUserId) {
+        s.emit("friendUpdated", { type: "respond", data: res as FriendDTO, action });
+      }
+    }
+    return { success: true, result: res as FriendDTO };
+  }
+
+  async friendList(ctx: WsContext) {
+    const { friendService, redisService } = ctx.services;
+    const userId = (ctx.socket.data as any)?.userId as string | undefined;
+    if (!userId) return { success: false, error: "Not authenticated." };
+    const key = `cache:friends:${userId}`;
+    try {
+      const cached = await redisService?.get?.(key);
+      if (cached) {
+        const items = JSON.parse(cached) as FriendListItemDTO[];
+        try { await redisService.incrBy(K.statsHit('friendsList')); } catch {}
+        return { success: true, items };
+      } else {
+        try { await redisService.incrBy(K.statsMiss('friendsList')); } catch {}
+      }
+    } catch { RateLimitedLogger.warn("ws:friends:getCache", `Failed to read friends cache for ${userId}`); }
+    const list = await friendService.listFriendsAndRequests(userId);
+    try {
+      await redisService?.set?.(key, JSON.stringify(list), { EX: 300 });
+    } catch { RateLimitedLogger.warn("ws:friends:setCache", `Failed to set friends cache for ${userId}`); }
+    return { success: true, items: list as FriendListItemDTO[] };
+  }
+}

@@ -1,0 +1,70 @@
+
+erDiagram
+
+  %% Relationships (cardinality from schema + domain semantics)
+  USERS ||--o{ ROOMS : creates
+  USERS ||--o{ USER_ROOMS : member
+  ROOMS ||--o{ USER_ROOMS : has_members
+  ROOMS ||--o{ MESSAGES : contains
+  USERS ||--o{ USER_SESSIONS : has
+
+  %% The messages.authorId is not enforced as FK in schema but is a logical link
+  USERS ||--o{ MESSAGES : authors
+
+  %% Self-referential friendship via two FKs to users
+  USERS ||--o{ FRIENDS : userA
+  USERS ||--o{ FRIENDS : userB
+  %% Core entities
+  USERS {
+    string id PK
+    string name
+    string password
+  }
+
+  ROOMS {
+    string id PK
+    string name
+    string creatorId FK
+    bigint createdAt
+    string type "room|user"
+    boolean isPublic
+  }
+
+  USER_ROOMS {
+    string userId FK
+    string roomId FK
+  }
+
+  MESSAGES {
+    int id PK
+    string authorId "(logical)"
+    string authorName
+    text content
+    bigint timestamp
+    string roomId FK
+    string status "sent|delivered|read"
+    bigint sentAt
+    bigint deliveredAt
+    bigint readAt
+  }
+
+  USER_SESSIONS {
+    string id PK
+    string userId FK
+    string token UNIQUE
+    bigint createdAt
+    bigint expiresAt
+    string refreshToken UNIQUE
+    bigint refreshTokenExpiresAt
+  }
+
+  FRIENDS {
+    string id PK
+    string userA FK
+    string userB FK
+    string status "pending|accepted"
+    string requesterId
+    bigint createdAt
+    bigint updatedAt
+    UNIQUE userA_userB
+  }
