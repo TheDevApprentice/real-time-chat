@@ -27,20 +27,32 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       # - traefik_data:/letsencrypt
-    depends_on:
-      proxysql:
-        condition: service_healthy
-      mariadb_galera1:
-        condition: service_healthy
-      mariadb_galera2:
-        condition: service_healthy
-      mariadb_galera3:
-        condition: service_healthy
-      mariadb_backup:
-        condition: service_healthy
     networks:
       - proxy
     restart: unless-stopped
+
+  interface:
+    build:
+      context: ./interface/Vue
+      dockerfile: Dockerfile
+    image: realtime-chat-interface:latest
+    # Direct host port exposure is not required when using Traefik's load balancer and prevents scaling.
+    # Keep previous mapping commented for reference:
+    # ports:
+    #   - "80:80"      # previous (single-instance) direct exposure via host port
+    #   - "5173:5173"  # previous dev-mode (Vite) exposure when running dev server
+    networks:
+      - proxy
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      # Route all paths to the Vue interface (served by nginx inside the container on port 80)
+      - "traefik.http.routers.chat.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.chat.entrypoints=web"
+      - "traefik.http.routers.chat.priority=1"
+      - "traefik.http.routers.chat.service=chat"
+      - "traefik.http.services.chat.loadbalancer.server.port=80"
+      - "traefik.docker.network=proxy"
 
   server:
     build:
@@ -103,39 +115,32 @@ services:
       - cachenet
       - stornet
     depends_on:
-      traefik:
-        condition: service_started
-      mariadb_galera1:
-        condition: service_healthy
-      mariadb_galera2:
-        condition: service_healthy
-      mariadb_galera3:
-        condition: service_healthy
-      maxscale:
-        condition: service_healthy
       mariadb_backup:
-        condition: service_healthy
-      proxysql:
         condition: service_healthy
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
       # Route all paths to this server on entrypoint web (dev + ngrok friendly)
-      - "traefik.http.routers.chat.rule=PathPrefix(`/`)"
-      - "traefik.http.routers.chat.entrypoints=web"
-      - "traefik.http.routers.chat.priority=1"
-      - "traefik.http.routers.chat.service=chat"
-      - "traefik.http.services.chat.loadbalancer.server.port=3080"
+      # - "traefik.http.routers.chat.rule=PathPrefix(`/`)"
+      # - "traefik.http.routers.chat.entrypoints=web"
+      # - "traefik.http.routers.chat.priority=1"
+      # - "traefik.http.routers.chat.service=chat"
+      # - "traefik.http.services.chat.loadbalancer.server.port=3080"
+      - "traefik.http.routers.api.rule=PathPrefix(`/api`) || PathPrefix(`/socket.io`)"
+      - "traefik.http.routers.api.entrypoints=web"
+      - "traefik.http.routers.api.priority=10"
+      - "traefik.http.routers.api.service=api"
+      - "traefik.http.services.api.loadbalancer.server.port=3080"
       # Sticky cookie for session affinity (useful for reconnections and long-polling)
-      - "traefik.http.services.chat.loadbalancer.sticky.cookie=true"
-      - "traefik.http.services.chat.loadbalancer.sticky.cookie.name=chat_affinity"
-      - "traefik.http.services.chat.loadbalancer.sticky.cookie.httpOnly=true"
-      - "traefik.http.services.chat.loadbalancer.sticky.cookie.secure=false" # dev over HTTP
-      - "traefik.http.services.chat.loadbalancer.sticky.cookie.sameSite=lax"
+      - "traefik.http.services.api.loadbalancer.sticky.cookie=true"
+      - "traefik.http.services.api.loadbalancer.sticky.cookie.name=chat_affinity"
+      - "traefik.http.services.api.loadbalancer.sticky.cookie.httpOnly=true"
+      - "traefik.http.services.api.loadbalancer.sticky.cookie.secure=false" # dev over HTTP
+      - "traefik.http.services.api.loadbalancer.sticky.cookie.sameSite=lax"
       # --- Production (HTTPS) notes ---
       # When deploying behind HTTPS, enable a secure cookie and consider a stricter SameSite policy:
-      # - "traefik.http.services.chat.loadbalancer.sticky.cookie.secure=true"  # cookie only over HTTPS
-      # - "traefik.http.services.chat.loadbalancer.sticky.cookie.sameSite=strict"  # stronger CSRF isolation (adjust if embedding)
+      # - "traefik.http.services.api.loadbalancer.sticky.cookie.secure=true"  # cookie only over HTTPS
+      # - "traefik.http.services.api.loadbalancer.sticky.cookie.sameSite=strict"  # stronger CSRF isolation (adjust if embedding)
       - "traefik.docker.network=proxy"
 
   # TURN/STUN server (coturn)
@@ -165,17 +170,6 @@ services:
         --min-port=49160 --max-port=49200 \
         --verbose"
     restart: unless-stopped
-    depends_on:
-      proxysql:
-        condition: service_healthy
-      mariadb_galera1:
-        condition: service_healthy
-      mariadb_galera2:
-        condition: service_healthy
-      mariadb_galera3:
-        condition: service_healthy
-      mariadb_backup:
-        condition: service_healthy
     networks:
       - proxy
 
@@ -195,17 +189,6 @@ services:
     volumes:
       - minio_data:/data
     restart: unless-stopped
-    depends_on:
-      proxysql:
-        condition: service_healthy
-      mariadb_galera1:
-        condition: service_healthy
-      mariadb_galera2:
-        condition: service_healthy
-      mariadb_galera3:
-        condition: service_healthy
-      mariadb_backup:
-        condition: service_healthy
     networks:
       - proxy
       - stornet
@@ -245,17 +228,6 @@ services:
     environment:
       # Set a strong password here (dev example)
       REDIS_PASSWORD: changeme
-    depends_on:
-      proxysql:
-        condition: service_healthy
-      mariadb_galera1:
-        condition: service_healthy
-      mariadb_galera2:
-        condition: service_healthy
-      mariadb_galera3:
-        condition: service_healthy
-      mariadb_backup:
-        condition: service_healthy
     volumes:
       - redis_data:/data
     networks:
@@ -503,12 +475,6 @@ services:
       start_period: 30s
     depends_on:
       proxysql:
-        condition: service_healthy
-      mariadb_galera1:
-        condition: service_healthy
-      mariadb_galera2:
-        condition: service_healthy
-      mariadb_galera3:
         condition: service_healthy
       maxscale: 
         condition: service_healthy

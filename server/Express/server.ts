@@ -135,9 +135,9 @@ class AppServer {
     });
 
     // SPA
-    this.app.get("/", (req, res) => {
-      res.sendFile(path.join(__dirname, "public", "index.html"));
-    });
+    // this.app.get("/", (req, res) => {
+    //   res.sendFile(path.join(__dirname, "public", "index.html"));
+    // });
     // Verify CSRF token for mutating API requests
     this.app.use("/api", verifyCsrfToken);
     this.app.use("/api", routerREST);
