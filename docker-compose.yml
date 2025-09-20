@@ -47,6 +47,7 @@ services:
       context: ./interface/Vue
       dockerfile: Dockerfile
     image: realtime-chat-interface:latest
+    # scale: 2
     # No direct host port exposure; Traefik will route HTTP traffic.
     networks:
       - proxy
@@ -151,7 +152,7 @@ services:
       - "traefik.http.routers.api.priority=10"
       - "traefik.http.routers.api.service=api"
       - "traefik.http.services.api.loadbalancer.server.port=3080"
-      
+
       # Sticky cookie for session affinity (useful for reconnections and long-polling)
       - "traefik.http.services.chat.loadbalancer.sticky.cookie=true"
       - "traefik.http.services.chat.loadbalancer.sticky.cookie.name=chat_affinity"
