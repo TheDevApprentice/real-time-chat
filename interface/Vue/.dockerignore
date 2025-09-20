@@ -1,0 +1,27 @@
+# Dependencies and build outputs
+node_modules
+.dist
+/dist
+
+# VCS
+.git
+.gitignore
+
+# IDE/editor
+.vscode
+.idea
+
+# Logs and coverage
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+coverage
+
+# Env files
+.env
+.env.*
+
+# Misc
+.DS_Store
+*.local
