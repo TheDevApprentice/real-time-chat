@@ -120,12 +120,12 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      # Route all paths to this server on entrypoint web (dev + ngrok friendly)
-      - "traefik.http.routers.chat.rule=PathPrefix(`/`)"
-      - "traefik.http.routers.chat.entrypoints=web"
-      - "traefik.http.routers.chat.priority=1"
-      - "traefik.http.routers.chat.service=chat"
-      - "traefik.http.services.chat.loadbalancer.server.port=3080"
+      # Route all paths to this server on entrypoint web (dev + ngrok friendly) (keep it commented)
+      # - "traefik.http.routers.chat.rule=PathPrefix(`/`)"
+      # - "traefik.http.routers.chat.entrypoints=web"
+      # - "traefik.http.routers.chat.priority=1"
+      # - "traefik.http.routers.chat.service=chat"
+      # - "traefik.http.services.chat.loadbalancer.server.port=3080"
       # Sticky cookie for session affinity (useful for reconnections and long-polling)
       - "traefik.http.services.chat.loadbalancer.sticky.cookie=true"
       - "traefik.http.services.chat.loadbalancer.sticky.cookie.name=chat_affinity"
