@@ -1,6 +1,6 @@
 #!/bin/bash
-# Script de vérification de santé Galera pour ProxySQL
-# À placer dans ./server/Database/ProxySQL/scripts/galera_check.sh
+# Script de v??rification de sant?? Galera pour ProxySQL
+# ?? placer dans ./server/Database/ProxySQL/scripts/galera_check.sh
 
 set -euo pipefail
 
@@ -21,13 +21,13 @@ check_galera_node() {
     local host=$1
     local port=${2:-3306}
     
-    # Variables Galera critiques à vérifier
+    # Variables Galera critiques ?? v??rifier
     local wsrep_ready
     local wsrep_connected
     local wsrep_local_state
     local wsrep_cluster_size
     
-    # Exécuter les requêtes de vérification
+    # Ex??cuter les requ??tes de v??rification
     local status_output
     status_output=$(mysql -h"$host" -P"$port" -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" \
         -e "SHOW STATUS WHERE Variable_name IN (
@@ -38,7 +38,7 @@ check_galera_node() {
             'wsrep_local_state_comment'
         );" --batch --skip-column-names 2>/dev/null) || return 1
     
-    # Parser les résultats
+    # Parser les r??sultats
     while IFS=$'\t' read -r variable value; do
         case $variable in
             wsrep_ready) wsrep_ready=$value ;;
@@ -48,7 +48,7 @@ check_galera_node() {
         esac
     done <<< "$status_output"
     
-    # Vérifications de santé
+    # V??rifications de sant??
     if [[ "$wsrep_ready" != "ON" ]]; then
         log "WARN: Node $host not ready (wsrep_ready=$wsrep_ready)"
         return 1
@@ -65,7 +65,7 @@ check_galera_node() {
         return 1
     fi
     
-    # Vérifier la taille du cluster (au moins 2 nœuds)
+    # V??rifier la taille du cluster (au moins 2 n??uds)
     if [[ "$wsrep_cluster_size" -lt 2 ]]; then
         log "WARN: Cluster size too small ($wsrep_cluster_size) on node $host"
         return 1
@@ -86,10 +86,10 @@ update_proxysql_server_status() {
     }
 }
 
-# Liste des nœuds à vérifier
+# Liste des n??uds ?? v??rifier
 GALERA_NODES=("mariadb_galera1" "mariadb_galera2" "mariadb_galera3")
 
-# Vérifier chaque nœud
+# V??rifier chaque n??ud
 for node in "${GALERA_NODES[@]}"; do
     if check_galera_node "$node"; then
         update_proxysql_server_status "$node" "ONLINE"

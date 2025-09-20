@@ -27,17 +27,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       # - traefik_data:/letsencrypt
-    depends_on:
-      proxysql:
-        condition: service_healthy
-      mariadb_galera1:
-        condition: service_healthy
-      mariadb_galera2:
-        condition: service_healthy
-      mariadb_galera3:
-        condition: service_healthy
-      mariadb_backup:
-        condition: service_healthy
+    
     networks:
       - proxy
     restart: unless-stopped
@@ -103,19 +93,9 @@ services:
       - cachenet
       - stornet
     depends_on:
-      traefik:
-        condition: service_started
-      mariadb_galera1:
-        condition: service_healthy
-      mariadb_galera2:
-        condition: service_healthy
-      mariadb_galera3:
-        condition: service_healthy
-      maxscale:
+      proxysql:
         condition: service_healthy
       mariadb_backup:
-        condition: service_healthy
-      proxysql:
         condition: service_healthy
     restart: unless-stopped
     labels:
@@ -165,17 +145,6 @@ services:
         --min-port=49160 --max-port=49200 \
         --verbose"
     restart: unless-stopped
-    depends_on:
-      proxysql:
-        condition: service_healthy
-      mariadb_galera1:
-        condition: service_healthy
-      mariadb_galera2:
-        condition: service_healthy
-      mariadb_galera3:
-        condition: service_healthy
-      mariadb_backup:
-        condition: service_healthy
     networks:
       - proxy
 
@@ -195,17 +164,6 @@ services:
     volumes:
       - minio_data:/data
     restart: unless-stopped
-    depends_on:
-      proxysql:
-        condition: service_healthy
-      mariadb_galera1:
-        condition: service_healthy
-      mariadb_galera2:
-        condition: service_healthy
-      mariadb_galera3:
-        condition: service_healthy
-      mariadb_backup:
-        condition: service_healthy
     networks:
       - proxy
       - stornet
@@ -245,17 +203,6 @@ services:
     environment:
       # Set a strong password here (dev example)
       REDIS_PASSWORD: changeme
-    depends_on:
-      proxysql:
-        condition: service_healthy
-      mariadb_galera1:
-        condition: service_healthy
-      mariadb_galera2:
-        condition: service_healthy
-      mariadb_galera3:
-        condition: service_healthy
-      mariadb_backup:
-        condition: service_healthy
     volumes:
       - redis_data:/data
     networks:
@@ -285,11 +232,11 @@ services:
       - MYSQL_PASSWORD=monitor
     depends_on:
       mariadb_galera1:
-        condition: service_healthy
+        condition: service_started
       mariadb_galera2:
-        condition: service_healthy
+        condition: service_started
       mariadb_galera3:
-        condition: service_healthy
+        condition: service_started
     networks:
       - dbnet
       - proxy
@@ -346,7 +293,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 30
-      start_period: 10s
+      start_period: 30s
 
   # Galera Cluster Node 2
   mariadb_galera2:
@@ -393,10 +340,10 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1"]
-      interval: 5s
-      timeout: 3s
+      interval: 15s
+      timeout: 7s
       retries: 30
-      start_period: 10s
+      start_period: 60s
 
   # Galera Cluster Node 3
   mariadb_galera3:
@@ -443,10 +390,10 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1"]
-      interval: 5s
-      timeout: 3s
+      interval: 15s
+      timeout: 7s
       retries: 30
-      start_period: 10s
+      start_period: 60s
 
   # MaxScale - Binlog Server for replicas (stable binlog endpoint in front of Galera)
   maxscale:
@@ -497,21 +444,21 @@ services:
       - ./server/Database/MariaDB/initdb/replicaMaxScale:/docker-entrypoint-initdb.d
     healthcheck:
       test: [ "CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot || exit 1" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 15s
+      timeout: 7s
+      retries: 30
       start_period: 30s
     depends_on:
-      proxysql:
-        condition: service_healthy
       mariadb_galera1:
-        condition: service_healthy
+        condition: service_started
       mariadb_galera2:
-        condition: service_healthy
+        condition: service_started
       mariadb_galera3:
-        condition: service_healthy
+        condition: service_started
+      proxysql:
+        condition: service_started
       maxscale: 
-        condition: service_healthy
+        condition: service_started
     restart: unless-stopped
     networks:
       - dbnet
@@ -530,16 +477,6 @@ services:
     depends_on:
       redis:
         condition: service_started
-      proxysql:
-        condition: service_healthy
-      mariadb_galera1:
-        condition: service_healthy
-      mariadb_galera2:
-        condition: service_healthy
-      mariadb_galera3:
-        condition: service_healthy
-      mariadb_backup:
-        condition: service_healthy
     labels:
       - "traefik.enable=true"
       # Route /redis-commander -> Redis Commander Web UI (HTTP)
