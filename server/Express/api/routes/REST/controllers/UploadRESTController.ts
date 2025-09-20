@@ -97,7 +97,7 @@ router.delete(
     maxAttempts: 120,
   }),
   asyncHandlerRESTMiddleware(async (req: AuthenticatedRequest & Request, res: Response) => {
-    const { s3Service } = getServices() as any;
+    const { s3Service } = getServices();
     const userId = req.user?.id || "anonymous";
     const body = (req as any).body as { keys?: string[] } | undefined;
     const keys = Array.isArray(body?.keys) ? body!.keys : [];

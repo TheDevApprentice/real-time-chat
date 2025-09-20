@@ -37,7 +37,25 @@ import { bruteForceRedisWSMiddleware } from "../middlewares/bruteForceRedisWSMid
 import { requireCsrfWSMiddleware } from "../middlewares/requireCsrfWSMiddleware";
 import type { z } from "zod";
 import { getServices } from "../../../di/container";
+import { RateLimitedLogger } from "../../../../utils/RateLimitedLogger";
 import { K, TTL } from "../../../cache/cacheKeys";
+
+// Redis-backed helper to fetch friend ids (uses K.friends cache, falls back to FriendService, caches for TTL.friendsList)
+async function getFriendIdsCached(userId: string, redisService: any, friendService: any): Promise<string[]> {
+  try {
+    const key = K.friends(String(userId));
+    const raw = await redisService.get(key).catch(() => null);
+    let rel: any[] | null = null;
+    if (raw) {
+      try { rel = JSON.parse(raw); } catch { rel = null; }
+    }
+    if (!Array.isArray(rel)) {
+      rel = await friendService.listFriendsAndRequests(userId);
+      try { await redisService.set(key, JSON.stringify(rel), { EX: TTL.friendsList }); } catch {}
+    }
+    return (rel || []).filter((r: any) => r && r.status === 'accepted').map((r: any) => String(r.userId));
+  } catch { return []; }
+}
 
 export class WebSocketGateway {
   private io: SocketServer;
@@ -476,14 +494,14 @@ export class WebSocketGateway {
         }
       }
       // Logger.info(`Client connected: ${socket.id}`);
-      const { redisService } = services as any;
+      const { redisService } = services;
       let presenceInterval: NodeJS.Timeout | null = null;
 
       const touchPresence = async (uid: string) => {
         try {
-          await redisService.set(`presence:user:${uid}`, "online", { EX: 120 });
-          await redisService.set(`socket:user:${socket.id}`, uid, { EX: 120 });
-        } catch {}
+          await redisService.set(K.presence(uid), "online", { EX: TTL.presenceOnline });
+          await redisService.set(K.socketUser(socket.id), uid, { EX: TTL.presenceOnline });
+        } catch { RateLimitedLogger.warn("ws:presence:touch", `Failed to update presence for ${uid}:${socket.id}`); }
       };
 
       const setupPresence = async () => {
@@ -505,7 +523,7 @@ export class WebSocketGateway {
         if (uid) {
           await redisService.sAdd(K.userSockets(uid), socket.id);
         }
-      } catch {}
+      } catch { RateLimitedLogger.warn("ws:connect:userSockets", `Failed to update userSockets for ${socket.id}`); }
 
       socket.on("disconnect", async () => {
         this.socketRates.delete(socket.id);
@@ -513,11 +531,28 @@ export class WebSocketGateway {
         const uid = (socket.data as any)?.userId as string | undefined;
         if (uid) {
           try {
-            await redisService.set(`lastseen:user:${uid}`, String(Date.now()));
-            await redisService.del(`socket:user:${socket.id}`);
+            await redisService.del(K.socketUser(socket.id));
             try { await redisService.sRem(K.userSockets(uid), socket.id); } catch {}
             // presence key will expire by itself shortly
-          } catch {}
+            // If this was the last socket for this user, set last seen now and clear presence immediately
+            try {
+              const devs = await redisService.sMembers(K.userSockets(uid));
+              if (!devs || devs.length === 0) {
+                const now = Date.now();
+                try { await redisService.set(K.lastSeen(uid), String(now)); } catch { RateLimitedLogger.warn("ws:disconnect:lastseen", `Failed to set lastseen for ${uid}`); }
+                try { await redisService.del(K.presence(uid)); } catch { RateLimitedLogger.warn("ws:disconnect:presenceDel", `Failed to delete presence for ${uid}`); }
+                // Broadcast presenceChanged (offline) ONLY to friends' sockets (Redis-cached + dedup)
+                try {
+                  const friendIds = await getFriendIdsCached(uid, redisService, services.friendService);
+                  const targetSids = new Set<string>();
+                  for (const fid of friendIds) {
+                    try { (await redisService.sMembers(K.userSockets(fid)) || []).forEach((sid) => targetSids.add(String(sid))); } catch {}
+                  }
+                  for (const sid of targetSids) this.io.to(sid).emit("presenceChanged", { userId: uid, status: "offline", lastSeen: now });
+                } catch {}
+              }
+            } catch { RateLimitedLogger.warn("ws:disconnect:userSockets", `Failed to inspect userSockets for ${uid}`); }
+          } catch { RateLimitedLogger.warn("ws:disconnect:presence", `Failed to update presence for ${uid}:${socket.id}`); }
         }
         // Decrement room online counters for all joined rooms (except the private room with the socket id)
         try {
@@ -528,9 +563,9 @@ export class WebSocketGateway {
               const newCount = await redisService.incrBy(K.roomOnline(rid), -1);
               try { await redisService.expire(K.roomOnline(rid), TTL.roomOnlineExpire); } catch {}
               this.io.to(rid).emit("roomOnline", { roomId: rid, count: Math.max(0, newCount) });
-            } catch {}
+            } catch { RateLimitedLogger.warn("ws:disconnect:roomOnline", `Failed to update roomOnline for ${rid}:${socket.id}`); }
           }
-        } catch {}
+        } catch { RateLimitedLogger.warn("ws:disconnect:roomOnline", `Failed to update roomOnline for ${socket.id}`); }
       });
 
       // ---------------- WS ROUTER ATTACHMENT ----------------
@@ -544,7 +579,7 @@ export class WebSocketGateway {
           roomService: services.roomService,
           messageService: services.messageService,
           redisService: services.redisService,
-          s3Service: (services as any).s3Service,
+          s3Service: services.s3Service,
         },
         env: {
           FRONTEND_URL: process.env.FRONTEND_URL,

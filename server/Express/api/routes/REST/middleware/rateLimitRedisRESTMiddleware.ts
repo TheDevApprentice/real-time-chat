@@ -16,7 +16,7 @@ export function rateLimitRedisRESTMiddleware(
 ) {
   return async function (req: Request, res: Response, next: NextFunction) {
     try {
-      const { redisService } = getServices() as any;
+      const { redisService } = getServices();
       const fp = (keyFn ? keyFn(req) : (req.ip || "unknown")).toString();
       const key = K.rlRest(routeKey, fp);
       const n = await incrWithTtl(redisService, key, windowSec, 1);

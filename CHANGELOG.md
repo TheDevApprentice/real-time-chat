@@ -54,3 +54,32 @@ All notable changes to this project will be documented in this file.
 ### Notes
 - Schema initializer updated: `server/Express/infrastructure/migrations/initializeSchema.ts`
 - Documentation layout may be consolidated under `docs/Server/Express/` going forward.
+
+## 2025-09-20
+
+### Added
+- Redis documentation:
+  - New section “PresenceChanged (server-pushed)” explaining scoping to friends and optimizations (Redis-cached friend list + socket dedup).
+  - “Cheat sheet” table listing active `K.*` keys, TTLs, and managing files in `docs/Server/Express/REDIS.md`.
+
+### Changed
+- Presence and events:
+  - Scope `presenceChanged` emissions to friends/DM only (no global broadcast).
+  - Use Redis-cached friend relations (`K.friends(userId)` with `EX: TTL.friendsList`) to reduce lookups and deduplicate socket targets.
+  - Normalize presence-related keys to `K.*` (`K.presence`, `K.lastSeen`, `K.socketUser`, `K.userSockets`) and `TTL.presenceOnline`.
+- Storage and cache services:
+  - Consolidate `AttachmentFinalizer` into `S3Service.finalize(...)` (temp → final object copy, cleanup, URLs returned).
+  - Consolidate `MessageEffects` into `RedisService` with `onMessageCreated(...)`, `invalidateRoomHistory(...)`, and `invalidateUnreadForUsers(...)`.
+- Client UI:
+  - Remove full room list re-render on `presenceChanged`; directly updates the DM presence dot and active DM header label.
+
+### Removed
+- Obsolete app services and DI/context wiring:
+  - `AttachmentFinalizer` and `MessageEffects` classes removed.
+  - Their references removed from DI container and `WsContext`.
+
+### Notes
+- Migration:
+  - Replace usages of `attachmentFinalizer.finalize(...)` with `s3Service.finalize(...)`.
+  - Replace `messageEffects.*` with `redisService.onMessageCreated(...)`, `redisService.invalidateRoomHistory(...)`, and `redisService.invalidateUnreadForUsers(...)`.
+- Security/Privacy: presence updates are now targeted to friends only.

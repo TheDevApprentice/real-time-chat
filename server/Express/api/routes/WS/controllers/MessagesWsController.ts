@@ -1,18 +1,16 @@
 import { WsContext } from "../router/WsContext";
 import { Message, User } from "../../../../domain/entities";
 import { sanitizeText } from "../../../../utils/TextUtil";
-import { K, TTL, incrWithTtl, Channels, jsonSet, jsonGet } from "../../../cache/cacheKeys";
+import { K, TTL, incrWithTtl, jsonSet, jsonGet } from "../../../cache/cacheKeys";
 import { mapMessageToDTO } from "../../../../domain/dto";
-import path from "path";
-import { randomUUID } from "crypto";
 import type { CreateMessageDTO, EditMessageDTO, DeleteMessageDTO, MessageDeliveryReceiptDTO, MessageReadReceiptDTO } from "../../../../domain/dto";
+import { RateLimitedLogger } from "../../../../utils/RateLimitedLogger";
 
 export class MessagesWsController {
   async sendMessageToRoom(
     ctx: WsContext<CreateMessageDTO & { timestamp?: number; attachments?: string[] }>
   ) {
-    const { userService, messageService, roomService } = ctx.services;
-    const { redisService, s3Service } = ctx.services as any;
+    const { userService, messageService, roomService, redisService, s3Service } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId)
       return { error: "Vous devez être connecté pour envoyer un message." };
@@ -27,7 +25,7 @@ export class MessagesWsController {
       if (count > 30) {
         return { success: false, error: "Rate limit exceeded. Please slow down." };
       }
-    } catch {}
+    } catch { RateLimitedLogger.warn("ws:msg:rateLimit", `Failed to apply rate limit for ${userId}:${roomId}`); }
 
     // Idempotency guard if clientMsgId provided
     if (clientMsgId && typeof clientMsgId === "string") {
@@ -36,108 +34,42 @@ export class MessagesWsController {
         const n = await redisService.incrBy(idemKey, 1);
         if (n === 1) {
           // first time seen -> set expiry
-          try { await redisService.expire(idemKey, TTL.idempotency); } catch {}
+          try { await redisService.expire(idemKey, TTL.idempotency); } catch { RateLimitedLogger.warn("ws:msg:idemp:expire", `Failed to set idempotency TTL for ${clientMsgId}`); }
         } else {
           // duplicate submission -> acknowledge without re-creating
           return { success: true, duplicate: true };
         }
-      } catch {}
+      } catch { RateLimitedLogger.warn("ws:msg:idemp", `Failed idempotency check for ${clientMsgId}`); }
     }
 
     const user = await userService.getUserById(userId);
     if (!user) return { error: "User not found." };
 
     let safeContent = sanitizeText(String(content || ""));
-    const attRaw: string[] = Array.isArray(attachments) ? attachments : [];
-    if (attRaw.length > 50) {
-      return { success: false, error: "Too many attachments (max 50)." };
-    }
-    // Finalize S3 temp attachments if provided
+    const ts = typeof timestamp === "number" ? timestamp : Date.now();
+
+    // Finalize attachments via service
     let normalizedKeys: string[] = [];
     let copyFailed: string[] = [];
+    let finalUrls: string[] = [];
     try {
-      // Normalize each attachment entry to a tmp key like 'uploads/tmp/{roomId}/{userId}/...'
-      const att: string[] = attRaw.map((raw) => {
-        try {
-          let v = String(raw || '');
-          // If it's a full URL, keep only the path after the bucket name
-          if (/^https?:\/\//i.test(v)) {
-            const u = new URL(v);
-            // path: /<bucket>/<key>
-            const parts = u.pathname.split('/').filter(Boolean);
-            if (parts.length >= 2) {
-              v = parts.slice(1).join('/'); // drop bucket
-            } else {
-              v = parts.join('/');
-            }
-          }
-          // Decode percent-encoding once (e.g., %2F)
-          try { v = decodeURIComponent(v); } catch {}
-          // Trim any leading '/'
-          v = v.replace(/^\/+/, '');
-          return v;
-        } catch { return String(raw || ''); }
-      });
-      normalizedKeys = att.slice();
-      if (att.length > 0 && s3Service) {
-        const now = new Date(typeof timestamp === 'number' ? timestamp : Date.now());
-        const datePrefix = `${now.getUTCFullYear()}/${String(now.getUTCMonth()+1).padStart(2,"0")}/${String(now.getUTCDate()).padStart(2,"0")}`;
-        const finalUrls: string[] = [];
-        const allowedExts = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".mp4", ".webm", ".ogg"]);
-        for (const tmpKey of att) {
-          if (typeof tmpKey !== 'string' || !tmpKey.startsWith('uploads/tmp/')) continue;
-          // uploads/tmp/[roomId]/[userId]/... is ideal, but don't hard-fail if segments differ
-          const parts = tmpKey.split('/').filter(Boolean);
-          if (parts.length < 3) continue; // must have at least uploads,tmp,<something>
-          const ext = (path.extname(tmpKey) || '').toLowerCase();
-          if (!allowedExts.has(ext)) continue;
-          const finalKey = `uploads/rooms/${roomId}/${datePrefix}/${randomUUID()}` + ext;
-          try {
-            await s3Service.copyObject(tmpKey, finalKey);
-            try { await s3Service.deleteObject(tmpKey); } catch {}
-            const url = s3Service.publicUrl(finalKey);
-            finalUrls.push(url);
-          } catch {
-            try { copyFailed.push(tmpKey); } catch {}
-          }
-        }
-        if (finalUrls.length > 0) {
-          safeContent = safeContent ? `${safeContent}\n${finalUrls.join('\n')}` : finalUrls.join('\n');
-        }
+      const fin = await s3Service.finalize(roomId, userId, ts, attachments);
+      normalizedKeys = fin.normalizedKeys;
+      copyFailed = fin.copyFailed;
+      finalUrls = fin.finalUrls;
+      if (fin.safeAppend) {
+        safeContent = safeContent ? `${safeContent}\n${fin.safeAppend}` : fin.safeAppend;
       }
-    } catch {}
-    // If content is still empty and no attachments could be finalized, reject
-    if (!safeContent || !safeContent.trim()) {
-      const attArr = Array.isArray(attachments) ? attachments : [];
-      if (!attArr.length) {
-        return { error: "Message must contain text or attachments." };
-      }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
-    const ts = typeof timestamp === "number" ? timestamp : Date.now();
+    if (!safeContent || !safeContent.trim()) {
+      return { error: "Message must contain text or attachments." };
+    }
     const msgObj = new Message(user, safeContent, ts);
     await messageService.addMessageToRoom(msgObj, roomId);
-    // Update caches/stats
-    try {
-      // Bump history version so any paginated caches can be considered stale
-      try { await redisService.incrBy(K.historyVer(roomId), 1); } catch {}
-      // Cache last message for the room (short TTL)
-      try { await redisService.set(K.roomLastMessage(roomId), JSON.stringify(mapMessageToDTO(msgObj)), { EX: TTL.roomHistoryPage }); } catch {}
-      // Mark room as active in a ZSET scored by timestamp
-      try { await redisService.zAdd(K.roomsActiveZ(), Date.now(), roomId); } catch {}
-      // Increment message counters (hour/day buckets) with retention
-      try {
-        const d = new Date(ts);
-        const pad = (n: number) => (n < 10 ? `0${n}` : String(n));
-        const hourKey = `${d.getUTCFullYear()}${pad(d.getUTCMonth()+1)}${pad(d.getUTCDate())}${pad(d.getUTCHours())}`;
-        const dayKey = `${d.getUTCFullYear()}${pad(d.getUTCMonth()+1)}${pad(d.getUTCDate())}`;
-        await incrWithTtl(redisService, K.roomMsgsHour(roomId, hourKey), TTL.counterHourRetainSec, 1);
-        await incrWithTtl(redisService, K.roomMsgsDay(roomId, dayKey), TTL.counterDayRetainSec, 1);
-      } catch {}
-      // Leaderboard: active users (increment by 1 per message)
-      try { await redisService.zIncrBy(K.lbActiveUsers(), 1, userId); } catch {}
-      // Publish light-weight event for internal consumers
-      try { await redisService.publish(Channels.messageCreated, JSON.stringify({ roomId, message: mapMessageToDTO(msgObj) })); } catch {}
-    } catch {}
+    // Update caches/stats via service
+    try { await redisService.onMessageCreated(roomId, userId, msgObj, ts); } catch { RateLimitedLogger.warn("ws:msg:effects", `Failed to apply message effects for ${roomId}`); }
 
     // Emit to all sockets of room members (not only joined sockets)
     try {
@@ -150,22 +82,17 @@ export class MessagesWsController {
           s.emit("message", { roomId, message: mapMessageToDTO(msgObj) });
         }
       }
-      // Invalidate room history cache
-      try {
-        await (redisService?.del?.(K.roomHistory(roomId)) ?? Promise.resolve(0));
-      } catch {}
-      // Invalidate unread cache for all members
-      try {
-        const keysToDel = Array.from(memberIds).map((id) => K.unread(id));
-        await (redisService?.del?.(keysToDel) ?? Promise.resolve(0));
-      } catch {}
+      // Invalidate caches
+      try { await redisService.invalidateRoomHistory(roomId); } catch { RateLimitedLogger.warn("ws:msg:invalidate:history", `Failed to invalidate room history for ${roomId}`); }
+      try { await redisService.invalidateUnreadForUsers(memberIds); } catch { RateLimitedLogger.warn("ws:msg:invalidate:unread", `Failed to invalidate unread for ${roomId}`); }
     } catch {
+      RateLimitedLogger.warn("ws:msg:broadcastFallback", `Falling back to room emit for ${roomId}`);
       ctx.io.to(roomId).emit("message", { roomId, message: mapMessageToDTO(msgObj) });
     }
 
     return {
       success: true,
-      finalUrls: (safeContent || '').split('\n').filter(u => /^https?:\/\//.test(u)),
+      finalUrls,
       message: mapMessageToDTO(msgObj),
       normalizedKeys,
       copyFailed,
@@ -175,8 +102,7 @@ export class MessagesWsController {
   async messageDelivered(
     ctx: WsContext<MessageDeliveryReceiptDTO & { timestamp?: number }>
   ) {
-    const { messageService, roomService } = ctx.services;
-    const { redisService } = ctx.services as any;
+    const { messageService, roomService, redisService } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const { messageId, roomId, timestamp } = (ctx.payload || {}) as any;
@@ -199,11 +125,9 @@ export class MessagesWsController {
         }
       }
       // Invalidate unread cache for all members
-      try {
-        const keysToDel = Array.from(memberIds).map((id) => `cache:unread:${id}`);
-        await (redisService?.del?.(keysToDel) ?? Promise.resolve(0));
-      } catch {}
+      try { await redisService.invalidateUnreadForUsers(memberIds); } catch {}
     } catch {
+      RateLimitedLogger.warn("ws:msg:delivered:broadcastFallback", `Falling back room emit for delivered ${roomId}`);
       ctx.io
         .to(roomId)
         .emit("messageStatusUpdated", {
@@ -218,8 +142,7 @@ export class MessagesWsController {
   async messageRead(
     ctx: WsContext<MessageReadReceiptDTO & { timestamp?: number }>
   ) {
-    const {   messageService, roomService } = ctx.services;
-    const { redisService } = ctx.services as any;
+    const { messageService, roomService, redisService} = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const { messageId, roomId, timestamp } = (ctx.payload || {}) as any;
@@ -231,9 +154,9 @@ export class MessagesWsController {
     try {
       if (Number.isFinite(messageId)) {
         await redisService.hSet(K.readMax(roomId), String(userId), String(messageId));
-        try { await redisService.expire(K.readMax(roomId), TTL.readMax); } catch {}
+        try { await redisService.expire(K.readMax(roomId), TTL.readMax); } catch { RateLimitedLogger.warn("ws:msg:read:expire", `Failed to set readMax TTL for ${roomId}`); }
       }
-    } catch {}
+    } catch { RateLimitedLogger.warn("ws:msg:read:hset", `Failed to set readMax for ${roomId}`); }
     try {
       const members = await roomService.getUsersForRoom(roomId);
       const memberIds = new Set((members || []).map((u: User) => u.id));
@@ -252,8 +175,9 @@ export class MessagesWsController {
       try {
         const keysToDel = Array.from(memberIds).map((id) => `cache:unread:${id}`);
         await (redisService?.del?.(keysToDel) ?? Promise.resolve(0));
-      } catch {}
+      } catch { RateLimitedLogger.warn("ws:msg:read:invalidateUnread", `Failed to invalidate unread for ${roomId}`); }
     } catch {
+      RateLimitedLogger.warn("ws:msg:read:broadcastFallback", `Falling back room emit for read ${roomId}`);
       ctx.io
         .to(roomId)
         .emit("messageStatusUpdated", {
@@ -268,7 +192,7 @@ export class MessagesWsController {
   async messageEdit(
     ctx: WsContext<EditMessageDTO>
   ) {
-    const { messageService, roomService, redisService } = ctx.services as any;
+    const { messageService, roomService, redisService } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const { roomId, messageId, newContent } = (ctx.payload || {}) as any;
@@ -286,19 +210,19 @@ export class MessagesWsController {
         prevContent: orig.content,
         at: Date.now(),
       }, TTL.undo);
-    } catch {}
+    } catch { RateLimitedLogger.warn("ws:msg:edit:snapshot", `Failed to snapshot undo for ${userId}:${messageId}`); }
     await messageService.updateMessageContent(messageId, clean);
     // Broadcast update
     try {
       ctx.io.to(roomId).emit('messageEdited', { roomId, messageId, content: clean });
-    } catch {}
+    } catch { RateLimitedLogger.warn("ws:msg:edit:emit", `Failed to emit messageEdited for ${roomId}:${messageId}`); }
     return { success: true };
   }
 
   async messageDelete(
     ctx: WsContext<DeleteMessageDTO>
   ) {
-    const { messageService, roomService, redisService } = ctx.services as any;
+    const { messageService, roomService, redisService } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const { roomId, messageId } = (ctx.payload || {}) as any;
@@ -308,7 +232,7 @@ export class MessagesWsController {
     // Author or room owner can delete
     let allowed = orig.author?.id === userId;
     if (!allowed) {
-      try { const room = await roomService.getRoomById(roomId); allowed = room && room.creatorId === userId; } catch {}
+      try { const room = await roomService.getRoomById(roomId); allowed = !!room && room.creatorId === userId; } catch { RateLimitedLogger.warn("ws:msg:delete:roomGet", `Failed to fetch room for permission check ${roomId}`); }
     }
     if (!allowed) return { success: false, error: 'Not allowed' };
     // Snapshot for undo (per user)
@@ -323,32 +247,32 @@ export class MessagesWsController {
     await messageService.softDeleteMessage(messageId);
     try {
       ctx.io.to(roomId).emit('messageDeleted', { roomId, messageId });
-    } catch {}
+    } catch { RateLimitedLogger.warn("ws:msg:delete:emit", `Failed to emit messageDeleted for ${roomId}:${messageId}`); }
     return { success: true };
   }
 
   async messageUndo(
     ctx: WsContext<DeleteMessageDTO>
   ) {
-    const { messageService, redisService } = ctx.services as any;
+    const { messageService, redisService } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const { roomId, messageId } = (ctx.payload || {}) as any;
     if (!roomId || typeof messageId !== 'number') return { success: false, error: 'Missing fields' };
-    const snap = await jsonGet<{ roomId: string; messageId: number; prevContent: string }>(redisService, K.msgUndo(userId, messageId));
+    const snap = await jsonGet<{ roomId: string; messageId: number; prevContent: string }>(redisService, K.msgUndo(userId, messageId)).catch(() => null);
     if (!snap || snap.roomId !== roomId) return { success: false, error: 'Nothing to undo' };
     const clean = sanitizeText(String(snap.prevContent || '').slice(0, 2000));
     await messageService.updateMessageContent(messageId, clean);
-    try { await redisService.del(K.msgUndo(userId, messageId)); } catch {}
+    try { await redisService.del(K.msgUndo(userId, messageId)); } catch { RateLimitedLogger.warn("ws:msg:undo:del", `Failed to delete undo snapshot for ${userId}:${messageId}`); }
     // Emit with restored flag so clients can avoid '(edited)' tag for delete undo
-    try { ctx.io.to(roomId).emit('messageEdited', { roomId, messageId, content: clean, restored: true }); } catch {}
+    try { ctx.io.to(roomId).emit('messageEdited', { roomId, messageId, content: clean, restored: true }); } catch { RateLimitedLogger.warn("ws:msg:undo:emit", `Failed to emit messageEdited(restored) for ${roomId}:${messageId}`); }
     return { success: true };
   }
 
   async getUndoTTL(
     ctx: WsContext<DeleteMessageDTO>
   ) {
-    const { redisService } = ctx.services as any;
+    const { redisService } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const { roomId, messageId } = (ctx.payload || {}) as any;

@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { K, TTL, incrWithTtl } from "../../../cache/cacheKeys";
 import { getServices } from "../../../di/container";
+import { RateLimitedLogger } from "../../../../utils/RateLimitedLogger";
 
 export function bruteForceRedisRESTMiddleware(options: {
   action: string;
@@ -16,7 +17,7 @@ export function bruteForceRedisRESTMiddleware(options: {
 
   return async function (req: Request, res: Response, next: NextFunction) {
     try {
-      const { redisService } = getServices() as any;
+      const { redisService } = getServices();
       const ip = (req.ip || "unknown").toString();
       const keyVal = (keyFrom(req) || "unknown").toString();
       const blockedIpKey = K.bfBlockedIp(ip);
@@ -48,15 +49,15 @@ export function bruteForceRedisRESTMiddleware(options: {
           const nIp = await incrWithTtl(redisService, ipAttemptsKey, windowSec, 1);
           const nKey = await incrWithTtl(redisService, keyAttemptsKey, windowSec, 1);
           if (nIp >= maxAttempts) {
-            try { await redisService.set(blockedIpKey, "1", { EX: penaltySec }); } catch {}
+            try { await redisService.set(blockedIpKey, "1", { EX: penaltySec }); } catch { RateLimitedLogger.warn("rest:bf:blockIp", `Failed to set blockedIp for ${ip}`); }
           }
           if (nKey >= maxAttempts) {
-            try { await redisService.set(blockedKeyKey, "1", { EX: penaltySec }); } catch {}
+            try { await redisService.set(blockedKeyKey, "1", { EX: penaltySec }); } catch { RateLimitedLogger.warn("rest:bf:blockKey", `Failed to set blockedKey for ${action}:${keyVal}`); }
           }
-        } catch {}
+        } catch { RateLimitedLogger.warn("rest:bf:onFailure", `Failed to record attempts for ${action}:${keyVal}`); }
       };
       const onSuccess = async () => {
-        try { await redisService.del([K.bfAttemptsIp(ip), K.bfAttemptsKey(action, keyVal)]); } catch {}
+        try { await redisService.del([K.bfAttemptsIp(ip), K.bfAttemptsKey(action, keyVal)]); } catch { RateLimitedLogger.warn("rest:bf:onSuccess", `Failed to clear attempts for ${action}:${keyVal}`); }
       };
 
       // Call next middleware / handler

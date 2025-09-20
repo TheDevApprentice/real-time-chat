@@ -166,11 +166,11 @@ Additional helpers implemented and used in the codebase:
 
 Centralized in `api/cache/cacheKeys.ts` (see that file for exact builders and TTL constants). Key families used in the codebase include:
 
-- Presence & session
-  - Presence (TTL-refresh heartbeat): `presence:user:<userId>`
-  - Last seen timestamp (ms): `lastseen:user:<userId>`
-  - Map socket to user (short TTL): `socket:user:<socketId>`
-  - Set of sockets for a user: `user:sockets:<userId>`
+- Presence & session (see `api/cache/cacheKeys.ts` for builders)
+  - Presence (TTL-refresh heartbeat): `K.presence(userId)` ⇒ `presence:user:<userId>`
+  - Last seen timestamp (ms): `K.lastSeen(userId)` ⇒ `lastseen:user:<userId>`
+  - Map socket to user (short TTL): `K.socketUser(socketId)` ⇒ `socket:user:<socketId>`
+  - Set of sockets for a user: `K.userSockets(userId)` ⇒ `user:sockets:<userId>`
 
 - Rooms & messaging
   - Cached room history pages: `cache:room:history:<roomId>:v<ver>:page:<cursor>:<size>`
@@ -210,29 +210,49 @@ TTL recommendations are defined in `TTL` within `cacheKeys.ts` (e.g., presence 1
 
 ```ts
 import { RedisService } from "../domain/services/cacheServices/RedisService";
+import { K, TTL } from "../../api/cache/cacheKeys";
 
 const redis = RedisService.getInstance();
 await redis.connect();
 
-const ONLINE_TTL = 120; // seconds (see TTL.presenceOnline)
+const ONLINE_TTL = TTL.presenceOnline; // recommended default
 
 export async function markOnline(userId: string) {
-  await redis.set(`presence:user:${userId}`, "online", { EX: ONLINE_TTL });
+  await redis.set(K.presence(userId), "online", { EX: ONLINE_TTL });
 }
 
 export async function markOffline(userId: string) {
-  await redis.del(`presence:user:${userId}`);
-  await redis.set(`lastseen:user:${userId}`, String(Date.now()));
+  await redis.del(K.presence(userId));
+  await redis.set(K.lastSeen(userId), String(Date.now()));
 }
 
 export async function isOnline(userId: string): Promise<boolean> {
-  return (await redis.get(`presence:user:${userId}`)) != null;
+  return (await redis.get(K.presence(userId))) != null;
 }
 
 export async function getLastSeen(userId: string): Promise<number | null> {
-  const v = await redis.get(`lastseen:user:${userId}`);
+  const v = await redis.get(K.lastSeen(userId));
   return v ? Number(v) : null;
 }
+
+### PresenceChanged (server-pushed)
+
+The server emits a Socket.IO event `presenceChanged` to notify friends/DM peers of online/offline status changes in real time. Emissions are scoped and optimized:
+
+- Emitted on:
+  - Login/Authenticate ⇒ `{ userId, status: "online", lastSeen: null }`
+  - Last-socket disconnect or explicit logout ⇒ `{ userId, status: "offline", lastSeen }`
+- Scope: only to sockets of accepted friends (not broadcast to everyone).
+- Optimization: a short-lived in-memory cache for friend lists (30s) reduces repeated lookups; socket ids are deduplicated to avoid duplicate sends.
+
+Relevant code paths:
+
+- `api/routes/WS/controllers/AuthWsController.ts`
+  - Emits `presenceChanged` on login/authenticate/logout.
+- `api/routes/WS/router/WebSocketGateway.ts`
+  - Emits `presenceChanged` on last-socket `disconnect`.
+- `api/routes/WS/router/FriendsPresenceCache.ts`
+  - In-memory cache used when resolving friend ids.
 ```
 
 ### Unread counts: increment and reset

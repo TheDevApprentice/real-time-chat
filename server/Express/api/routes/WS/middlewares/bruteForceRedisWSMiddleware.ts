@@ -2,6 +2,7 @@ import { WsMiddleware } from "../router/WsRouter";
 import type { WsContext } from "../router/WsContext";
 import { K, TTL, incrWithTtl } from "../../../cache/cacheKeys";
 import { getClientIp } from "../utils/NetUtil";
+import { RateLimitedLogger } from "../../../../utils/RateLimitedLogger";
 
 export function bruteForceRedisWSMiddleware<T = any>(options: {
   action: string;
@@ -22,7 +23,7 @@ export function bruteForceRedisWSMiddleware<T = any>(options: {
     const blockedKeyKey = K.bfBlockedKey(action, keyVal);
 
     try {
-      const { redisService } = ctx.services as any;
+      const { redisService } = ctx.services;
       const blocked = (await redisService.exists(blockedIpKey)) || (await redisService.exists(blockedKeyKey));
       if (blocked) {
         return { success: false, error: "Too many attempts. Try again later." } as any;
@@ -39,20 +40,21 @@ export function bruteForceRedisWSMiddleware<T = any>(options: {
         const nIp = await incrWithTtl(redisService, ipAttemptsKey, windowSec, 1);
         const nKey = await incrWithTtl(redisService, keyAttemptsKey, windowSec, 1);
         if (nIp >= maxAttempts) {
-          try { await redisService.set(blockedIpKey, "1", { EX: penaltySec }); } catch {}
+          try { await redisService.set(blockedIpKey, "1", { EX: penaltySec }); } catch { RateLimitedLogger.warn("ws:bf:blockIp", `Failed to set blockedIp for ${ip}`); }
         }
         if (nKey >= maxAttempts) {
-          try { await redisService.set(blockedKeyKey, "1", { EX: penaltySec }); } catch {}
+          try { await redisService.set(blockedKeyKey, "1", { EX: penaltySec }); } catch { RateLimitedLogger.warn("ws:bf:blockKey", `Failed to set blockedKey for ${action}:${keyVal}`); }
         }
       } else {
         // On success, clear attempt counters
         try {
-          await (ctx.services as any).redisService.del([K.bfAttemptsIp(ip), K.bfAttemptsKey(action, keyVal)]);
-        } catch {}
+          await (ctx.services).redisService.del([K.bfAttemptsIp(ip), K.bfAttemptsKey(action, keyVal)]);
+        } catch { RateLimitedLogger.warn("ws:bf:onSuccess", `Failed to clear attempts for ${action}:${keyVal}`); }
       }
       return result;
     } catch {
       // Fail open on Redis errors
+      RateLimitedLogger.warn("ws:bf:failOpen", `Fail-open due to Redis error for ${action}:${keyVal}`);
       return next(ctx);
     }
   };

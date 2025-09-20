@@ -25,6 +25,16 @@ export class FriendsRepo implements IFriendRepo {
 
   // Atomic add (upsert on id)
   async addFriendRequest(record: FriendRecord): Promise<void> {
+    // Defensive: enforce normalized ordering and id contract
+    // Domain service should already provide ordered pairs, but if a caller misuses the repo
+    // we fail fast to avoid violating the UNIQUE(userA,userB) invariant.
+    const isOrdered = record.userA <= record.userB;
+    const expectedId = `${record.userA}:${record.userB}`;
+    if (!isOrdered || record.id !== expectedId) {
+      throw new Error(
+        `FriendsRepo.addFriendRequest expects ordered pair and id=\"${expectedId}\"; got id=\"${record.id}\", userA=\"${record.userA}\", userB=\"${record.userB}\"`
+      );
+    }
     const columns = [
       "id",
       "userA",

@@ -3,6 +3,7 @@ import { Room, Message, User } from "../../../../domain/entities";
 import { K, TTL } from "../../../cache/cacheKeys";
 import { mapRoomToDTO, mapUserToDTO, mapMessageToDTO } from "../../../../domain/dto";
 import type { RoomHistoryQueryDTO, PageDTO } from "../../../../domain/dto";
+import { RateLimitedLogger } from "../../../../utils/RateLimitedLogger";
 
 export class RoomsWsController {
   async createRoom(
@@ -13,7 +14,7 @@ export class RoomsWsController {
       invitedUserIds?: string[];
     }>
   ) {
-    const { roomService, redisService } = ctx.services as any;
+    const { roomService, redisService } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId)
       return { error: "Vous devez être connecté pour créer une room." };
@@ -71,7 +72,7 @@ export class RoomsWsController {
   }
 
   async getRooms(ctx: WsContext) {
-    const { roomService, messageService, redisService } = ctx.services as any;
+    const { roomService, messageService, redisService } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId)
       return { error: "Vous devez être connecté pour envoyer un message." };
@@ -102,7 +103,7 @@ export class RoomsWsController {
       } catch {}
       try {
         await redisService?.set?.(cacheKey, JSON.stringify(roomsJson), { EX: 60 });
-      } catch {}
+      } catch { RateLimitedLogger.warn("ws:rooms:setVisible", `Failed to set visible rooms cache for ${userId}`); }
     }
 
     ctx.socket.emit("rooms", roomsJson);
@@ -123,7 +124,7 @@ export class RoomsWsController {
         counts = await messageService.getUnreadCountsForUser(userId);
         try {
           await redisService?.set?.(unreadKey, JSON.stringify(counts), { EX: 45 });
-        } catch {}
+        } catch { RateLimitedLogger.warn("ws:rooms:setUnread", `Failed to set unread counts for ${userId}`); }
       }
       ctx.socket.emit("unreadCounts", { counts });
     } catch {}
@@ -131,7 +132,7 @@ export class RoomsWsController {
   }
 
   async joinRoom(ctx: WsContext<{ roomId: string }>) {
-    const { userService, roomService, messageService, redisService } = ctx.services as any;
+    const { userService, roomService, messageService, redisService } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId)
       return { error: "Vous devez être connecté pour envoyer un message." };
@@ -183,7 +184,7 @@ export class RoomsWsController {
       historyJson = messages.map((m: Message) => mapMessageToDTO(m));
       try {
         await redisService?.set?.(historyKey, JSON.stringify(historyJson), { EX: 60 });
-      } catch {}
+      } catch { RateLimitedLogger.warn("ws:rooms:setHistory", `Failed to set room history for ${roomId}`); }
     }
     ctx.socket.emit("roomHistory", { roomId, messages: historyJson });
 
@@ -197,7 +198,7 @@ export class RoomsWsController {
   
   // Typing indicators using Redis ephemeral keys
   async typingStart(ctx: WsContext<{ roomId: string }>) {
-    const { redisService } = ctx.services as any;
+    const { redisService } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const roomId = (ctx.payload as any)?.roomId as string | undefined;
@@ -207,16 +208,16 @@ export class RoomsWsController {
       // Aggregate typing count and broadcast
       try {
         const cnt = await redisService.incrBy(K.typingCount(roomId), 1);
-        try { await redisService.expire(K.typingCount(roomId), 10); } catch {}
+        try { await redisService.expire(K.typingCount(roomId), 10); } catch { RateLimitedLogger.warn("ws:typing:expireCount", `Failed to set TTL on typing count for ${roomId}`); }
         ctx.io.to(roomId).emit("typingCount", { roomId, count: Math.max(0, cnt) });
-      } catch {}
-    } catch {}
+      } catch { RateLimitedLogger.warn("ws:typing:incrCount", `Failed to increment typing count for ${roomId}`); }
+    } catch { RateLimitedLogger.warn("ws:typing:setKey", `Failed to set typing key for ${roomId}:${userId}`); }
     ctx.io.to(roomId).emit("typing", { roomId, userId, typing: true });
     return { success: true };
   }
 
   async typingStop(ctx: WsContext<{ roomId: string }>) {
-    const { redisService } = ctx.services as any;
+    const { redisService } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const roomId = (ctx.payload as any)?.roomId as string | undefined;
@@ -226,17 +227,17 @@ export class RoomsWsController {
       // Decrement typing count and broadcast
       try {
         const cnt = await redisService.incrBy(K.typingCount(roomId), -1);
-        try { await redisService.expire(K.typingCount(roomId), 10); } catch {}
+        try { await redisService.expire(K.typingCount(roomId), 10); } catch { RateLimitedLogger.warn("ws:typing:expireCount", `Failed to set TTL on typing count for ${roomId}`); }
         ctx.io.to(roomId).emit("typingCount", { roomId, count: Math.max(0, cnt) });
-      } catch {}
-    } catch {}
+      } catch { RateLimitedLogger.warn("ws:typing:decrCount", `Failed to decrement typing count for ${roomId}`); }
+    } catch { RateLimitedLogger.warn("ws:typing:delKey", `Failed to delete typing key for ${roomId}:${userId}`); }
     ctx.io.to(roomId).emit("typing", { roomId, userId, typing: false });
     return { success: true };
   }
 
   // Paginated history loader with versioned cache pages
   async loadRoomHistory(ctx: WsContext<RoomHistoryQueryDTO>) {
-    const { messageService, roomService, redisService } = ctx.services as any;
+    const { messageService, roomService, redisService } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: "Not authenticated." };
     const roomId = (ctx.payload as any)?.roomId as string | undefined;
@@ -279,7 +280,7 @@ export class RoomsWsController {
       .sort((a: Message, b: Message) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
       .slice(cursor, cursor + size)
       .map((m: Message) => mapMessageToDTO(m));
-    try { await redisService.set(pageKey, JSON.stringify(sliced), { EX: TTL.roomHistoryPage }); } catch {}
+    try { await redisService.set(pageKey, JSON.stringify(sliced), { EX: TTL.roomHistoryPage }); } catch { RateLimitedLogger.warn("ws:rooms:setHistoryPage", `Failed to set history page ${pageKey}`); }
     const nextCursor = cursor + size < all.length ? cursor + size : undefined;
     const page: PageDTO<ReturnType<typeof mapMessageToDTO>> = { items: sliced, nextCursor };
     return { success: true, roomId, cursor, size, ver, page };
@@ -287,7 +288,7 @@ export class RoomsWsController {
 
   // Top active rooms (by recent activity timestamp)
   async getTopActiveRooms(ctx: WsContext<{ limit?: number }>) {
-    const { redisService, roomService } = ctx.services as any;
+    const { redisService, roomService } = ctx.services;
     let limit = Number((ctx.payload as any)?.limit ?? 10) || 10;
     if (limit > 50) limit = 50;
     try {
@@ -296,7 +297,8 @@ export class RoomsWsController {
       const roomIds: string[] = Array.isArray(items) ? items.map((x: any) => x.value ?? x) : [];
       // Optional: fetch basic room data to return names
       const rooms = await Promise.all(roomIds.map((rid) => roomService.getRoomById(rid)));
-      return { success: true, items: rooms.filter(Boolean).map((r: Room) => mapRoomToDTO(r as Room)) };
+      const presentRooms = rooms.filter((r): r is Room => !!r);
+      return { success: true, items: presentRooms.map((r) => mapRoomToDTO(r)) };
     } catch {
       return { success: true, items: [] };
     }
@@ -304,7 +306,7 @@ export class RoomsWsController {
 
   // Last message for a room (cached)
   async getRoomLastMessage(ctx: WsContext<{ roomId: string }>) {
-    const { redisService, messageService } = ctx.services as any;
+    const { redisService, messageService } = ctx.services;
     const roomId = (ctx.payload as any)?.roomId as string | undefined;
     if (!roomId) return { success: false, error: 'Missing roomId' };
     try {
@@ -319,7 +321,8 @@ export class RoomsWsController {
     // Fallback: get all messages and return last
     try {
       const all = await messageService.getMessagesForRoom(roomId);
-      const last = all.sort((a: Message,b: Message)=> (a.timestamp??0)-(b.timestamp??0)).at(-1);
+      const sorted = all.sort((a: Message,b: Message)=> (a.timestamp??0)-(b.timestamp??0));
+      const last = sorted.length ? sorted[sorted.length - 1] : undefined;
       if (last) return { success: true, roomId, message: mapMessageToDTO(last) };
     } catch {}
     return { success: true, roomId, message: null };
@@ -327,7 +330,7 @@ export class RoomsWsController {
 
   // Active users leaderboard (ZSET)
   async getActiveUsersTop(ctx: WsContext<{ limit?: number }>) {
-    const { redisService } = ctx.services as any;
+    const { redisService } = ctx.services;
     let limit = Number((ctx.payload as any)?.limit ?? 10) || 10;
     if (limit > 100) limit = 100;
     try {
@@ -341,7 +344,7 @@ export class RoomsWsController {
 
   // Message counters for a room in a time range (hour/day)
   async getRoomMessageCounts(ctx: WsContext<{ roomId: string; range?: 'hour' | 'day'; from?: number; to?: number }>) {
-    const { redisService, roomService } = ctx.services as any;
+    const { redisService, roomService } = ctx.services;
     const userId = (ctx.socket.data as any)?.userId as string | undefined;
     if (!userId) return { success: false, error: 'Not authenticated.' };
     const payload = (ctx.payload as any) || {};

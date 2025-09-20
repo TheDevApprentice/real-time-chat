@@ -301,53 +301,6 @@ services:
       retries: 5
       start_period: 30s
 
-  # Service pour initialiser ProxySQL automatiquement
-  proxysql-init:
-    build:
-      context: ./server/Database/MariaDB
-      dockerfile: Dockerfile
-    container_name: chat-proxysql-init
-    volumes:
-      - ./server/Database/MariaDB/ProxySQL/scripts:/scripts:ro
-    networks:
-      - dbnet
-    depends_on:
-      proxysql:
-        condition: service_healthy
-    command: |
-      bash -lc '
-        set -euo pipefail
-
-        echo "[proxysql-init] Waiting for Galera nodes (root ping)..."
-        for h in mariadb_galera1 mariadb_galera2 mariadb_galera3; do
-          for i in {1..60}; do
-            if mariadb-admin ping -h "$h" -P 3306 -uroot -proot --silent >/dev/null 2>&1; then
-              echo "[proxysql-init] $h is reachable"; break; fi
-            sleep 2; if [ $i -eq 60 ]; then echo "[proxysql-init] ERROR: $h not reachable" >&2; exit 1; fi
-          done
-        done
-
-        echo "[proxysql-init] Waiting for ProxySQL to be fully ready..."
-        sleep 15
-
-        echo "[proxysql-init] Ensuring monitor privileges exist on Galera (idempotent)..."
-        mysql -h mariadb_galera1 -P 3306 -u root -proot -e "GRANT PROCESS, REPLICATION CLIENT, REPLICATION SLAVE, SLAVE MONITOR ON *.* TO \'monitor\'@\'%\'; FLUSH PRIVILEGES;"
-
-        echo "[proxysql-init] Initializing ProxySQL configuration..."
-        mysql -h proxysql -P 6032 -u admin -padmin < /scripts/init_proxysql.sql
-
-        echo "[proxysql-init] Cleaning up legacy Hostgroup 0 entries and saving to disk..."
-        mysql -h proxysql -P 6032 -u admin -padmin -e "DELETE FROM mysql_servers WHERE hostgroup_id=0; LOAD MYSQL SERVERS TO RUNTIME; SAVE MYSQL SERVERS TO DISK;"
-
-        echo "[proxysql-init] Verifying runtime hostgroups..."
-        mysql -h proxysql -P 6032 -u admin -padmin -e "SELECT hostgroup_id, hostname, status FROM runtime_mysql_servers ORDER BY hostgroup_id, hostname;"
-
-        echo "[proxysql-init] Testing application connection via ProxySQL..."
-        mysql -h proxysql -P 6033 -u chat -pchat -D chat -e "SELECT \"ProxySQL connection test successful\" as status;"
-        echo "[proxysql-init] Done."
-      '
-    restart: "no"
-
   # Galera Cluster Node 1 (Bootstrap node)
   mariadb_galera1:
     build:

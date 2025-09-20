@@ -1,6 +1,7 @@
 import type { WsContext } from "../router/WsContext";
 import { K, TTL, jsonGet, jsonSet, delMany } from "../../../cache/cacheKeys";
 import type { CallRequestDTO, CallAcceptDTO, CallDeclineDTO, CallCancelDTO, CallOfferDTO, CallAnswerDTO, CallIceCandidateDTO, CallHangupDTO } from "../../../../domain/dto";
+import { RateLimitedLogger } from "../../../../utils/RateLimitedLogger";
 
 function genId(): string {
   // Lightweight UUID-ish id (not for crypto) e.g. ab12cd34-... length ~ 24
@@ -32,7 +33,7 @@ export class CallsWsController {
     }
     if (targetUserId === callerId) return { success: false, error: "Cannot call yourself." };
 
-    const { friendService, roomService, redisService, userService } = services as any;
+    const { friendService, roomService, redisService, userService } = services;
 
     // Permission: accepted friends OR share at least one room
     let allowed = false;
@@ -67,8 +68,8 @@ export class CallsWsController {
       createdAt: Date.now(),
     };
     await jsonSet(redisService, K.callSession(callId), sess, ringTimeoutSec);
-    try { await redisService.set(K.userCall(callerId), callId, { EX: ringTimeoutSec }); } catch {}
-    try { await redisService.set(K.userCall(targetUserId), callId, { EX: ringTimeoutSec }); } catch {}
+    try { await redisService.set(K.userCall(callerId), callId, { EX: ringTimeoutSec }); } catch { RateLimitedLogger.warn("ws:calls:setUserCall", `Failed to set userCall for ${callerId}`); }
+    try { await redisService.set(K.userCall(targetUserId), callId, { EX: ringTimeoutSec }); } catch { RateLimitedLogger.warn("ws:calls:setUserCall", `Failed to set userCall for ${targetUserId}`); }
 
     // Load basic user info for UI
     let caller: any = null;
@@ -79,9 +80,9 @@ export class CallsWsController {
     try {
       const sockets = await redisService.sMembers(K.userSockets(targetUserId));
       for (const sid of sockets || []) {
-        try { io.to(sid).emit("callIncoming", { callId, fromUser, media }); } catch {}
+        try { io.to(sid).emit("callIncoming", { callId, fromUser, media }); } catch { RateLimitedLogger.warn("ws:calls:emit", `Failed to emit callIncoming to ${sid}`); }
       }
-    } catch {}
+    } catch { RateLimitedLogger.warn("ws:calls:sMembers", `Failed to read userSockets for ${targetUserId}`); }
 
     // Auto-timeout ring: if still ringing after TTL.callRinging, end and notify
     setTimeout(async () => {
@@ -93,14 +94,16 @@ export class CallsWsController {
           const notify = async (uid: string) => {
             try {
               const devs = await redisService.sMembers(K.userSockets(uid));
-              for (const d of devs || []) io.to(d).emit("callDeclined", { callId, reason: "timeout" });
-            } catch {}
+              for (const d of devs || []) {
+                try { io.to(d).emit("callDeclined", { callId, reason: "timeout" }); } catch { RateLimitedLogger.warn("ws:calls:emit", `Failed to emit callDeclined to ${d}`); }
+              }
+            } catch { RateLimitedLogger.warn("ws:calls:sMembers", `Failed to read userSockets for ${uid}`); }
           };
           await notify(s.callerId);
           await notify(s.calleeId);
-          await delMany(redisService, [K.userCall(s.callerId), K.userCall(s.calleeId), K.callSession(callId)]);
+          try { await delMany(redisService, [K.userCall(s.callerId), K.userCall(s.calleeId), K.callSession(callId)]); } catch { RateLimitedLogger.warn("ws:calls:delMany", `Failed to cleanup call keys for ${callId}`); }
         }
-      } catch {}
+      } catch { RateLimitedLogger.warn("ws:calls:timeout", `Failed to process timeout for ${callId}`); }
     }, (ringTimeoutSec + 1) * 1000);
 
     return { success: true, callId };
@@ -113,7 +116,7 @@ export class CallsWsController {
     const { callId } = (ctx.payload || {}) as any;
     if (!callId) return { success: false, error: "Missing callId." };
 
-    const { redisService } = services as any;
+    const { redisService } = services;
     const sess = await jsonGet<CallSession>(redisService, K.callSession(callId));
     if (!sess) return { success: false, error: "Call not found." };
     if (sess.status !== "ringing") return { success: false, error: "Call not in ringing state." };
@@ -140,7 +143,7 @@ export class CallsWsController {
     const { callId } = (ctx.payload || {}) as any;
     if (!callId) return { success: false, error: "Missing callId." };
 
-    const { redisService } = services as any;
+    const { redisService } = services;
     const sess = await jsonGet<CallSession>(redisService, K.callSession(callId));
     if (!sess) return { success: false, error: "Call not found." };
     if (uid !== sess.callerId && uid !== sess.calleeId) return { success: false, error: "Not part of this call." };
@@ -164,7 +167,7 @@ export class CallsWsController {
     const { callId, reason } = (ctx.payload || {}) as any;
     if (!callId) return { success: false, error: "Missing callId." };
 
-    const { redisService } = services as any;
+    const { redisService } = services;
     const sess = await jsonGet<CallSession>(redisService, K.callSession(callId));
     if (!sess) return { success: false, error: "Call not found." };
     if (sess.status === "ended") return { success: true };
@@ -192,7 +195,7 @@ export class CallsWsController {
     const { callId } = (ctx.payload || {}) as any;
     if (!callId) return { success: false, error: "Missing callId." };
 
-    const { redisService } = services as any;
+    const { redisService } = services;
     const sess = await jsonGet<CallSession>(redisService, K.callSession(callId));
     if (!sess) return { success: false, error: "Call not found." };
     if (sess.callerId !== uid) return { success: false, error: "Only caller can cancel ringing." };
@@ -203,7 +206,7 @@ export class CallsWsController {
 
     // Notify callee devices
     try {
-      const sockets = await (services as any).redisService.sMembers(K.userSockets(sess.calleeId));
+      const sockets = await (services).redisService.sMembers(K.userSockets(sess.calleeId));
       for (const sid of sockets || []) io.to(sid).emit("callCanceled", { callId });
     } catch {}
 
@@ -218,7 +221,7 @@ export class CallsWsController {
     if (!uid) return { success: false, error: "Not authenticated." };
     const { callId, sdp } = (ctx.payload || {}) as any;
     if (!callId || !sdp) return { success: false, error: "Missing fields." };
-    const { redisService } = services as any;
+    const { redisService } = services;
     const sess = await jsonGet<CallSession>(redisService, K.callSession(callId));
     if (!sess) return { success: false, error: "Call not found." };
     if (uid !== sess.callerId && uid !== sess.calleeId) return { success: false, error: "Not part of this call." };
@@ -236,7 +239,7 @@ export class CallsWsController {
     if (!uid) return { success: false, error: "Not authenticated." };
     const { callId, sdp } = (ctx.payload || {}) as any;
     if (!callId || !sdp) return { success: false, error: "Missing fields." };
-    const { redisService } = services as any;
+    const { redisService } = services;
     const sess = await jsonGet<CallSession>(redisService, K.callSession(callId));
     if (!sess) return { success: false, error: "Call not found." };
     if (uid !== sess.callerId && uid !== sess.calleeId) return { success: false, error: "Not part of this call." };
@@ -254,7 +257,7 @@ export class CallsWsController {
     if (!uid) return { success: false, error: "Not authenticated." };
     const { callId, candidate } = (ctx.payload || {}) as any;
     if (!callId || !candidate) return { success: false, error: "Missing fields." };
-    const { redisService } = services as any;
+    const { redisService } = services;
     const sess = await jsonGet<CallSession>(redisService, K.callSession(callId));
     if (!sess) return { success: false, error: "Call not found." };
     if (uid !== sess.callerId && uid !== sess.calleeId) return { success: false, error: "Not part of this call." };

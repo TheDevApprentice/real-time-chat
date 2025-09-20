@@ -1,25 +1,90 @@
 export type FriendStatus = "pending" | "accepted";
 
 export class Friend {
+  private _id: string;
+  private _userA: string;
+  private _userB: string;
+  private _status: FriendStatus;
+  private _requesterId: string;
+  private _createdAt: number;
+  private _updatedAt: number;
+
   constructor(
-    public id: string,
-    public userA: string,
-    public userB: string,
-    public status: FriendStatus,
-    public requesterId: string,
-    public createdAt: number,
-    public updatedAt: number
-  ) {}
+    id: string,
+    userA: string,
+    userB: string,
+    status: FriendStatus,
+    requesterId: string,
+    createdAt: number,
+    updatedAt: number
+  ) {
+    this._id = id;
+    this._userA = userA;
+    this._userB = userB;
+    this._status = status;
+    this._requesterId = requesterId;
+    this._createdAt = createdAt;
+    this._updatedAt = updatedAt;
+  }
+
+  get id(): string {
+    return this._id;
+  }
+  set id(value: string) {
+    this._id = value;
+  }
+
+  get userA(): string {
+    return this._userA;
+  }
+  set userA(value: string) {
+    this._userA = value;
+  }
+
+  get userB(): string {
+    return this._userB;
+  }
+  set userB(value: string) {
+    this._userB = value;
+  }
+
+  get status(): FriendStatus {
+    return this._status;
+  }
+  set status(value: FriendStatus) {
+    this._status = value;
+  }
+
+  get requesterId(): string {
+    return this._requesterId;
+  }
+  set requesterId(value: string) {
+    this._requesterId = value;
+  }
+
+  get createdAt(): number {
+    return this._createdAt;
+  }
+  set createdAt(value: number) {
+    this._createdAt = value;
+  }
+
+  get updatedAt(): number {
+    return this._updatedAt;
+  }
+  set updatedAt(value: number) {
+    this._updatedAt = value;
+  }
 
   toJSON() {
     return {
-      id: this.id,
-      userA: this.userA,
-      userB: this.userB,
-      status: this.status,
-      requesterId: this.requesterId,
-      createdAt: this.createdAt,
-      updatedAt: this.updatedAt,
+      id: this._id,
+      userA: this._userA,
+      userB: this._userB,
+      status: this._status,
+      requesterId: this._requesterId,
+      createdAt: this._createdAt,
+      updatedAt: this._updatedAt,
     };
   }
 
@@ -44,6 +109,6 @@ export class Friend {
   }
 
   otherUserId(forUserId: string): string {
-    return this.userA === forUserId ? this.userB : this.userA;
+    return this._userA === forUserId ? this._userB : this._userA;
   }
 }

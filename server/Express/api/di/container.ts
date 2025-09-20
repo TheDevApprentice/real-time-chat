@@ -10,15 +10,20 @@ import { IS3Service } from "../../domain/interfaces/storageInterface/IS3Service"
 import { RedisService } from "../../domain/services/cacheServices/RedisService";
 import { IRedisService } from "../../domain/interfaces/cacheInterfaces/IRedisService";
 import { createUnitOfWork, UnitOfWorkProvider } from "../../infrastructure/transaction/UnitOfWork";
+import { IAuthService } from "../../domain/interfaces/dbInterfaces/Iservices/IAuthService";
+import { IFriendsService } from "../../domain/interfaces/dbInterfaces/Iservices/IFriendsService";
+import { IMessageService } from "../../domain/interfaces/dbInterfaces/Iservices/IMessageService";
+import { IRoomService } from "../../domain/interfaces/dbInterfaces/Iservices/IRoomService";
+import { IUserService } from "../../domain/interfaces/dbInterfaces/Iservices/IUserService";
 
 export type Services = {
-  authService: AuthService;
-  userService: UserService;
-  roomService: RoomService;
-  messageService: MessageService;
-  friendService: FriendService;
-  s3Service: IS3Service;
+  authService: IAuthService;
+  friendService: IFriendsService;
+  userService: IUserService;
+  roomService: IRoomService;
+  messageService: IMessageService;
   redisService: IRedisService;
+  s3Service: IS3Service;
   unitOfWork: UnitOfWorkProvider;
 };
 

@@ -13,6 +13,7 @@ import { K, TTL, incrWithTtl, jsonGet } from "../../../cache/cacheKeys";
 import { Message, User } from "../../../../domain/entities";
 import { mapUserToDTO, mapRoomToDTO, mapMessageToDTO } from "../../../../domain/dto";
 import { randomUUID } from "crypto";
+import { RateLimitedLogger } from "../../../../utils/RateLimitedLogger";
 // Note: invites use Redis-only tokens (no cross-instance signing)
 
 const router = Router();
@@ -36,7 +37,7 @@ router.post(
   validateRESTMiddlewareParams(MessageIdParamsSchema),
   validateRESTMiddlewareBody(MessageUndoBodySchema),
   asyncHandlerRESTMiddleware(async (req: AuthenticatedRequest, res: Response) => {
-    const { messageService, redisService } = getServices() as any;
+    const { messageService, redisService } = getServices();
     const me = (req as any).user as { id: string } | undefined;
     if (!me?.id) return res.status(401).json({ error: "Not authenticated" });
     const messageId = (req as any).validated.params.messageId as number;
@@ -48,8 +49,8 @@ router.post(
     if (!snap || snap.roomId !== roomId) return res.status(404).json({ error: "Nothing to undo" });
     const prev = String(snap.prevContent || "").slice(0, 2000);
     await messageService.updateMessageContent(messageId, prev);
-    try { await redisService.del(K.msgUndo(me.id, messageId)); } catch {}
-    try { req.app.get("io")?.to(roomId)?.emit("messageEdited", { roomId, messageId, content: prev }); } catch {}
+    try { await redisService.del(K.msgUndo(me.id, messageId)); } catch { RateLimitedLogger.warn("rest:chat:undo:del", `Failed to delete undo snapshot for ${me.id}:${messageId}`); }
+    try { req.app.get("io")?.to(roomId)?.emit("messageEdited", { roomId, messageId, content: prev }); } catch { RateLimitedLogger.warn("rest:chat:undo:emit", `Failed to emit messageEdited for ${roomId}:${messageId}`); }
     res.json({ success: true });
   })
 );
@@ -68,7 +69,7 @@ router.patch(
   validateRESTMiddlewareParams(MessageIdParamsSchema),
   validateRESTMiddlewareBody(MessageEditBodySchema),
   asyncHandlerRESTMiddleware(async (req: AuthenticatedRequest, res: Response) => {
-    const { messageService, roomService } = getServices() as any;
+    const { messageService, roomService } = getServices();
     const me = (req as any).user as { id: string } | undefined;
     if (!me?.id) return res.status(401).json({ error: "Not authenticated" });
     const messageId = (req as any).validated.params.messageId as number;
@@ -95,7 +96,7 @@ router.delete(
   validateRESTMiddlewareParams(MessageIdParamsSchema),
   validateRESTMiddlewareBody(MessageDeleteBodySchema),
   asyncHandlerRESTMiddleware(async (req: AuthenticatedRequest, res: Response) => {
-    const { messageService, roomService } = getServices() as any;
+    const { messageService, roomService } = getServices();
     const me = (req as any).user as { id: string } | undefined;
     if (!me?.id) return res.status(401).json({ error: "Not authenticated" });
     const messageId = (req as any).validated.params.messageId as number;
@@ -104,7 +105,7 @@ router.delete(
     if (!orig) return res.status(404).json({ error: "Message not found" });
     let allowed = orig.author?.id === me.id;
     if (!allowed) {
-      try { const room = await roomService.getRoomById(roomId); allowed = room && room.creatorId === me.id; } catch {}
+      try { const room = await roomService.getRoomById(roomId); allowed = !!room && room.creatorId === me.id; } catch {}
     }
     if (!allowed) return res.status(403).json({ error: "Not allowed" });
     await messageService.softDeleteMessage(messageId);
@@ -141,7 +142,7 @@ router.get(
     res: Response
   ) => {
     const { q, limit } = (req.validated!.query as any)!;
-    const { userService, redisService } = getServices() as any;
+    const { userService, redisService } = getServices();
     const me = (req as any).user as { id: string } | undefined;
     const userId = me?.id || "anonymous";
 
@@ -162,14 +163,14 @@ router.get(
         try { await redisService.incrBy(K.statsHit('searchUsers')); } catch {}
         return res.json(JSON.parse(cached));
       }
-    } catch {}
+    } catch { RateLimitedLogger.warn("rest:chat:searchUsers:get", `Failed to get searchUsers for ${userId}:${q}:${lim}`); }
 
     const users = await userService.searchUsersByName(q, lim);
     const payload = users.map((u: User) => mapUserToDTO(u));
     try {
       await redisService?.set?.(key, JSON.stringify(payload), { EX: TTL.searchShort });
-    } catch {}
-    try { await redisService.incrBy(K.statsMiss('searchUsers')); } catch {}
+    } catch { RateLimitedLogger.warn("rest:chat:searchUsers:set", `Failed to set searchUsers for ${userId}:${q}:${lim}`); }
+    try { await redisService.incrBy(K.statsMiss('searchUsers')); } catch { RateLimitedLogger.warn("rest:chat:searchUsers:incrBy", `Failed to incrBy searchUsers for ${userId}:${q}:${lim}`); }
     res.json(payload);
   })
 );
@@ -212,7 +213,7 @@ router.post(
   }),
   validateRESTMiddlewareBody(InviteCreateBodySchema),
   asyncHandlerRESTMiddleware(async (req: RequestWithValidated<{ roomId: string; invitedUserId?: string; role?: string }>, res: Response) => {
-    const { redisService, roomService } = getServices() as any;
+    const { redisService, roomService } = getServices();
     const { roomId, invitedUserId, role } = (req.validated!.body as any);
     const me = (req as any).user as { id: string } | undefined;
     if (!me?.id) return res.status(401).json({ error: "Not authenticated" });
@@ -229,7 +230,7 @@ router.post(
     const payload = { roomId, ...(invitedUserId ? { invitedUserId } : {}), ...(role ? { role } : {}) };
     try {
       await redisService.set(K.invite(token), JSON.stringify(payload), { EX: TTL.invite });
-    } catch {}
+    } catch { RateLimitedLogger.warn("rest:chat:createInvite:set", `Failed to set invite for ${me.id}:${roomId}:${invitedUserId}:${role}`); }
     res.json({ token, expiresIn: TTL.invite });
   })
 );
@@ -244,7 +245,7 @@ router.get(
     maxAttempts: 120,
   }),
   asyncHandlerRESTMiddleware(async (req: AuthenticatedRequest, res: Response) => {
-    const { redisService, roomService } = getServices() as any;
+    const { redisService, roomService } = getServices();
     const token = String(req.params.token || "");
     if (!token) return res.status(400).json({ error: "Missing token" });
     const me = (req as any).user as { id: string } | undefined;
@@ -260,7 +261,7 @@ router.get(
         try { await redisService.del(K.roomsVisible(me.id)); } catch {}
         return res.json({ token, payload: { roomId } });
       }
-    } catch {}
+    } catch { RateLimitedLogger.warn("rest:chat:consumeInvite:get", `Failed to get invite for ${me.id}:${token}`); }
       // No portable token: if not found in Redis, we consider it invalid/expired
     return res.status(404).json({ error: "Invalid or expired invite" });
   })

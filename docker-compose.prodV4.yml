@@ -5,7 +5,7 @@ services:
     container_name: traefik
     command:
       - --api.dashboard=true
-      - --api.insecure=false
+      - --api.insecure=true
       - --log.level=DEBUG
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
@@ -13,7 +13,7 @@ services:
       # Enable HTTPS with Let's Encrypt (free). Uncomment the 4 lines below and set your email and domain DNS to this host.
       # - --entrypoints.websecure.address=:443
       # - --certificatesresolvers.le.acme.tlschallenge=true
-      # - --certificatesresolvers.le.acme.email=your-menuwebservice@gmail.com
+      # - --certificatesresolvers.le.acme.email=your-email@example.com
       # - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
       # NOTE: Do NOT enable HTTP->HTTPS redirection when using ngrok to port 80,
       # as TLS is terminated by ngrok and forwarded to local :80 (would cause loops)
@@ -21,12 +21,12 @@ services:
       # - --entrypoints.web.http.redirections.entryPoint.to=websecure
       # - --entrypoints.web.http.redirections.entryPoint.scheme=https
     ports:
-      - "127.0.0.1:80:80"
-      # - "8080:8080"
-      # - "443:443"
+      - "80:80"
+      - "8080:8080"
+      - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik_data:/letsencrypt
+      # - traefik_data:/letsencrypt
     depends_on:
       proxysql:
         condition: service_healthy
@@ -189,6 +189,9 @@ services:
       - MINIO_ROOT_USER=admin
       - MINIO_ROOT_PASSWORD=adminadmin123
       - S3_BUCKET=chat-bucket
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # MinIO Console
     volumes:
       - minio_data:/data
     restart: unless-stopped
@@ -235,6 +238,8 @@ services:
       dockerfile: Dockerfile
     image: realtime-chat-redis:latest
     container_name: chat-redis
+    # ports:
+    #   - "6379:6379"
     # For dev you can inline a password; for production use secrets.
     command: [ "sh", "-c", "exec redis-server --appendonly yes --requirepass \"${REDIS_PASSWORD:-changeme}\"" ]
     environment:
@@ -254,11 +259,13 @@ services:
     volumes:
       - redis_data:/data
     networks:
+      - proxy
       - cachenet
     restart: unless-stopped
     # No Traefik labels here: Redis is TCP on 6379 (not HTTP). Keep it internal.
 
-  # ProxySQL - Load balancer for Galera cluster
+    # ProxySQL - Load balancer for Galera cluster
+
   proxysql:
     build:
       context: ./server/Database/MariaDB/ProxySQL
@@ -268,6 +275,9 @@ services:
     volumes:
       - ./server/Database/MariaDB/ProxySQL/proxysql.cnf:/etc/proxysql.cnf:ro
       - proxysql_data:/var/lib/proxysql
+    # ports:
+    #   - "127.0.0.1:6033:6033" # MySQL port for applications
+    #   - "127.0.0.1:6032:6032" # Admin interface
     environment:
       - PROXYSQL_ADMIN_USER=admin
       - PROXYSQL_ADMIN_PASSWORD=admin
@@ -290,53 +300,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-
-  # Service pour initialiser ProxySQL automatiquement
-  proxysql-init:
-    build:
-      context: ./server/Database/MariaDB
-      dockerfile: Dockerfile
-    container_name: chat-proxysql-init
-    volumes:
-      - ./server/Database/MariaDB/ProxySQL/scripts:/scripts:ro
-    networks:
-      - dbnet
-    depends_on:
-      proxysql:
-        condition: service_healthy
-    command: |
-      bash -lc '
-        set -euo pipefail
-
-        echo "[proxysql-init] Waiting for Galera nodes (root ping)..."
-        for h in mariadb_galera1 mariadb_galera2 mariadb_galera3; do
-          for i in {1..60}; do
-            if mariadb-admin ping -h "$h" -P 3306 -uroot -proot --silent >/dev/null 2>&1; then
-              echo "[proxysql-init] $h is reachable"; break; fi
-            sleep 2; if [ $i -eq 60 ]; then echo "[proxysql-init] ERROR: $h not reachable" >&2; exit 1; fi
-          done
-        done
-
-        echo "[proxysql-init] Waiting for ProxySQL to be fully ready..."
-        sleep 15
-
-        echo "[proxysql-init] Ensuring monitor privileges exist on Galera (idempotent)..."
-        mysql -h mariadb_galera1 -P 3306 -u root -proot -e "GRANT PROCESS, REPLICATION CLIENT, REPLICATION SLAVE, SLAVE MONITOR ON *.* TO \'monitor\'@\'%\'; FLUSH PRIVILEGES;"
-
-        echo "[proxysql-init] Initializing ProxySQL configuration..."
-        mysql -h proxysql -P 6032 -u admin -padmin < /scripts/init_proxysql.sql
-
-        echo "[proxysql-init] Cleaning up legacy Hostgroup 0 entries and saving to disk..."
-        mysql -h proxysql -P 6032 -u admin -padmin -e "DELETE FROM mysql_servers WHERE hostgroup_id=0; LOAD MYSQL SERVERS TO RUNTIME; SAVE MYSQL SERVERS TO DISK;"
-
-        echo "[proxysql-init] Verifying runtime hostgroups..."
-        mysql -h proxysql -P 6032 -u admin -padmin -e "SELECT hostgroup_id, hostname, status FROM runtime_mysql_servers ORDER BY hostgroup_id, hostname;"
-
-        echo "[proxysql-init] Testing application connection via ProxySQL..."
-        mysql -h proxysql -P 6033 -u chat -pchat -D chat -e "SELECT \"ProxySQL connection test successful\" as status;"
-        echo "[proxysql-init] Done."
-      '
-    restart: "no"
 
   # Galera Cluster Node 1 (Bootstrap node)
   mariadb_galera1:
