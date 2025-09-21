@@ -9,6 +9,7 @@ export const useAuthStore = defineStore('auth', () => {
   // --- State ---
   const isAuthenticated = ref(false);
   const user = ref<string | null>(null);
+  const userId = ref<string | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -24,6 +25,7 @@ export const useAuthStore = defineStore('auth', () => {
     socketService.on('sessionRestored', (payload: any) => {
       isAuthenticated.value = true;
       user.value = payload?.user?.name ?? payload?.user?.username ?? null;
+      userId.value = payload?.user?.id ?? null;
       error.value = null;
       loading.value = false;
     });
@@ -182,6 +184,7 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     isAuthenticated,
     user,
+    userId,
     loading,
     error,
     login,
