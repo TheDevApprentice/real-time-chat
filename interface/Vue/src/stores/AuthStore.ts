@@ -27,6 +27,14 @@ export const useAuthStore = defineStore('auth', () => {
       error.value = null;
       loading.value = false;
     });
+    // Server can force logout across devices
+    socketService.on('forceLogout', () => {
+      try { socketService.disconnect(); } catch {}
+      isAuthenticated.value = false;
+      user.value = null;
+      loading.value = false;
+      error.value = null;
+    });
   }
   bindSocketListeners();
 
