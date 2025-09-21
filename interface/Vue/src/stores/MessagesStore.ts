@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { socketService } from '@/services/websocket/websocket';
+import { axiosService } from '@/services/axios/axios';
+import { useAuthStore } from '@/stores/AuthStore';
 
 export interface MessageDTO {
   id: number;
@@ -26,6 +28,8 @@ function ensureRoom(state: Record<string, RoomHistoryState>, roomId: string): Ro
 export const useMessagesStore = defineStore('messages', () => {
   // roomId -> state
   const byRoom = ref<Record<string, RoomHistoryState>>({});
+  const activeRoomId = ref<string | null>(null);
+  const auth = useAuthStore();
 
   // Bind listeners once
   let bound = false;
@@ -41,6 +45,20 @@ export const useMessagesStore = defineStore('messages', () => {
       // Append in order; avoid duplicates by id
       const exists = rs.items.find((m) => m.id === msg.id);
       if (!exists) rs.items.push(msg);
+      // Auto-ack delivered/read if message is for the active room and not mine
+      try {
+        if (activeRoomId.value && activeRoomId.value === rid) {
+          const authorName = (msg as any)?.author?.name as string | undefined;
+          const myName = auth?.user || null;
+          const mine = myName && authorName && myName === authorName;
+          const mid = Number((msg as any)?.id);
+          if (!mine && Number.isFinite(mid)) {
+            const now = Date.now();
+            socketService.emit('messageDelivered', { messageId: mid, roomId: rid, timestamp: now });
+            socketService.emit('messageRead', { messageId: mid, roomId: rid, timestamp: now });
+          }
+        }
+      } catch {}
     });
 
     // Initial room history received when joining a room (legacy push)
@@ -52,6 +70,22 @@ export const useMessagesStore = defineStore('messages', () => {
       rs.items = messages.slice();
       rs.loadedOnce = true;
       rs.nextCursor = undefined; // unknown from legacy push
+      // Auto-ack delivered/read for visible history in active room
+      try {
+        if (activeRoomId.value && activeRoomId.value === rid) {
+          const myName = auth?.user || null;
+          const now = Date.now();
+          for (const m of messages) {
+            const authorName = (m as any)?.author?.name as string | undefined;
+            const mine = myName && authorName && myName === authorName;
+            const mid = Number((m as any)?.id);
+            if (!mine && Number.isFinite(mid)) {
+              socketService.emit('messageDelivered', { messageId: mid, roomId: rid, timestamp: now });
+              socketService.emit('messageRead', { messageId: mid, roomId: rid, timestamp: now });
+            }
+          }
+        }
+      } catch {}
     });
 
     // Message edited
@@ -136,8 +170,39 @@ export const useMessagesStore = defineStore('messages', () => {
     return new Promise((resolve) => socketService.emit('getUndoTTL', { roomId, messageId }, resolve));
   }
 
+  // ---- Active room helpers ----
+  function setActiveRoom(roomId: string | null) {
+    activeRoomId.value = roomId;
+  }
+  function getActiveRoomId(): string | null {
+    return activeRoomId.value;
+  }
+
+  // ---- Upload helpers (REST) ----
+  // Upload a single file as temp for a specific room. Returns { key, url }
+  async function uploadTemp(roomId: string, file: File): Promise<{ key: string; url: string }>{
+    const url = `/upload?temp=1&roomId=${encodeURIComponent(roomId)}`;
+    const res = await axiosService.upload<{ url: string; key: string }>(url, file);
+    if (!res.success || !(res.data as any)?.key) {
+      throw new Error(((res.data as any)?.error) || 'Upload failed');
+    }
+    const data = res.data as any;
+    return { key: String(data.key), url: String(data.url) };
+  }
+
+  // Delete temporary keys (cleanup if user cancels before sending)
+  async function deleteTempKeys(keys: string[]): Promise<string[]>{
+    if (!keys || keys.length === 0) return [];
+    const res = await axiosService.delete<{ deleted: string[] }>(`/upload`, { data: { keys } as any });
+    if (!res.success) return [];
+    const del = (res.data as any)?.deleted;
+    return Array.isArray(del) ? del : [];
+  }
+
   return {
     byRoom,
+    setActiveRoom,
+    getActiveRoomId,
     loadRoomHistory,
     sendMessageToRoom,
     messageDelivered,
@@ -146,5 +211,7 @@ export const useMessagesStore = defineStore('messages', () => {
     messageDelete,
     messageUndo,
     getUndoTTL,
+    uploadTemp,
+    deleteTempKeys,
   };
 });
