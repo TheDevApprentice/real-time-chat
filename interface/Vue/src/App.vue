@@ -13,13 +13,17 @@ import { useAuthStore } from '@stores/AuthStore';
 // import PwaStatus from './components/PwaStatus.vue'
 
 const device = useDeviceStore();
-const auth = useAuthStore();
+const authStore = useAuthStore();
 
 onBeforeMount(async () => {
-  await auth.tryAutoAuth();
 });
 
 onMounted(async () => {
+  await authStore.tryAutoAuth().then(() => {
+    console.log('App/authStore.isAuthenticated:', authStore.isAuthenticated);
+    console.log('App/authStore.user:', authStore.user);
+  });
+
   console.log('App/DeviceStore.deviceType:', device.deviceType);
   console.log('App/DeviceStore.isMobile:', device.isMobile);
   console.log('App/DeviceStore.isTablet:', device.isTablet);

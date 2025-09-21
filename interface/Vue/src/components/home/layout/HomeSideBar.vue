@@ -16,7 +16,7 @@
               style="
                 transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
               "
-              >Hugo</span
+              >{{ currentUser }}</span
             >
           </div>
           <!-- Divider -->
@@ -195,6 +195,7 @@
 import { defineAsyncComponent } from "vue";
 import type { Conversation } from "@home/chatZone/SideBarConversations.vue";
 import LoadingOverlay from "@layouts/LoadingOverlay.vue";
+import { useAuthStore } from "@/stores/AuthStore";
 
 const LargeAvatar = defineAsyncComponent(
   () => import("@ui/avatars/LargeAvatar.vue")
@@ -203,6 +204,8 @@ const UserConversationItem = defineAsyncComponent(
   () => import("@home/UserConversationItem.vue")
 );
 
+const authStore = useAuthStore(); 
+const currentUser = authStore.user;
 defineProps<{
   mockConversations: Conversation[];
   sidebarHovered: boolean;

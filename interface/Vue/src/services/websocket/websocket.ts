@@ -1,6 +1,7 @@
  // src/services/websocket/websocket.ts
 
 // ===== SOCKET.IO-CLIENT SERVICE POUR TOUTE L'APP =====
+import { getCookie } from '@/utils/cookieHelper';
 import { io, Socket } from 'socket.io-client';
 
 const WS_URL = import.meta.env.VITE_WEBSOCKET_URL as string;
@@ -11,10 +12,15 @@ class SocketService {
   private socket: Socket;
 
   constructor() {
+    console.log("token", getCookie("session_token"));
+    console.log("X-XSRF-TOKEN", getCookie("X-XSRF-TOKEN"));
     this.socket = io(WS_URL, {
       autoConnect: false,
       withCredentials: true,
       transports: ['websocket'],
+      auth: {
+        csrf: getCookie('X-XSRF-TOKEN') || '',
+      },
     });
     if (DEBUG) {
       this.socket.onAny((event, ...args) => {

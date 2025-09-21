@@ -64,23 +64,13 @@ router.post(
       // Set HttpOnly cookie: use hardened __Host-session only in production (requires Secure),
       // and legacy session_token in development (HTTP) for browser compatibility.
       const isProd = process.env.NODE_ENV === "production";
-      if (isProd) {
-        res.cookie("__Host-session", token, {
-          httpOnly: true,
-          sameSite: "lax",
-          secure: true,
-          maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
-          path: "/",
-        });
-      } else {
-        res.cookie("session_token", token, {
-          httpOnly: true,
-          sameSite: "lax",
-          secure: false,
-          maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
-          path: "/",
-        });
-      }
+      res.cookie(isProd ? "__Host-session" : "session_token", token, {
+        httpOnly: false,
+        sameSite: "lax",
+        secure: isProd,
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+        path: "/",
+      });
       return res.json({ success: true });
     } catch (err) {
       return res.status(500).json({ error: "Failed to set session cookie." });
@@ -145,24 +135,14 @@ router.post(
     );
     await authService.addUserSession(newSession);
     // Placer le nouveau token dans un cookie HTTP-only
-    const isProd = process.env.NODE_ENV === "production";
-    if (isProd) {
-      res.cookie("__Host-session", newToken, {
-        httpOnly: true,
+      const isProd = process.env.NODE_ENV === "production";
+      res.cookie(isProd ? "__Host-session" : "session_token", newToken, {
+        httpOnly: false,
         sameSite: "lax",
-        secure: true,
-        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 jours
+        secure: isProd,
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
         path: "/",
       });
-    } else {
-      res.cookie("session_token", newToken, {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: false,
-        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 jours
-        path: "/",
-      });
-    }
     res.json({
       user: session.user ? mapUserToDTO(session.user) : undefined,
       refreshToken: newRefreshToken,

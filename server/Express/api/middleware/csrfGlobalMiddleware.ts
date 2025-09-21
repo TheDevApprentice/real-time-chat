@@ -21,10 +21,11 @@ export function issueCsrfCookieGlobalMiddleware(
     const existing = (req as any).cookies?.[CSRF_COOKIE_NAME];
     if (!existing) {
       const token = crypto.randomBytes(32).toString("hex");
+      const isProd = process.env.NODE_ENV === "production";
       res.cookie(CSRF_COOKIE_NAME, token, {
         httpOnly: false, // must be readable by frontend to send in header
         sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
+        secure: isProd,
         path: "/",
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });

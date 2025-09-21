@@ -2,6 +2,8 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { socketService } from '@/services/websocket/websocket';
 import { axiosService } from '@/services/axios/axios';
+import { getToken } from '@/utils/cookieHelper';
+
 
 export const useAuthStore = defineStore('auth', () => {
   // --- State ---
@@ -13,25 +15,69 @@ export const useAuthStore = defineStore('auth', () => {
   // --- Actions ---
 
   // --- Auth via socket.io-client ---
+  // --- Socket event listeners ---
+  let listenersBound = false;
+  function bindSocketListeners() {
+    if (listenersBound) return;
+    listenersBound = true;
+    // Server emits this when a valid session cookie is present during connection
+    socketService.on('sessionRestored', (payload: any) => {
+      isAuthenticated.value = true;
+      user.value = payload?.user?.name ?? payload?.user?.username ?? null;
+      error.value = null;
+      loading.value = false;
+    });
+  }
+  bindSocketListeners();
 
   async function tryAutoAuth(): Promise<boolean> {
     loading.value = true;
     error.value = null;
     try {
-      // Cookie-first: backend will read HttpOnly cookie and return the user
-      const res = await axiosService.get<{ id: string; name: string }>("/auth/me");
-      if (!res.success) {
+      // Always connect so server can inspect HttpOnly cookie and emit 'sessionRestored'
+      if (!socketService.isConnected()) socketService.connect();
+
+      const token = getToken('session_token');
+
+      const result = await new Promise<boolean>((resolve) => {
+        // One-time handler for server-side restored session via cookie
+        const onRestored = (payload: any) => {
+          isAuthenticated.value = true;
+          user.value = payload?.user?.name ?? payload?.user?.username ?? null;
+          error.value = null;
+          loading.value = false;
+          socketService.off('sessionRestored', onRestored as any);
+          resolve(true);
+        };
+        socketService.on('sessionRestored', onRestored as any);
+
+        // If we also have a readable token, try explicit authenticate as a fallback/fast-path
+        if (token) {
+          socketService.emit('authenticate', { token }, (res: any) => {
+            if (res && res.success) {
+              isAuthenticated.value = true;
+              user.value = res?.user?.name || null;
+              error.value = null;
+              loading.value = false;
+              socketService.off('sessionRestored', onRestored as any);
+              resolve(true);
+            }
+          });
+        }
+
+        // Soft timeout: resolve with current state after a short delay
+        setTimeout(() => {
+          socketService.off('sessionRestored', onRestored as any);
+          loading.value = false;
+          resolve(!!isAuthenticated.value);
+        }, 1500);
+      });
+
+      if (!result) {
         isAuthenticated.value = false;
         user.value = null;
-        loading.value = false;
-        return false;
       }
-      isAuthenticated.value = true;
-      user.value = res.data.name;
-      // Connect socket; server will restore session from cookie
-      socketService.connect();
-      loading.value = false;
-      return true;
+      return result;
     } catch (e: any) {
       isAuthenticated.value = false;
       user.value = null;
@@ -44,6 +90,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(username: string, password: string): Promise<boolean> {
     loading.value = true;
     error.value = null;
+    // Connect WS first so auth handshake is possible
     socketService.connect();
     return new Promise<boolean>((resolve) => {
       socketService.emit('login', { username, password }, async (res: any) => {
@@ -55,12 +102,12 @@ export const useAuthStore = defineStore('auth', () => {
           resolve(false);
           return;
         }
-        // Succès
+        // Success: set state
         isAuthenticated.value = true;
-        user.value = res.name;
+        user.value = res?.name || res?.user?.name || null;
         error.value = null;
-        // Demander au serveur de placer un cookie HttpOnly sécurisé
-        if (res.token) {
+        // Ask backend to set secure HttpOnly cookie from token
+        if (res?.token) {
           try {
             await axiosService.post('/auth/session-cookie', { token: res.token });
           } catch (e) {
@@ -77,7 +124,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true;
     error.value = null;
     try {
-      // REST: POST /api/auth/register (base URL comes from VITE_API_BASE_URL)
+      // REST: POST /auth/register (base URL comes from VITE_API_BASE_URL which points to /api)
       const res = await axiosService.post<{ id: string; name: string }>(
         '/auth/register',
         { username, password, confirmPassword: confirm }
@@ -87,12 +134,11 @@ export const useAuthStore = defineStore('auth', () => {
         loading.value = false;
         return false;
       }
-      // Succès inscription, invite à se connecter
+      // Success: prompt to login
       error.value = 'Compte créé avec succès ! Connectez-vous.';
       loading.value = false;
       return true;
     } catch (e: any) {
-      // e is formatted by axiosService.formatError when available
       error.value = e?.data?.error || e?.message || 'Inscription échouée.';
       loading.value = false;
       return false;
@@ -103,13 +149,16 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true;
     error.value = null;
     try {
-      // Ask server to revoke all sessions for current user and clear cookie
-      const res = await axiosService.delete<{ success: boolean }>("/user/sessions");
-      if (!res.success) {
-        error.value = (res.data as any)?.error || 'Déconnexion échouée.';
-        loading.value = false;
-        return false;
-      }
+      await new Promise<boolean>((resolve) => {
+        const token = getToken("session_token");
+        console.log("token", token);
+        if (!token) return resolve(false);
+        // Send empty payload; server reads session from socket. If it expects token and fails, we'll fallback.
+        socketService.emit('logout', { token }, (res: any) => {
+          if (res && res.error) return resolve(false);
+          resolve(true);
+        });
+      });
       socketService.disconnect();
       isAuthenticated.value = false;
       user.value = null;

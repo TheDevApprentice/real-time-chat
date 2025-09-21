@@ -42,25 +42,25 @@ services:
       - proxy
     restart: unless-stopped
 
-  interface:
-    build:
-      context: ./interface/Vue
-      dockerfile: Dockerfile
-    image: realtime-chat-interface:latest
-    # scale: 2
-    # No direct host port exposure; Traefik will route HTTP traffic.
-    networks:
-      - proxy
-    restart: unless-stopped
-    labels:
-      - "traefik.enable=true"
-      # Route all non-API paths to the Vue interface (served by nginx in the container on port 80)
-      - "traefik.http.routers.webui.rule=PathPrefix(`/`)"
-      - "traefik.http.routers.webui.entrypoints=web"
-      - "traefik.http.routers.webui.priority=2"
-      - "traefik.http.routers.webui.service=webui"
-      - "traefik.http.services.webui.loadbalancer.server.port=80"
-      - "traefik.docker.network=proxy"
+  # interface:
+  #   build:
+  #     context: ./interface/Vue
+  #     dockerfile: Dockerfile
+  #   image: realtime-chat-interface:latest
+  #   # scale: 2
+  #   # No direct host port exposure; Traefik will route HTTP traffic.
+  #   networks:
+  #     - proxy
+  #   restart: unless-stopped
+  #   labels:
+  #     - "traefik.enable=true"
+  #     # Route all non-API paths to the Vue interface (served by nginx in the container on port 80)
+  #     - "traefik.http.routers.webui.rule=PathPrefix(`/`)"
+  #     - "traefik.http.routers.webui.entrypoints=web"
+  #     - "traefik.http.routers.webui.priority=2"
+  #     - "traefik.http.routers.webui.service=webui"
+  #     - "traefik.http.services.webui.loadbalancer.server.port=80"
+  #     - "traefik.docker.network=proxy"
 
   server:
     build:
@@ -69,10 +69,10 @@ services:
     image: realtime-chat-server:latest
     scale: 2
     environment:
-      NODE_ENV: production
+      NODE_ENV: dev
       DEBUG: true
       PORT: 3080
-      FRONTEND_URL: http://localhost
+      FRONTEND_URL: http://localhost:5173
       # Trust proxy (e.g. when behind a reverse proxy)
       TRUST_PROXY: "true"
       # Bcrypt cost
