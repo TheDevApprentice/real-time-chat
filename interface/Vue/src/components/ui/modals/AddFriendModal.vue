@@ -14,7 +14,7 @@
             <template v-if="searchQuery && filteredUsers.length > 0" #results>
               <SearchBarUserCard
                 v-for="user in filteredUsers"
-                :key="user.name"
+                :key="user.id || user.name"
                 :avatar="user.avatar"
                 :name="user.name"
                 @action="handleAddFriend($event)"
@@ -47,7 +47,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, ref, onBeforeUnmount } from "vue";
+import { computed, defineAsyncComponent, ref, watch, onMounted } from "vue";
+import { useUserStore } from "@/stores/UserStore";
+import { useAuthStore } from "@/stores/AuthStore";
+import { useFriendsStore } from "@/stores/FriendsStore";
 const Modal = defineAsyncComponent(() => import("@reusable/Modal.vue"));
 const SearchBar = defineAsyncComponent(() => import("@ui/SearchBars/SearchBar.vue"));
 const SearchBarUserCard = defineAsyncComponent(
@@ -60,62 +63,74 @@ defineProps<{
 
 const emit = defineEmits(["close"]);
 
+const userStore = useUserStore();
+const authStore = useAuthStore();
+const friendsStore = useFriendsStore();
+
 const searchQuery = ref("");
-const users = [
-  { name: "Bot Hugo", avatar: "🤖" },
-  { name: "Bot Lidya", avatar: "🧛" },
-  { name: "Bot Christine", avatar: "🤡" },
-  { name: "Bot Frédéric", avatar: "🐺" },
-  { name: "Bot Mistery", avatar: "🕵" },
-];
+// Live results populated from REST /chat/users/search
+const users = ref<Array<{ id: string; name: string; avatar: string }>>([]);
 
 const filteredUsers = computed(() => {
-  if (!searchQuery.value) return [];
-  return users.filter((u) =>
-    u.name.toLowerCase().includes(searchQuery.value.toLowerCase())
-  );
+  if (!searchQuery.value) return [] as Array<{ id: string; name: string; avatar: string }>;
+  const myId = authStore.userId;
+  if (!myId) return [] as Array<{ id: string; name: string; avatar: string }>;
+  return users.value.filter(u => u.id !== myId);
 });
 
-const addedFriends = ref([
-  { name: "Bot Hugo", avatar: "🤖", pendingInvitation: true, isFriend: false },
-  { name: "Bot Lidya", avatar: "🧛", pendingInvitation: false, isFriend: true },
-]);
+// Added friends derived from FriendsStore (pending outgoing or accepted)
+const addedFriends = computed(() => {
+  return (friendsStore.items || []).map((i) => {
+    const display = i.name || 'Utilisateur';
+    const avatar = (display || '?').trim().charAt(0).toUpperCase() || '?';
+    return {
+      name: display,
+      avatar,
+      pendingInvitation: i.status === 'pending' && i.isRequester,
+      isFriend: i.status === 'accepted',
+    };
+  }).filter(f => f.pendingInvitation || f.isFriend);
+});
 
 function updateSearchQuery(searchQueryChanged: string) {
-  console.log("Login Page searchQuery changed : ", searchQueryChanged);
   searchQuery.value = searchQueryChanged;
 }
 
 function handleClose() {
   emit("close");
 }
-function handleAddFriend(e: { name: string; avatar: string }) {
-  console.log("Add friend", e);
-  // Ajoute l'ami avec pendingInvitation à true
-  addedFriends.value.push({
-    name: e.name,
-    avatar: e.avatar,
-    pendingInvitation: true,
-    isFriend: false,
-  });
-
-  searchQuery.value = "";
-  // Après 1 seconde, simule la validation (ami accepté)
-  if (validateTimeoutId !== null) clearTimeout(validateTimeoutId);
-  validateTimeoutId = window.setTimeout(() => {
-    const addedFriend = addedFriends.value.find((f) => f.name === e.name);
-    if (addedFriend) {
-      addedFriend.pendingInvitation = false;
-      addedFriend.isFriend = true;
-      // Pas besoin de filter/push, Vue est réactif sur les objets du tableau
-      console.log("Friend validated", addedFriend);
-    }
-  }, 3000);
+async function handleAddFriend(e: { name: string; avatar: string }) {
+  // Find selected user id by name (component does not expose id). If multiple same names, pick first.
+  const target = filteredUsers.value.find(u => u.name === e.name);
+  if (!target) return;
+  try {
+    const res = await friendsStore.friendRequest(target.id);
+    if (!res?.success) throw new Error(res?.error || 'Erreur');
+    // Do not simulate acceptance; UI will update via FriendsStore 'friendUpdated' event
+    searchQuery.value = "";
+  } catch (err) {
+    console.error('friendRequest failed', err);
+  }
 }
 
-let validateTimeoutId: number | null = null;
-onBeforeUnmount(() => {
-  if (validateTimeoutId !== null) clearTimeout(validateTimeoutId);
+// Ensure we show up-to-date pending/accepted entries when the modal opens
+onMounted(async () => {
+  try { await friendsStore.friendList(); } catch {}
+});
+
+// Live search: fetch results when query changes
+watch(searchQuery, async (q) => {
+  const s = String(q || '').trim();
+  if (!s) { users.value = []; return; }
+  const list = await userStore.searchUsers(s, 20);
+  // Exclude current user and users with an existing friendship (pending or accepted)
+  const myId = authStore.userId;
+  const blocked = new Set((friendsStore.items || [])
+    .filter(i => i.status === 'pending' || i.status === 'accepted')
+    .map(i => i.userId));
+  users.value = list
+    .filter(u => (!myId || u.id !== myId) && !blocked.has(u.id))
+    .map(u => ({ id: u.id, name: u.name, avatar: (u.name || '?').trim().charAt(0).toUpperCase() || '?' }));
 });
 
 </script>

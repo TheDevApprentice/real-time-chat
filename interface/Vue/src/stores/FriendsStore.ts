@@ -3,10 +3,11 @@ import { ref, computed } from 'vue';
 import { socketService } from '@/services/websocket/websocket';
 
 export interface FriendListItemDTO {
+  id: string;               // friendship id
   userId: string;           // friend or other user id
+  name: string;
   status: 'accepted' | 'pending' | 'rejected';
-  direction?: 'outgoing' | 'incoming';
-  user?: { id: string; name: string; avatar?: string };
+  isRequester: boolean;
 }
 
 export type FriendAction = 'accept' | 'reject';
@@ -22,8 +23,8 @@ export const useFriendsStore = defineStore('friends', () => {
 
   // --- Derived ---
   const friends = computed(() => items.value.filter(i => i.status === 'accepted'));
-  const pendingIncoming = computed(() => items.value.filter(i => i.status === 'pending' && i.direction === 'incoming'));
-  const pendingOutgoing = computed(() => items.value.filter(i => i.status === 'pending' && i.direction === 'outgoing'));
+  const pendingIncoming = computed(() => items.value.filter(i => i.status === 'pending' && !i.isRequester));
+  const pendingOutgoing = computed(() => items.value.filter(i => i.status === 'pending' && i.isRequester));
 
   // --- Bind listeners once ---
   let bound = false;
@@ -36,12 +37,13 @@ export const useFriendsStore = defineStore('friends', () => {
       const data = p?.data as FriendListItemDTO | undefined;
       if (!t || !data) return;
       // merge/update in items list by userId
-      const idx = items.value.findIndex(it => it.userId === (data.userId || data.user?.id));
+      const idx = items.value.findIndex(it => it.userId === data.userId);
       const merged: FriendListItemDTO = {
-        userId: data.userId || data.user?.id || '',
+        id: data.id,
+        userId: data.userId,
+        name: data.name,
         status: data.status as any,
-        direction: (data as any).direction,
-        user: data.user,
+        isRequester: data.isRequester,
       };
       if (idx >= 0) items.value[idx] = { ...items.value[idx], ...merged };
       else items.value.push(merged);
