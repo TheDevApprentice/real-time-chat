@@ -39,10 +39,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, defineAsyncComponent, onBeforeUnmount } from "vue";
+import { ref, computed, defineAsyncComponent, onBeforeUnmount, onMounted, watch } from "vue";
 import type { Conversation } from "@components/home/chatZone/SideBarConversations.vue";
 import type { Bubble } from "@components/home/chat/view/ChatBubble.vue";
 import { useAuthStore } from "@/stores/AuthStore";
+import { useRoomsStore } from "@/stores/RoomsStore";
+import { useMessagesStore } from "@/stores/MessagesStore";
+import { useUserStore } from "@/stores/UserStore";
 
 const HomeLayout = defineAsyncComponent({
   loader: () => import("@components/layouts/home/HomeLayout.vue"),
@@ -70,251 +73,74 @@ const UpperChatZone = defineAsyncComponent({
 });
 
 const authStore = useAuthStore();
+const roomsStore = useRoomsStore();
+const messagesStore = useMessagesStore();
+const userStore = useUserStore();
 const HomeLayoutChild = ref();
 const sidebarHovered = ref(false);
 const sidebarExpended = ref(true);
 const searchQuery = ref("");
-const users = [
-  { name: "Bot Hugo", avatar: "🤖" },
-  { name: "Bot Lidya", avatar: "🧛" },
-  { name: "Bot Christine", avatar: "🤡" },
-];
+// Users for the search bar (mapped from REST /chat/users/search)
+const users = ref<Array<{ id: string; name: string; avatar: string }>>([]);
 
 const filteredUsers = computed(() => {
   if (!searchQuery.value) return [];
-  return users.filter((u) =>
-    u.name.toLowerCase().includes(searchQuery.value.toLowerCase())
-  );
+  const userId = authStore.userId;
+  if (!userId) return [];
+  return users.value.filter((u) => u.id !== userId);  
 });
 
 function updateSearchQuery(searchQueryChanged: string) {
-  console.log("Login Page searchQuery changed : ", searchQueryChanged);
+  console.log("Home Page searchQuery changed : ", searchQueryChanged);
   searchQuery.value = searchQueryChanged;
 }
 
-const mockMessages: Bubble[] = [
-  {
-    text: "Hello ! 😀",
-    speaker: 0,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: true,
-  },
-  {
-    text: "How are you ?",
-    speaker: 1,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: true,
-  },
-  {
-    text: "Fine thx ! 😁",
-    speaker: 0,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: true,
-  },
-  {
-    text: "Where do you want to go this we ? 😄",
-    speaker: 1,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: true,
-  },
-  {
-    text: "I want to go to the beach ! 😃",
-    speaker: 0,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: true,
-  },
-  {
-    text: "Yes let's go  ! 😃",
-    speaker: 1,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: true,
-  },
-  {
-    text: "Awesome ! 😃",
-    speaker: 0,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: true,
-  },
-  {
-    text: "Awesome ! 😃",
-    speaker: 1,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: true,
-  },
-  {
-    text: "Awesome ! 😃",
-    speaker: 0,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: true,
-  },
-  {
-    text: "Awesome ! 😃",
-    speaker: 1,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: true,
-  },
-  {
-    text: "Awesome ! 😃",
-    speaker: 0,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: true,
-  },
-  {
-    text: "Ciao !",
-    speaker: 1,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: true,
-  },
-  {
-    text: "Ciao !",
-    speaker: 0,
-    date: new Date().toLocaleDateString(),
-    isTyping: false,
-    isWriting: false,
-    isSent: true,
-    isRead: false,
-  },
-];
-
-const mockConversations: Conversation[] = [
-  {
-    id: 1,
-    participants: [{ name: "Bot Lidya", avatar: "🧛", isOnline: true }],
-    avatar: "👪",
-    name: "Famille",
-    type: "room",
-    messages: mockMessages,
-    active: true,
-    mostRecent: true,
-  },
-  {
-    id: 2,
-    participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
-    avatar: "🦆",
-    name: "Mes Canards",
-    type: "room",
-    messages: mockMessages,
-    active: true,
-    mostRecent: true,
-  },
-  {
-    id: 3,
-    participants: [{ name: "Bot Lidya", avatar: "🧛", isOnline: true }],
-    avatar: "🧛",
-    name: "Bot Lidya",
-    type: "user",
-    messages: mockMessages,
-    active: true,
-    mostRecent: true,
-  },
-  {
-    id: 4,
-    participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
-    avatar: "🤖",
-    name: "Bot Mélanie",
-    type: "user",
-    messages: mockMessages,
-    active: false,
-    mostRecent: false,
-  },
-  {
-    id: 5,
-    participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
-    avatar: "🤖",
-    name: "Bot Mélanie",
-    type: "user",
-    messages: mockMessages,
-    active: false,
-    mostRecent: false,
-  },
-  {
-    id: 6,
-    participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
-    avatar: "🤖",
-    name: "Bot Mélanie",
-    type: "user",
-    messages: mockMessages,
-    active: false,
-    mostRecent: false,
-  },
-  {
-    id: 7,
-    participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
-    avatar: "🤖",
-    name: "Bot Mélanie",
-    type: "user",
-    messages: mockMessages,
-    active: false,
-    mostRecent: false,
-  },
-  {
-    id: 8,
-    participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
-    avatar: "🤖",
-    name: "Bot Mélanie",
-    type: "user",
-    messages: mockMessages,
-    active: false,
-    mostRecent: false,
-  },
-  {
-    id: 9,
-    participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
-    avatar: "🤖",
-    name: "Bot Mélanie",
-    type: "user",
-    messages: mockMessages,
-    active: false,
-    mostRecent: true,
-  },
-  {
-    id: 10,
-    participants: [{ name: "Mélanie", avatar: "🤖", isOnline: false }],
-    avatar: "🤖",
-    name: "Bot Mélanie",
-    type: "user",
-    messages: mockMessages,
-    active: false,
-    mostRecent: true,
-  },
-  // Ajoute d'autres mocks si besoin
-];
+// Map store Rooms/Messages to the Conversation/Bubble shapes expected by child components
+const mockConversations = computed<Conversation[]>(() => {
+  const rooms = roomsStore.rooms || [];
+  const myId = authStore.userId;
+  return rooms.map((r) => {
+    // Compute display label and avatar
+    let label = r.name || (r.type === 'user' ? 'DM' : 'Room');
+    let avatar = (label || '?').trim().charAt(0).toUpperCase();
+    if (r.type === 'user') {
+      const meId = myId || undefined;
+      const members: Array<{ id: string; name: string }> = Array.isArray((r as any).users) ? (r as any).users : [];
+      const other = members.find((u) => !meId || u.id !== meId) || members[0];
+      if (other?.name) {
+        label = other.name;
+        avatar = (other.name || '?').trim().charAt(0).toUpperCase();
+      }
+    }
+    // Map messages for this room
+    const rs = messagesStore.byRoom[r.id] || { items: [] } as any;
+    const bubbles: Bubble[] = (rs.items as any[]).map((m) => {
+      const authorId = (m?.author?.id as string | undefined) || undefined;
+      const speaker = myId && authorId && myId === authorId ? 0 : 1;
+      const date = typeof m?.timestamp === 'number' ? new Date(m.timestamp).toLocaleDateString() : new Date().toLocaleDateString();
+      // We do not track isTyping/isWriting in message entries; typing is separate in RoomsStore
+      return {
+        text: String(m?.content || ''),
+        speaker,
+        date,
+        isTyping: false,
+        isWriting: false,
+        isSent: true,
+        isRead: !!m?.edited ? true : true,
+      } as Bubble;
+    });
+    return {
+      id: (r as any).id,
+      participants: Array.isArray((r as any).users) ? (r as any).users.map((u: any) => ({ name: u?.name || 'User', avatar: (u?.name || '?')[0] || '?' , isOnline: false })) : [],
+      avatar,
+      name: label,
+      type: (r as any).type === 'user' ? 'user' : 'room',
+      messages: bubbles,
+      active: messagesStore.getActiveRoomId() === r.id,
+      mostRecent: true,
+    } as Conversation;
+  });
+});
 
 function askLogout() {
   HomeLayoutChild.value.askLogout();
@@ -353,6 +179,26 @@ let expendedTimeoutId: number | undefined;
 onBeforeUnmount(() => {
   if (hoverTimeoutId) clearTimeout(hoverTimeoutId);
   if (expendedTimeoutId) clearTimeout(expendedTimeoutId);
+});
+
+// === Lifecycle wiring ===
+onMounted(async () => {
+  try { await roomsStore.getRooms(); } catch {}
+  // Auto-select the first room if none active
+  const first = (roomsStore.rooms || [])[0];
+  if (first) {
+    try { await roomsStore.joinRoom(first.id); } catch {}
+    messagesStore.setActiveRoom(first.id);
+    try { await messagesStore.loadRoomHistory(first.id, 0, 50); } catch {}
+  }
+});
+
+// Search bar: call REST search and map to display shape
+watch(searchQuery, async (q) => {
+  const s = String(q || '').trim();
+  if (!s) { users.value = []; return; }
+  const list = await userStore.searchUsers(s, 20);
+  users.value = list.map(u => ({ id: u.id, name: u.name, avatar: (u.name || '?').trim().charAt(0).toUpperCase() || '?' }));
 });
 </script>
 
