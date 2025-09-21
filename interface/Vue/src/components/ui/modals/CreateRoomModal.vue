@@ -31,7 +31,7 @@
           />
         </div>
         <div class="modal-actions">
-          <button class="modal-btn" @click="handleCreate" :disabled="!roomName.trim()">Créer</button>
+          <button class="modal-btn" @click="handleCreate" :disabled="!roomName.trim() || loading">{{ loading ? 'Création…' : 'Créer' }}</button>
           <button class="modal-btn cancel" @click="handleClose">Annuler</button>
         </div>
       </div>
@@ -42,9 +42,11 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { defineAsyncComponent } from "vue";
+import { useRoomsStore } from '@/stores/RoomsStore';
 const Modal = defineAsyncComponent(() => import("@reusable/Modal.vue"));
 
 const emit = defineEmits(['close', 'create']);
+const roomsStore = useRoomsStore();
 const emojis = [
   '🤖', '🦄', '🐱', '🐶', '🦊', '🐼', '🐸', '🐵', '🐙', '🦁',
   '🐯', '🐮', '🐷', '🐰', '🐻', '🐨', '🐔', '🐧', '🦉', '🐲',
@@ -52,14 +54,29 @@ const emojis = [
 ];
 const selectedEmoji = ref(emojis[0]);
 const roomName = ref('');
+const loading = ref(false);
+const error = ref<string | null>(null);
 
 function selectEmoji(emoji: string) {
   selectedEmoji.value = emoji;
 }
-function handleCreate() {
-  if (roomName.value.trim()) {
-    emit('create', { name: roomName.value.trim(), avatar: selectedEmoji.value });
+async function handleCreate() {
+  const name = roomName.value.trim();
+  if (!name || loading.value) return;
+  loading.value = true; error.value = null;
+  try {
+    const res = await roomsStore.createRoom({ name, isPublic: true, type: 'room' });
+    if (!res?.success) {
+      error.value = (res as any)?.error || 'Création échouée';
+      loading.value = false; return;
+    }
+    // Refresh list so UI reflects the new room
+    try { await roomsStore.getRooms(); } catch {}
+    emit('create', { name });
     handleClose();
+  } catch (e: any) {
+    error.value = e?.message || 'Création échouée';
+    loading.value = false;
   }
 }
 function handleClose() {
