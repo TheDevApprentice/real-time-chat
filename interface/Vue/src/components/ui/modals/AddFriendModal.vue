@@ -31,7 +31,7 @@
         <div class="modal-added-friends">
           <div class="modal-added-title">Amis ajoutés</div>
           <SearchBarUserCard
-            v-for="friend in addedFriends"
+            v-for="friend in friendRequests"
             :key="friend.name"
             :avatar="friend.avatar"
             :name="friend.name"
@@ -71,6 +71,8 @@ const searchQuery = ref("");
 // Live results populated from REST /chat/users/search
 const users = ref<Array<{ id: string; name: string; avatar: string }>>([]);
 
+
+// Live results populated from FriendsStore
 const filteredUsers = computed(() => {
   if (!searchQuery.value) return [] as Array<{ id: string; name: string; avatar: string }>;
   const myId = authStore.userId;
@@ -78,18 +80,31 @@ const filteredUsers = computed(() => {
   return users.value.filter(u => u.id !== myId);
 });
 
-// Added friends derived from FriendsStore (pending outgoing or accepted)
-const addedFriends = computed(() => {
-  return (friendsStore.items || []).map((i) => {
+const friendRequests = computed(() => {
+  const list: Array<{ name: string; avatar: string; pendingInvitation: boolean; isFriend: boolean; incoming?: boolean; outgoing?: boolean }>= [];
+
+  // Accepted friends
+  for (const i of friendsStore.friends || []) {
     const display = i.name || 'Utilisateur';
     const avatar = (display || '?').trim().charAt(0).toUpperCase() || '?';
-    return {
-      name: display,
-      avatar,
-      pendingInvitation: i.status === 'pending' && i.isRequester,
-      isFriend: i.status === 'accepted',
-    };
-  }).filter(f => f.pendingInvitation || f.isFriend);
+    list.push({ name: display, avatar, pendingInvitation: false, isFriend: true });
+  }
+
+  // Pending outgoing requests (you sent)
+  for (const i of friendsStore.pendingOutgoing || []) {
+    const display = i.name || 'Utilisateur';
+    const avatar = (display || '?').trim().charAt(0).toUpperCase() || '?';
+    list.push({ name: display, avatar, pendingInvitation: true, isFriend: false, outgoing: true });
+  }
+
+  // Pending incoming requests (received)
+  for (const i of friendsStore.pendingIncoming || []) {
+    const display = i.name || 'Utilisateur';
+    const avatar = (display || '?').trim().charAt(0).toUpperCase() || '?';
+    list.push({ name: display, avatar, pendingInvitation: true, isFriend: false, incoming: true });
+  }
+
+  return list;
 });
 
 function updateSearchQuery(searchQueryChanged: string) {
