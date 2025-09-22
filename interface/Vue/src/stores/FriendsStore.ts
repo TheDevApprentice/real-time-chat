@@ -31,22 +31,11 @@ export const useFriendsStore = defineStore('friends', () => {
   function bindSocketListeners() {
     if (bound) return; bound = true;
 
-    // Server pushes updates on requests/responds
-    socketService.on('friendUpdated', (p: any) => {
-      const t = p?.type as 'request' | 'respond' | undefined;
-      const data = p?.data as FriendListItemDTO | undefined;
-      if (!t || !data) return;
-      // merge/update in items list by userId
-      const idx = items.value.findIndex(it => it.userId === data.userId);
-      const merged: FriendListItemDTO = {
-        id: data.id,
-        userId: data.userId,
-        name: data.name,
-        status: data.status as any,
-        isRequester: data.isRequester,
-      };
-      if (idx >= 0) items.value[idx] = { ...items.value[idx], ...merged };
-      else items.value.push(merged);
+    // Server pushes updates on requests/responds.
+    // Since WS emits FriendDTO (not the curated list item), avoid partial merges that cause duplicates.
+    // Instead, refresh the authoritative list from the server.
+    socketService.on('friendUpdated', async () => {
+      try { await friendList(); } catch {}
     });
 
     // Presence updates for friends
@@ -95,6 +84,21 @@ export const useFriendsStore = defineStore('friends', () => {
     });
   }
 
+  // Helper: locally reflect an outgoing pending request immediately for the requester UI
+  function upsertLocalPending(userId: string, name: string, isRequester = true) {
+    if (!userId) return;
+    const idx = items.value.findIndex(it => it.userId === userId);
+    const base: FriendListItemDTO = {
+      id: items.value[idx]?.id || '',
+      userId,
+      name: name || items.value[idx]?.name || 'Utilisateur',
+      status: 'pending',
+      isRequester,
+    };
+    if (idx >= 0) items.value[idx] = { ...items.value[idx], ...base };
+    else items.value.push(base);
+  }
+
   return {
     items,
     friends,
@@ -106,5 +110,6 @@ export const useFriendsStore = defineStore('friends', () => {
     friendList,
     friendRequest,
     friendRespond,
+    upsertLocalPending,
   };
 });

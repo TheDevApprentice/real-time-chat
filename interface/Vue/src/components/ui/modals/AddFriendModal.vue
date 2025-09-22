@@ -130,6 +130,8 @@ async function handleAddFriend(e: { userId: string; name: string; avatar: string
   try {
     const res = await friendsStore.friendRequest(target.id);
     if (!res?.success) throw new Error(res?.error || 'Erreur');
+    // Immediately reflect pending outgoing request locally for requester UI
+    friendsStore.upsertLocalPending(target.id, target.name, true);
     // Do not simulate acceptance; UI will update via FriendsStore 'friendUpdated' event
     searchQuery.value = "";
   } catch (err) {
