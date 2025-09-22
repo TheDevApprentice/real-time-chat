@@ -33,7 +33,7 @@
           <div class="modal-added-title">Amis ajoutés</div>
           <transition-group name="friend-card" tag="div" class="friend-list">
             <SearchBarUserCard
-              v-for="friend in friendRequests"
+              v-for="friend in friendsStore.friendRequests"
               :key="friend.userId || friend.name"
               :avatar="friend.avatar"
               :name="friend.name"
@@ -88,47 +88,6 @@ const filteredUsers = computed(() => {
   return users.value.filter(u => u.id !== myId);
 });
 
-// Keep presence fresh when accepted friends list changes
-watch(() => friendsStore.friends, async (list) => {
-  try {
-    for (const f of list || []) {
-      if (f?.userId && !friendsStore.presence?.[f.userId]) {
-        await friendsStore.ensurePresence(f.userId);
-      }
-    }
-  } catch {}
-}, { deep: false });
-
-const friendRequests = computed(() => {
-  const list: Array<{ userId?: string; name: string; avatar: string; pendingInvitation: boolean; isFriend: boolean; incoming?: boolean; outgoing?: boolean; isOnline?: boolean }>= [];
-
-  // Accepted friends
-  for (const i of friendsStore.friends || []) {
-    const display = i.name;
-    const avatar = (display || '?').trim().charAt(0).toUpperCase() || '?';
-    const isOnline = friendsStore.presence?.[i.userId]?.status === 'online';
-    list.push({ userId: i.userId, name: display, avatar, pendingInvitation: false, isFriend: true, isOnline });
-  }
-
-  // Pending outgoing requests (you sent)
-  for (const i of friendsStore.pendingOutgoing || []) {
-    const display = i.name;
-    const avatar = (display || '?').trim().charAt(0).toUpperCase() || '?';
-    const isOnline = friendsStore.presence?.[i.userId]?.status === 'online';
-    list.push({ userId: i.userId, name: display, avatar, pendingInvitation: true, isFriend: false, outgoing: true, isOnline });
-  }
-
-  // Pending incoming requests (received)
-  for (const i of friendsStore.pendingIncoming || []) {
-    const display = i.name;
-    const avatar = (display || '?').trim().charAt(0).toUpperCase() || '?';
-    const isOnline = friendsStore.presence?.[i.userId]?.status === 'online';
-    list.push({ userId: i.userId, name: display, avatar, pendingInvitation: true, isFriend: false, incoming: true, isOnline });
-  }
-
-  return list;
-});
-
 function updateSearchQuery(searchQueryChanged: string) {
   searchQuery.value = searchQueryChanged;
 }
@@ -160,9 +119,9 @@ async function handleAccept(e: { userId: string; name: string }) {
   try {
     console.log("handleAccept", e);
     console.log("userId", e.userId);
-    console.log("friend requests : ", friendRequests.value)
+    console.log("friend requests : ", friendsStore.friendRequests)
     // Find selected user id by name (component does not expose id). If multiple same names, pick first.
-    const target = friendRequests.value.find(u => u.userId === e.userId);
+    const target = friendsStore.friendRequests.find(u => u.userId === e.userId);
     console.log("target", target);
     if (!target) return;
     const res = await friendsStore.friendRespond(target.userId, 'accept');
@@ -177,7 +136,7 @@ async function handleReject(e: { userId: string; name: string }) {
     console.log("handleReject", e);
     console.log("userId", e.userId);
     // Find selected user id by name (component does not expose id). If multiple same names, pick first.
-    const target = friendRequests.value.find(u => u.userId === e.userId);
+    const target = friendsStore.friendRequests.value.find(u => u.userId === e.userId);
     console.log("target", target);
     if (!target) return;
     const res = await friendsStore.friendRespond(target.userId, 'reject');
@@ -190,12 +149,12 @@ async function handleReject(e: { userId: string; name: string }) {
 // Ensure we show up-to-date pending/accepted entries when the modal opens
 onMounted(async () => {
   try { await friendsStore.friendList(); } catch {}
-  try {
-    // Ensure we have presence info for accepted friends
-    for (const f of friendsStore.friends || []) {
-      if (f?.userId) await friendsStore.ensurePresence(f.userId);
-    }
-  } catch {}
+  // try {
+  //   // Ensure we have presence info for accepted friends
+  //   for (const f of friendsStore.friends || []) {
+  //     if (f?.userId) await friendsStore.ensurePresence(f.userId);
+  //   }
+  // } catch {}
 });
 
 // Live search: fetch results when query changes
