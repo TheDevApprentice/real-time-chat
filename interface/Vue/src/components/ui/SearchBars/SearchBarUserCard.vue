@@ -1,6 +1,6 @@
 <template>
   <div class="search-user-card">
-    <Avatar v-if="!noresult" :avatar="avatarComputed" :name="name" size="md" />
+    <Avatar v-if="!noresult" :avatar="avatarComputed" :name="name" size="md" :isOnline="isOnline" />
     <span v-if="!noresult" class="user-name">{{ name }}</span>
     <button
       v-if="!noresult"
@@ -94,6 +94,7 @@ const props = defineProps<{
   noresult?: boolean;
   pendingInvitation?: boolean;
   isFriend?: boolean;
+  isOnline?: boolean;
   incoming?: boolean;
   outgoing?: boolean;
   userId?: string;

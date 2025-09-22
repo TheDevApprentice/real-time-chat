@@ -91,7 +91,7 @@ export const useFriendsStore = defineStore('friends', () => {
     const base: FriendListItemDTO = {
       id: items.value[idx]?.id || '',
       userId,
-      name: name || items.value[idx]?.name || 'Utilisateur',
+      name: name || items.value[idx]?.name,
       status: 'pending',
       isRequester,
     };

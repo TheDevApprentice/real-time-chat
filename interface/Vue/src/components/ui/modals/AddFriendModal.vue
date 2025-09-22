@@ -37,6 +37,7 @@
               :key="friend.userId || friend.name"
               :avatar="friend.avatar"
               :name="friend.name"
+              :isOnline="friend.isOnline === true"
               :pendingInvitation="friend.pendingInvitation"
               :isFriend="friend.isFriend"
               :incoming="friend.incoming"
@@ -88,27 +89,30 @@ const filteredUsers = computed(() => {
 });
 
 const friendRequests = computed(() => {
-  const list: Array<{ userId?: string; name: string; avatar: string; pendingInvitation: boolean; isFriend: boolean; incoming?: boolean; outgoing?: boolean }>= [];
+  const list: Array<{ userId?: string; name: string; avatar: string; pendingInvitation: boolean; isFriend: boolean; incoming?: boolean; outgoing?: boolean; isOnline?: boolean }>= [];
 
   // Accepted friends
   for (const i of friendsStore.friends || []) {
     const display = i.name;
     const avatar = (display || '?').trim().charAt(0).toUpperCase() || '?';
-    list.push({ userId: i.userId, name: display, avatar, pendingInvitation: false, isFriend: true });
+    const isOnline = friendsStore.presence?.[i.userId]?.status === 'online';
+    list.push({ userId: i.userId, name: display, avatar, pendingInvitation: false, isFriend: true, isOnline });
   }
 
   // Pending outgoing requests (you sent)
   for (const i of friendsStore.pendingOutgoing || []) {
     const display = i.name;
     const avatar = (display || '?').trim().charAt(0).toUpperCase() || '?';
-    list.push({ userId: i.userId, name: display, avatar, pendingInvitation: true, isFriend: false, outgoing: true });
+    const isOnline = friendsStore.presence?.[i.userId]?.status === 'online';
+    list.push({ userId: i.userId, name: display, avatar, pendingInvitation: true, isFriend: false, outgoing: true, isOnline });
   }
 
   // Pending incoming requests (received)
   for (const i of friendsStore.pendingIncoming || []) {
     const display = i.name;
     const avatar = (display || '?').trim().charAt(0).toUpperCase() || '?';
-    list.push({ userId: i.userId, name: display, avatar, pendingInvitation: true, isFriend: false, incoming: true });
+    const isOnline = friendsStore.presence?.[i.userId]?.status === 'online';
+    list.push({ userId: i.userId, name: display, avatar, pendingInvitation: true, isFriend: false, incoming: true, isOnline });
   }
 
   return list;
