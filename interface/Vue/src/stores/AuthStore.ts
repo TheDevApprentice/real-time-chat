@@ -44,11 +44,16 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true;
     error.value = null;
     try {
+      // Warm up CSRF cookie (issued on safe requests) before any socket connection
+      try { await axiosService.get('/health', { skipErrorHandling: true } as any); } catch {}
       // Always connect so server can inspect HttpOnly cookie and emit 'sessionRestored'
       if (!socketService.isConnected()) socketService.connect();
 
       const token = getToken('session_token');
-
+      console.log("token", token);
+      if (!token) {
+        await axiosService.get('/auth/me'); 
+      }
       const result = await new Promise<boolean>((resolve) => {
         // One-time handler for server-side restored session via cookie
         const onRestored = (payload: any) => {

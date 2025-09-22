@@ -7,7 +7,7 @@
       class="add-btn"
       :disabled="props.isFriend == true || props.pendingInvitation == true"
       :aria-disabled="props.isFriend == true || props.pendingInvitation == true"
-      @click="$emit('action', {name, avatar})"
+      @click="$emit('action', {userId, name, avatar})"
     >
       <template v-if="props.isFriend">
         <!-- Icône check/ami -->

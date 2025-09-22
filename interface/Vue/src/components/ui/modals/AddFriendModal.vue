@@ -17,6 +17,7 @@
                 :key="user.id || user.name"
                 :avatar="user.avatar"
                 :name="user.name"
+                :userId="user.id"
                 @action="handleAddFriend($event)"
               />
             </template>
@@ -76,7 +77,6 @@ const searchQuery = ref("");
 // Live results populated from REST /chat/users/search
 const users = ref<Array<{ id: string; name: string; avatar: string }>>([]);
 
-
 // Live results populated from FriendsStore
 const filteredUsers = computed(() => {
   if (!searchQuery.value) return [] as Array<{ id: string; name: string; avatar: string }>;
@@ -90,21 +90,21 @@ const friendRequests = computed(() => {
 
   // Accepted friends
   for (const i of friendsStore.friends || []) {
-    const display = i.name || 'Utilisateur';
+    const display = i.name;
     const avatar = (display || '?').trim().charAt(0).toUpperCase() || '?';
     list.push({ userId: i.userId, name: display, avatar, pendingInvitation: false, isFriend: true });
   }
 
   // Pending outgoing requests (you sent)
   for (const i of friendsStore.pendingOutgoing || []) {
-    const display = i.name || 'Utilisateur';
+    const display = i.name;
     const avatar = (display || '?').trim().charAt(0).toUpperCase() || '?';
     list.push({ userId: i.userId, name: display, avatar, pendingInvitation: true, isFriend: false, outgoing: true });
   }
 
   // Pending incoming requests (received)
   for (const i of friendsStore.pendingIncoming || []) {
-    const display = i.name || 'Utilisateur';
+    const display = i.name;
     const avatar = (display || '?').trim().charAt(0).toUpperCase() || '?';
     list.push({ userId: i.userId, name: display, avatar, pendingInvitation: true, isFriend: false, incoming: true });
   }
@@ -119,9 +119,13 @@ function updateSearchQuery(searchQueryChanged: string) {
 function handleClose() {
   emit("close");
 }
-async function handleAddFriend(e: { name: string; avatar: string }) {
+async function handleAddFriend(e: { userId: string; name: string; avatar: string }) {
+  console.log("handleAddFriend", e);
+  console.log("userId", e.userId);
+  console.log("name", e.name);
+  console.log("avatar", e.avatar);
   // Find selected user id by name (component does not expose id). If multiple same names, pick first.
-  const target = filteredUsers.value.find(u => u.name === e.name);
+  const target = filteredUsers.value.find(u => u.id === e.userId);
   if (!target) return;
   try {
     const res = await friendsStore.friendRequest(target.id);
@@ -135,10 +139,15 @@ async function handleAddFriend(e: { name: string; avatar: string }) {
 
 async function handleAccept(e: { userId: string; name: string }) {
   try {
-    const res = await friendsStore.friendRespond(e.userId, 'accept');
+    console.log("handleAccept", e);
+    console.log("userId", e.userId);
+    console.log("friend requests : ", friendRequests.value)
+    // Find selected user id by name (component does not expose id). If multiple same names, pick first.
+    const target = friendRequests.value.find(u => u.userId === e.userId);
+    console.log("target", target);
+    if (!target) return;
+    const res = await friendsStore.friendRespond(target.userId, 'accept');
     if (!res?.success) throw new Error(res?.error || 'Erreur');
-    // Do not simulate acceptance; UI will update via FriendsStore 'friendUpdated' event
-    searchQuery.value = "";
   } catch (err) {
     console.error('friendAccept failed', err);
   }
@@ -146,10 +155,14 @@ async function handleAccept(e: { userId: string; name: string }) {
 
 async function handleReject(e: { userId: string; name: string }) {
   try {
-    const res = await friendsStore.friendRespond(e.userId, 'reject');
+    console.log("handleReject", e);
+    console.log("userId", e.userId);
+    // Find selected user id by name (component does not expose id). If multiple same names, pick first.
+    const target = friendRequests.value.find(u => u.userId === e.userId);
+    console.log("target", target);
+    if (!target) return;
+    const res = await friendsStore.friendRespond(target.userId, 'reject');
     if (!res?.success) throw new Error(res?.error || 'Erreur');
-    // Do not simulate acceptance; UI will update via FriendsStore 'friendUpdated' event
-    searchQuery.value = "";
   } catch (err) {
     console.error('friendReject failed', err);
   }
