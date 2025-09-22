@@ -60,7 +60,7 @@
       <span class="text-xs mt-0.5">Room</span>
     </button>
     <!-- Paramètres -->
-    <button
+    <!-- <button
       class="flex flex-col items-center text-[var(--color-text)] focus:outline-none"
       @click="askLogout()"
       title="Paramètres"
@@ -74,7 +74,7 @@
         />
       </svg>
       <span class="text-xs mt-0.5">Param</span>
-    </button>
+    </button> -->
     <!-- Déconnexion -->
     <button
       class="flex flex-col items-center text-red-500 focus:outline-none"

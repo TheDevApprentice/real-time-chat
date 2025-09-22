@@ -7,7 +7,7 @@
   >
     <div class="flex items-center gap-3">
       <div class="relative">
-        <Avatar avatar="🤖" name="Hugo" :isOnline="true" />
+        <Avatar avatar="🤖" :name="currentUser" :isOnline="true" />
       </div>
     </div>
     <button
@@ -25,4 +25,5 @@ import Avatar from "@ui/avatars/Avatar.vue";
 import ThemeSwitcher from "@ui/ThemeSwitcher.vue";
 
 const authStore = useAuthStore();
+const currentUser = authStore.user;
 </script>

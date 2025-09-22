@@ -8,8 +8,8 @@ import { getToken } from '@/utils/cookieHelper';
 export const useAuthStore = defineStore('auth', () => {
   // --- State ---
   const isAuthenticated = ref(false);
-  const user = ref<string | null>(null);
-  const userId = ref<string | null>(null);
+  const user = ref<string>("");
+  const userId = ref<string>("");
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -33,7 +33,7 @@ export const useAuthStore = defineStore('auth', () => {
     socketService.on('forceLogout', () => {
       try { socketService.disconnect(); } catch {}
       isAuthenticated.value = false;
-      user.value = null;
+      user.value = "";
       loading.value = false;
       error.value = null;
     });
@@ -85,12 +85,12 @@ export const useAuthStore = defineStore('auth', () => {
 
       if (!result) {
         isAuthenticated.value = false;
-        user.value = null;
+        user.value = "";
       }
       return result;
     } catch (e: any) {
       isAuthenticated.value = false;
-      user.value = null;
+      user.value = "";
       error.value = e?.data?.error || e?.message || 'Session invalide';
       loading.value = false;
       return false;
@@ -107,7 +107,7 @@ export const useAuthStore = defineStore('auth', () => {
         if (res && res.error) {
           error.value = res.error;
           isAuthenticated.value = false;
-          user.value = null;
+          user.value = "";
           loading.value = false;
           resolve(false);
           return;
@@ -171,7 +171,7 @@ export const useAuthStore = defineStore('auth', () => {
       });
       socketService.disconnect();
       isAuthenticated.value = false;
-      user.value = null;
+      user.value = "";
       loading.value = false;
       return true;
     } catch (e: any) {

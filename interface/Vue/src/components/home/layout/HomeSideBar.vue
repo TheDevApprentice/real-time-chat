@@ -9,7 +9,7 @@
         >
           <div class="flex mt-2">
             <div class="mt-6 ml-4">
-              <LargeAvatar avatar="🤖" name="Bot Hugo" :isOnline="true"/>
+              <LargeAvatar avatar="🤖" :name="{currentUser}" :isOnline="true"/>
             </div>
             <span
               class="sidebar-room-label mt-4.5 ml-2 group-hover:opacity-100 opacity-0"
