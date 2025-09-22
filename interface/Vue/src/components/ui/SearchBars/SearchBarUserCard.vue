@@ -11,24 +11,26 @@
     >
       <template v-if="props.isFriend">
         <!-- Icône check/ami -->
-        <svg
-          width="20"
-          height="20"
-          fill="none"
-          stroke="#19c37d"
-          stroke-width="2.3"
-          viewBox="0 0 24 24"
-        >
-          <circle cx="12" cy="12" r="9" stroke="#19c37d" fill="none" />
-          <polyline
-            points="8,13 11,16 16,10"
+        <div class="status-icon" :class="{ 'accepted-pulse': acceptedPulse }">
+          <svg
+            width="20"
+            height="20"
             fill="none"
             stroke="#19c37d"
             stroke-width="2.3"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
+            viewBox="0 0 24 24"
+          >
+            <circle cx="12" cy="12" r="9" stroke="#19c37d" fill="none" />
+            <polyline
+              points="8,13 11,16 16,10"
+              fill="none"
+              stroke="#19c37d"
+              stroke-width="2.3"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </div>
       </template>
       <template v-else-if="props.pendingInvitation">
         <!-- Icône horloge/pending -->
@@ -85,7 +87,7 @@
 
 <script setup lang="ts">
 import Avatar from "@ui/avatars/Avatar.vue";
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 const props = defineProps<{
   name?: string;
   avatar?: string;
@@ -125,6 +127,18 @@ const avatarComputed = computed(() => {
   }
 });
 defineEmits(["action", "accept", "reject"]);
+
+// Subtle pulse when status switches to accepted
+const acceptedPulse = ref(false);
+watch(
+  () => props.isFriend,
+  (now, prev) => {
+    if (now === true && prev !== true) {
+      acceptedPulse.value = true;
+      setTimeout(() => { acceptedPulse.value = false; }, 800);
+    }
+  }
+);
 </script>
 
 <style scoped>
@@ -173,6 +187,17 @@ defineEmits(["action", "accept", "reject"]);
 }
 .add-btn svg {
   display: block;
+}
+.status-icon {
+  display: inline-flex;
+}
+.accepted-pulse {
+  animation: acceptedPulse 0.8s ease-out;
+}
+@keyframes acceptedPulse {
+  0% { transform: scale(0.7); filter: drop-shadow(0 0 0 rgba(25,195,125,0)); }
+  40% { transform: scale(1.15); filter: drop-shadow(0 0 8px rgba(25,195,125,0.55)); }
+  100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(25,195,125,0)); }
 }
 .incoming-actions {
   display: inline-flex;
