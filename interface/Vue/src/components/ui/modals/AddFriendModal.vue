@@ -19,6 +19,7 @@
                 :name="user.name"
                 :userId="user.id"
                 @action="handleAddFriend($event)"
+                @message="handleMessage($event)"
               />
             </template>
             <template
@@ -46,6 +47,7 @@
               @accept="handleAccept($event)"
               @reject="handleReject($event)"
               @action="handleAddFriend($event)"
+              @message="handleMessage($event)"
             />
           </transition-group>
         </div>
@@ -65,6 +67,8 @@ const SearchBar = defineAsyncComponent(() => import("@ui/SearchBars/SearchBar.vu
 const SearchBarUserCard = defineAsyncComponent(
   () => import("@ui/SearchBars/SearchBarUserCard.vue")
 );
+import { useRoomsStore } from "@/stores/RoomsStore";
+import { useMessagesStore } from "@/stores/MessagesStore";
 
 defineProps<{
   headerTitle?: string;
@@ -75,6 +79,8 @@ const emit = defineEmits(["close"]);
 const userStore = useUserStore();
 const authStore = useAuthStore();
 const friendsStore = useFriendsStore();
+const roomsStore = useRoomsStore();
+const messagesStore = useMessagesStore();
 
 const searchQuery = ref("");
 // Live results populated from REST /chat/users/search
@@ -90,6 +96,47 @@ const filteredUsers = computed(() => {
 
 function updateSearchQuery(searchQueryChanged: string) {
   searchQuery.value = searchQueryChanged;
+}
+
+// Open or create a DM room with the selected friend
+async function handleMessage(e: { userId: string; name?: string }) {
+  try {
+    const myId = authStore.userId;
+    const targetId = String(e?.userId || "");
+    if (!targetId || !myId) return;
+
+    // Try to find an existing DM with this user
+    const rooms = roomsStore.rooms || [];
+    const dm = rooms.find((r: any) => {
+      if (!r || r.type !== 'user') return false;
+      const members: Array<{ id: string; name: string }> = Array.isArray(r.users) ? r.users : [];
+      const ids = members.map((u) => u && u.id).filter(Boolean);
+      return ids.includes(myId) && ids.includes(targetId);
+    });
+
+    let roomId: string | null = dm ? String((dm as any).id) : null;
+    if (!roomId) {
+      // Create the DM; server will materialize a DM room for both users
+      const name = e?.name || 'DM';
+      const res = await roomsStore.createRoom({ name, type: 'user', isPublic: false, invitedUserIds: [targetId] });
+      if (!res?.success) return;
+      // Refresh and search again
+      try { await roomsStore.getRooms(); } catch {}
+      const rooms2 = roomsStore.rooms || [];
+      const created = rooms2.find((r: any) => {
+        if (!r || r.type !== 'user') return false;
+        const members: Array<{ id: string; name: string }> = Array.isArray(r.users) ? r.users : [];
+        const ids = members.map((u) => u && u.id).filter(Boolean);
+        return ids.includes(myId) && ids.includes(targetId);
+      });
+      roomId = created ? String((created as any).id) : null;
+    }
+
+    if (roomId) {
+      try { await roomsStore.joinRoom(roomId); } catch {}
+      messagesStore.setActiveRoom(roomId);
+    }
+  } catch {}
 }
 
 function handleClose() {
