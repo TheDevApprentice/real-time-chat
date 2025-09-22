@@ -37,6 +37,11 @@
             :name="friend.name"
             :pendingInvitation="friend.pendingInvitation"
             :isFriend="friend.isFriend"
+            :incoming="friend.incoming"
+            :outgoing="friend.outgoing"
+            :userId="friend.userId"
+            @accept="handleAccept($event)"
+            @reject="handleReject($event)"
             @action="handleAddFriend($event)"
           />
         </div>
@@ -81,27 +86,27 @@ const filteredUsers = computed(() => {
 });
 
 const friendRequests = computed(() => {
-  const list: Array<{ name: string; avatar: string; pendingInvitation: boolean; isFriend: boolean; incoming?: boolean; outgoing?: boolean }>= [];
+  const list: Array<{ userId?: string; name: string; avatar: string; pendingInvitation: boolean; isFriend: boolean; incoming?: boolean; outgoing?: boolean }>= [];
 
   // Accepted friends
   for (const i of friendsStore.friends || []) {
     const display = i.name || 'Utilisateur';
     const avatar = (display || '?').trim().charAt(0).toUpperCase() || '?';
-    list.push({ name: display, avatar, pendingInvitation: false, isFriend: true });
+    list.push({ userId: i.userId, name: display, avatar, pendingInvitation: false, isFriend: true });
   }
 
   // Pending outgoing requests (you sent)
   for (const i of friendsStore.pendingOutgoing || []) {
     const display = i.name || 'Utilisateur';
     const avatar = (display || '?').trim().charAt(0).toUpperCase() || '?';
-    list.push({ name: display, avatar, pendingInvitation: true, isFriend: false, outgoing: true });
+    list.push({ userId: i.userId, name: display, avatar, pendingInvitation: true, isFriend: false, outgoing: true });
   }
 
   // Pending incoming requests (received)
   for (const i of friendsStore.pendingIncoming || []) {
     const display = i.name || 'Utilisateur';
     const avatar = (display || '?').trim().charAt(0).toUpperCase() || '?';
-    list.push({ name: display, avatar, pendingInvitation: true, isFriend: false, incoming: true });
+    list.push({ userId: i.userId, name: display, avatar, pendingInvitation: true, isFriend: false, incoming: true });
   }
 
   return list;
@@ -125,6 +130,28 @@ async function handleAddFriend(e: { name: string; avatar: string }) {
     searchQuery.value = "";
   } catch (err) {
     console.error('friendRequest failed', err);
+  }
+}
+
+async function handleAccept(e: { userId: string; name: string }) {
+  try {
+    const res = await friendsStore.friendRespond(e.userId, 'accept');
+    if (!res?.success) throw new Error(res?.error || 'Erreur');
+    // Do not simulate acceptance; UI will update via FriendsStore 'friendUpdated' event
+    searchQuery.value = "";
+  } catch (err) {
+    console.error('friendAccept failed', err);
+  }
+}
+
+async function handleReject(e: { userId: string; name: string }) {
+  try {
+    const res = await friendsStore.friendRespond(e.userId, 'reject');
+    if (!res?.success) throw new Error(res?.error || 'Erreur');
+    // Do not simulate acceptance; UI will update via FriendsStore 'friendUpdated' event
+    searchQuery.value = "";
+  } catch (err) {
+    console.error('friendReject failed', err);
   }
 }
 

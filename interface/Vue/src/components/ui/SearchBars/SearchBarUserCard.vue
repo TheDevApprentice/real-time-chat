@@ -66,7 +66,20 @@
         </svg>
       </template>
     </button>
-    <span v-else class="user-name">Aucun résultat</span>
+    <!-- Incoming request actions: show alongside the pending icon -->
+    <div v-if="!noresult && pendingInvitation && incoming && !isFriend" class="incoming-actions">
+      <button class="btn-accept" title="Accepter" @click.stop="$emit('accept', { userId, name })">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#19c37d" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      </button>
+      <button class="btn-reject" title="Refuser" @click.stop="$emit('reject', { userId, name })">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
   </div>
 </template>
 
@@ -79,7 +92,11 @@ const props = defineProps<{
   noresult?: boolean;
   pendingInvitation?: boolean;
   isFriend?: boolean;
+  incoming?: boolean;
+  outgoing?: boolean;
+  userId?: string;
 }>();
+
 const avatarComputed = computed(() => {
   if (props.avatar !== undefined) {
     return (
@@ -107,7 +124,7 @@ const avatarComputed = computed(() => {
     return props.avatar;
   }
 });
-defineEmits(["action"]);
+defineEmits(["action", "accept", "reject"]);
 </script>
 
 <style scoped>
@@ -157,4 +174,19 @@ defineEmits(["action"]);
 .add-btn svg {
   display: block;
 }
+.incoming-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: 0.4rem;
+}
+.btn-accept, .btn-reject {
+  background: transparent;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.2rem 0.3rem;
+  cursor: pointer;
+}
+.btn-accept:hover { background: rgba(25,195,125,0.12); }
+.btn-reject:hover { background: rgba(239,68,68,0.12); }
 </style>
