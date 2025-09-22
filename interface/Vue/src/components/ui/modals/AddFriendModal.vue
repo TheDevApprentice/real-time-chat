@@ -88,6 +88,17 @@ const filteredUsers = computed(() => {
   return users.value.filter(u => u.id !== myId);
 });
 
+// Keep presence fresh when accepted friends list changes
+watch(() => friendsStore.friends, async (list) => {
+  try {
+    for (const f of list || []) {
+      if (f?.userId && !friendsStore.presence?.[f.userId]) {
+        await friendsStore.ensurePresence(f.userId);
+      }
+    }
+  } catch {}
+}, { deep: false });
+
 const friendRequests = computed(() => {
   const list: Array<{ userId?: string; name: string; avatar: string; pendingInvitation: boolean; isFriend: boolean; incoming?: boolean; outgoing?: boolean; isOnline?: boolean }>= [];
 
@@ -179,6 +190,12 @@ async function handleReject(e: { userId: string; name: string }) {
 // Ensure we show up-to-date pending/accepted entries when the modal opens
 onMounted(async () => {
   try { await friendsStore.friendList(); } catch {}
+  try {
+    // Ensure we have presence info for accepted friends
+    for (const f of friendsStore.friends || []) {
+      if (f?.userId) await friendsStore.ensurePresence(f.userId);
+    }
+  } catch {}
 });
 
 // Live search: fetch results when query changes

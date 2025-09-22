@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import { axiosService } from '@/services/axios/axios';
 import { socketService } from '@/services/websocket/websocket';
 
 export interface FriendListItemDTO {
@@ -46,6 +47,22 @@ export const useFriendsStore = defineStore('friends', () => {
       const lastSeen = typeof p?.lastSeen === 'number' ? p.lastSeen : (st === 'online' ? null : Date.now());
       presence.value = { ...presence.value, [uid]: { status: st, lastSeen } };
     });
+  }
+
+  // --- Presence helpers (REST fallback like server/public UI) ---
+  async function ensurePresence(userId: string): Promise<void> {
+    const uid = String(userId || '');
+    if (!uid) return;
+    if (presence.value[uid]) return; // already known
+    try {
+      const res = await axiosService.get<{ status: string; lastSeen: number | null }>(`/user/presence/${encodeURIComponent(uid)}`, { skipErrorHandling: true } as any);
+      if (res?.success && res?.data) {
+        const st = (res.data.status === 'online') ? 'online' : 'offline';
+        presence.value = { ...presence.value, [uid]: { status: st, lastSeen: res.data.lastSeen ?? null } };
+      }
+    } catch {
+      // ignore
+    }
   }
   bindSocketListeners();
 
@@ -111,5 +128,6 @@ export const useFriendsStore = defineStore('friends', () => {
     friendRequest,
     friendRespond,
     upsertLocalPending,
+    ensurePresence,
   };
 });
