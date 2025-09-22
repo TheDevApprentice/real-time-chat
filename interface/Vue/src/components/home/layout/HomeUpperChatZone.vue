@@ -17,6 +17,13 @@
                 :key="user.name"
                 :avatar="user.avatar"
                 :name="user.name"
+                :isOnline="user.isOnline === true"
+                :pendingInvitation="user.pendingInvitation"
+                :isFriend="user.isFriend"
+                :incoming="user.incoming"
+                :outgoing="user.outgoing"
+                :userId="user.id"
+                @action="handleAddFriend($event)"
               />
             </template>
             <template
@@ -97,8 +104,9 @@
 
 <script setup lang="ts">
 import LoadingOverlay from "@layouts/LoadingOverlay.vue";
-import { defineAsyncComponent } from "vue";
+import { computed, defineAsyncComponent, ref } from "vue";
 import { useAuthStore } from "@stores/AuthStore";
+import { useFriendsStore } from "@/stores/FriendsStore";
 
 const SearchBar = defineAsyncComponent(
   () => import("@ui/SearchBars/SearchBar.vue")
@@ -108,18 +116,52 @@ const SearchBarUserCard = defineAsyncComponent(
 );
 
 const authStore = useAuthStore();
+const friendsStore = useFriendsStore();
 
-defineProps<{
+const props = defineProps<{
   sidebarHovered: boolean;
   searchQuery: string;
-  users: { name: string; avatar: string }[];
-  filteredUsers: { name: string; avatar: string }[];
+  users: { id: string; name: string; avatar: string }[];
+  filteredUsers: {
+    id: string;
+    name: string;
+    avatar: string;
+    isOnline: boolean;
+    pendingInvitation: boolean;
+    isFriend: boolean;
+    incoming: boolean;
+    outgoing: boolean;
+  }[];
 }>();
 
-const emit = defineEmits(['add-friend', 'create-room', 'updateSearchQuery'])
+const emit = defineEmits(["add-friend", "create-room", "updateSearchQuery"]);
 
 function updateSearchQuery(searchQuery: string) {
-  emit('updateSearchQuery', searchQuery)
+  emit("updateSearchQuery", searchQuery);
+}
+
+async function handleAddFriend(e: {
+  userId: string;
+  name: string;
+  avatar: string;
+}) {
+  console.log("handleAddFriend", e);
+  console.log("userId", e.userId);
+  console.log("name", e.name);
+  console.log("avatar", e.avatar);
+  // Find selected user id by name (component does not expose id). If multiple same names, pick first.
+  const target = props.filteredUsers.find((u) => u.id === e.userId);
+  if (!target) return;
+  try {
+    const res = await friendsStore.friendRequest(target.id);
+    if (!res?.success) throw new Error(res?.error || "Erreur");
+    // Immediately reflect pending outgoing request locally for requester UI
+    friendsStore.upsertLocalPending(target.id, target.name, true);
+    // Do not simulate acceptance; UI will update via FriendsStore 'friendUpdated' event
+    emit("updateSearchQuery", "");
+  } catch (err) {
+    console.error("friendRequest failed", err);
+  }
 }
 </script>
 

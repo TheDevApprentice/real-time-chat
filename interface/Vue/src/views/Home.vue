@@ -46,6 +46,7 @@ import { useAuthStore } from "@/stores/AuthStore";
 import { useRoomsStore } from "@/stores/RoomsStore";
 import { useMessagesStore } from "@/stores/MessagesStore";
 import { useUserStore } from "@/stores/UserStore";
+import { useFriendsStore } from "@/stores/FriendsStore";
 
 const HomeLayout = defineAsyncComponent({
   loader: () => import("@components/layouts/home/HomeLayout.vue"),
@@ -76,12 +77,13 @@ const authStore = useAuthStore();
 const roomsStore = useRoomsStore();
 const messagesStore = useMessagesStore();
 const userStore = useUserStore();
+const friendsStore = useFriendsStore();
 const HomeLayoutChild = ref();
 const sidebarHovered = ref(false);
 const sidebarExpended = ref(true);
 const searchQuery = ref("");
 // Users for the search bar (mapped from REST /chat/users/search)
-const users = ref<Array<{ id: string; name: string; avatar: string }>>([]);
+const users = ref<Array<{ id: string; name: string; avatar: string; isOnline: boolean; pendingInvitation: boolean; isFriend: boolean; incoming: boolean; outgoing: boolean; }>>([]);
 
 const filteredUsers = computed(() => {
   if (!searchQuery.value) return [];
@@ -193,12 +195,32 @@ onMounted(async () => {
   }
 });
 
-// Search bar: call REST search and map to display shape
+// Search bar: call REST search and merge with FriendsStore to expose presence and relation flags
 watch(searchQuery, async (q) => {
   const s = String(q || '').trim();
   if (!s) { users.value = []; return; }
   const list = await userStore.searchUsers(s, 20);
-  users.value = list.map(u => ({ id: u.id, name: u.name, avatar: (u.name || '?').trim().charAt(0).toUpperCase() || '?' }));
+  // Build quick lookup sets from FriendsStore
+  const acceptedSet = new Set((friendsStore.friends || []).map(i => i.userId));
+  const pendingInSet = new Set((friendsStore.pendingIncoming || []).map(i => i.userId));
+  const pendingOutSet = new Set((friendsStore.pendingOutgoing || []).map(i => i.userId));
+
+  users.value = list.map(u => {
+    const id = u.id;
+    const name = u.name;
+    const avatar = (name || '?').trim().charAt(0).toUpperCase() || '?';
+    const isFriend = acceptedSet.has(id);
+    const outgoing = pendingOutSet.has(id);
+    const incoming = pendingInSet.has(id);
+    const pendingInvitation = outgoing || incoming;
+    const isOnline = friendsStore.presence?.[id]?.status === 'online';
+    // Opportunistically fetch presence for accepted friends that are missing
+    if (isFriend && !friendsStore.presence?.[id]) {
+      friendsStore.ensurePresence(id).catch(() => undefined);
+    }
+    return { id, name, avatar, isOnline, pendingInvitation, isFriend, incoming, outgoing };
+  });
+  console.log("users", users.value);
 });
 </script>
 

@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted } from "vue";
 import { axiosService } from "@/services/axios/axios";
 import { socketService } from "@/services/websocket/websocket";
 
@@ -157,7 +157,18 @@ export const useFriendsStore = defineStore("friends", () => {
     if (idx >= 0) items.value[idx] = { ...items.value[idx], ...base };
     else items.value.push(base);
   }
-
+  // Ensure we show up-to-date pending/accepted entries when the modal opens
+  onMounted(async () => {
+    try {
+      await friendList();
+    } catch {}
+    // try {
+    //   // Ensure we have presence info for accepted friends
+    //   for (const f of friendsStore.friends || []) {
+    //     if (f?.userId) await friendsStore.ensurePresence(f.userId);
+    //   }
+    // } catch {}
+  });
   // Keep presence fresh when accepted friends list changes
   watch(
     () => friends.value,

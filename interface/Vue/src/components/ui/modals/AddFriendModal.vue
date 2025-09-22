@@ -136,7 +136,7 @@ async function handleReject(e: { userId: string; name: string }) {
     console.log("handleReject", e);
     console.log("userId", e.userId);
     // Find selected user id by name (component does not expose id). If multiple same names, pick first.
-    const target = friendsStore.friendRequests.value.find(u => u.userId === e.userId);
+    const target = friendsStore.friendRequests.find(u => u.userId === e.userId);
     console.log("target", target);
     if (!target) return;
     const res = await friendsStore.friendRespond(target.userId, 'reject');
@@ -146,16 +146,7 @@ async function handleReject(e: { userId: string; name: string }) {
   }
 }
 
-// Ensure we show up-to-date pending/accepted entries when the modal opens
-onMounted(async () => {
-  try { await friendsStore.friendList(); } catch {}
-  // try {
-  //   // Ensure we have presence info for accepted friends
-  //   for (const f of friendsStore.friends || []) {
-  //     if (f?.userId) await friendsStore.ensurePresence(f.userId);
-  //   }
-  // } catch {}
-});
+
 
 // Live search: fetch results when query changes
 watch(searchQuery, async (q) => {
