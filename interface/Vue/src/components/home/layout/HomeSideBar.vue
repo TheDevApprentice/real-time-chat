@@ -116,7 +116,7 @@
                   :displayFullContent="sidebarHovered"
                   :displayDate="false"
                   v-for="conv in mockConversations.filter(
-                    (conv: Conversation) => conv.type === 'user' && conv.participants[0].isOnline === true
+                    (conv: Conversation) => conv.type === 'user'
                   )"
                   :key="conv.id"
                   :participants="conv.participants"

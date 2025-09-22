@@ -17,6 +17,7 @@
           v-if="type === 'room'"
           :avatar="avatar"
           :name="name"
+          :type="type"
         />
         <span v-if="extraCount > 0" class="extra-count">+{{ extraCount }}</span>
       </div>

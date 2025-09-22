@@ -51,6 +51,7 @@
           </div>
           <!-- Badge en ligne -->
           <span
+            v-if="type === 'user'"
             class="absolute bottom-0 right-[-0.3rem] w-4 h-4 z-30 rounded-full border-2 border-[var(--background)] shadow"
             :class="{ 'bg-green-400': isOnline, 'bg-red-400': !isOnline }"
           ></span>
@@ -72,6 +73,7 @@ const props = defineProps<{
   avatar?: string | undefined;
   name?: string | undefined;
   isOnline?: boolean;
+  type?: string | undefined;
 }>();
 
 const avatar = computed(() => {
