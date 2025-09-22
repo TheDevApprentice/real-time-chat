@@ -59,23 +59,6 @@
       </svg>
       <span class="text-xs mt-0.5">Room</span>
     </button>
-    <!-- Paramètres -->
-    <!-- <button
-      class="flex flex-col items-center text-[var(--color-text)] focus:outline-none"
-      @click="askLogout()"
-      title="Paramètres"
-    >
-      <svg width="26" height="26" fill="none" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
-        <path
-          d="M15.5 12a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z"
-          stroke="currentColor"
-          stroke-width="2"
-        />
-      </svg>
-      <span class="text-xs mt-0.5">Param</span>
-    </button> -->
-    <!-- Déconnexion -->
     <button
       class="flex flex-col items-center text-red-500 focus:outline-none"
       @click="askLogout()"
