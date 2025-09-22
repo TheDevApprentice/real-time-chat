@@ -31,20 +31,22 @@
         </div>
         <div class="modal-added-friends">
           <div class="modal-added-title">Amis ajoutés</div>
-          <SearchBarUserCard
-            v-for="friend in friendRequests"
-            :key="friend.name"
-            :avatar="friend.avatar"
-            :name="friend.name"
-            :pendingInvitation="friend.pendingInvitation"
-            :isFriend="friend.isFriend"
-            :incoming="friend.incoming"
-            :outgoing="friend.outgoing"
-            :userId="friend.userId"
-            @accept="handleAccept($event)"
-            @reject="handleReject($event)"
-            @action="handleAddFriend($event)"
-          />
+          <transition-group name="friend-card" tag="div" class="friend-list">
+            <SearchBarUserCard
+              v-for="friend in friendRequests"
+              :key="friend.userId || friend.name"
+              :avatar="friend.avatar"
+              :name="friend.name"
+              :pendingInvitation="friend.pendingInvitation"
+              :isFriend="friend.isFriend"
+              :incoming="friend.incoming"
+              :outgoing="friend.outgoing"
+              :userId="friend.userId"
+              @accept="handleAccept($event)"
+              @reject="handleReject($event)"
+              @action="handleAddFriend($event)"
+            />
+          </transition-group>
         </div>
         <button class="modal-btn" @click="handleClose">Fermer</button>
       </div>
@@ -246,11 +248,27 @@ watch(searchQuery, async (q) => {
   align-items: flex-start;
   gap: 0.5rem;
 }
+.friend-list { width: 100%; }
 .modal-added-title {
   font-size: 0.99em;
   font-weight: 600;
   color: var(--modal-message-color);
   margin-bottom: 0.3rem;
   margin-left: 0.2rem;
+}
+
+/* Subtle enter/leave for friend cards (applies when requests are accepted/rejected) */
+.friend-card-enter-active,
+.friend-card-leave-active {
+  transition: opacity 200ms ease, transform 220ms ease;
+}
+.friend-card-enter-from,
+.friend-card-leave-to {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.98);
+}
+.friend-card-leave-from {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 </style>
