@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { ref, computed, watch, onMounted } from "vue";
 import { axiosService } from "@/services/axios/axios";
 import { socketService } from "@/services/websocket/websocket";
+import { useRoomsStore } from "@/stores/RoomsStore";
 
 export interface FriendListItemDTO {
   id: string; // friendship id
@@ -133,6 +134,17 @@ export const useFriendsStore = defineStore("friends", () => {
         { otherUserId, action },
         (res: any) => {
           if (!res?.success && res?.error) error.value = res.error;
+          // If acceptance succeeded, create a DM room immediately
+          if (res?.success && action === "accept") {
+            try {
+              const roomsStore = useRoomsStore();
+              const name = items.value.find(i => i.userId === otherUserId)?.name || "DM";
+              roomsStore
+                .createRoom({ name, type: "user", isPublic: false, invitedUserIds: [otherUserId] })
+                .then(() => roomsStore.getRooms())
+                .catch(() => undefined);
+            } catch {}
+          }
           resolve({ ...(res || {}), error: res?.error || undefined });
         }
       );
