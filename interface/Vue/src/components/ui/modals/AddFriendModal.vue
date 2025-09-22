@@ -135,6 +135,9 @@ async function handleMessage(e: { userId: string; name?: string }) {
     if (roomId) {
       try { await roomsStore.joinRoom(roomId); } catch {}
       messagesStore.setActiveRoom(roomId);
+      // Close modal and clear search
+      try { searchQuery.value = ""; } catch {}
+      emit('close');
     }
   } catch {}
 }
