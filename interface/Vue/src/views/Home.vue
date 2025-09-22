@@ -101,13 +101,14 @@ function updateSearchQuery(searchQueryChanged: string) {
 const mockConversations = computed<Conversation[]>(() => {
   const rooms = roomsStore.rooms || [];
   const myId = authStore.userId;
+  const friends = friendsStore.friends;
   return rooms.map((r) => {
     // Compute display label and avatar
     let label = r.name || (r.type === 'user' ? 'DM' : 'Room');
     let avatar = (label || '?').trim().charAt(0).toUpperCase();
     if (r.type === 'user') {
       const meId = myId || undefined;
-      const members: Array<{ id: string; name: string }> = Array.isArray((r as any).users) ? (r as any).users : [];
+      const members: Array<{ id: string; name: string, avatar: string, isOnline: boolean }> = Array.isArray((r as any).users) ? (r as any).users : [];
       const other = members.find((u) => !meId || u.id !== meId) || members[0];
       if (other?.name) {
         label = other.name;
@@ -133,7 +134,15 @@ const mockConversations = computed<Conversation[]>(() => {
     });
     return {
       id: (r as any).id,
-      participants: Array.isArray((r as any).users) ? (r as any).users.map((u: any) => ({ name: u?.name || 'User', avatar: (u?.name || '?')[0] || '?' , isOnline: false })) : [],
+      participants: Array.isArray((r as any).users)
+        ? (r as any).users.map((u: any) => {
+            const uid = String(u?.id || '');
+            const name = u?.name || 'User';
+            const initial = (name || '?').trim().charAt(0).toUpperCase() || '?';
+            const isOnline = friendsStore.presence?.[uid]?.status === 'online' || false;
+            return { id: uid, name, avatar: initial, isOnline };
+          })
+        : [],
       avatar,
       name: label,
       type: (r as any).type === 'user' ? 'user' : 'room',
