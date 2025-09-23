@@ -4,6 +4,7 @@
       <span>{{ avatar }}</span>
       <!-- Badge en ligne -->
       <span
+        v-if="showBadge"
         class="absolute bottom-0 right-[-0.2rem] w-3 h-3 z-20 rounded-full  border-2 border-[var(--background)] shadow"
         :class="{ 'bg-green-400': isOnline, 'bg-red-400': !isOnline }"
       ></span>
@@ -17,6 +18,7 @@ defineProps<{
   avatar?: string;
   name?: string;
   isOnline?: boolean;
+  showBadge?: boolean;
 }>();
 </script>
 

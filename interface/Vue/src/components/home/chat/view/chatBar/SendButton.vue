@@ -29,8 +29,11 @@ const emit = defineEmits(['click-send'])
   box-shadow: 0 4px 16px 0 rgba(68, 102, 214, 0.18);
   border: none;
   transition: background 0.18s, transform 0.13s;
+  cursor: pointer;
+}
+.send-btn.send-btn-redesign:disabled {
   cursor: not-allowed;
-  opacity: 0.75;
+  opacity: 0.6;
 }
 .send-btn-redesign svg {
   display: block;

@@ -5,18 +5,20 @@
       <ChatHeader :chat="props.chat" @closeConv="closeConv" />
       <div class="scroll-bar flex flex-col flex-1 px-1 mx-0.5 overflow-y-auto min-h-0">
         <ChatBubble
-          v-for="(bubble, bidx) in chatBubbles"
+          v-for="(bubble, bidx) in renderedBubbles"
           :key="bidx"
           v-bind="bubble"
           :animationDelay="`${bidx * 0.22}s`"
         />
       </div>
-      <BarChat />
+      <BarChat v-model="inputValue" @click-send="handleSend" />
     </div>
   </template>
   
   <script setup lang="ts">
-  import { nextTick, onMounted, ref, defineAsyncComponent, onBeforeUnmount } from "vue";
+  import { nextTick, onMounted, ref, defineAsyncComponent, onBeforeUnmount, computed } from "vue";
+  import { useMessagesStore } from "@/stores/MessagesStore";
+  import { useAuthStore } from "@/stores/AuthStore";
   
   import type { Conversation } from "@home/chatZone/SideBarConversations.vue";
   import type { Bubble } from "@home/chat/view/ChatBubble.vue";
@@ -35,14 +37,15 @@
     chat: Conversation;
   }>();
   const emit = defineEmits(['close-conversation']);
+  const messagesStore = useMessagesStore();
+  const authStore = useAuthStore();
   
   const realTimeFull = "Real‑Time";
   const chatFull = "Chat";
   const typedRealTime = ref("");
   const typedChat = ref("");
   const showCursor = ref(false);
-  const showChat = ref(false);
-  const chatBubbles = ref<Bubble[]>([]);
+  const inputValue = ref<string>("");
   // Cancellable sleep helper to track timeouts for proper cleanup
   const timeoutIds: number[] = [];
   function sleep(ms: number) {
@@ -52,21 +55,7 @@
     });
   }
 
-  const typeMessage = async (text: string, bubble: Bubble) => {
-    bubble.text = "";
-    for (const char of text) {
-      bubble.text += char;
-      await nextTick();
-      await sleep(70);
-    }
-  };
-  const updateBubbleStatus = async (bubble: Bubble) => {
-    bubble.isSent = true;
-    bubble.isRead = true;
-    await nextTick();
-    await sleep(120);
-    await nextTick();
-  };
+  // Legacy demo helpers removed; real rendering uses store messages
   
   async function AnimTypeTitle() {
     // Typewriter pour "Real‑Time"
@@ -83,64 +72,33 @@
     showCursor.value = false;
   }
 
-  async function AnimChat() {
-    showChat.value = true;
-    await sleep(200);
-
-    for (let i = 0; i < props.chat.messages.length; i++) {
-      const msg = props.chat.messages[i];
-      if (msg.speaker === 0) {
-        const bubble: Bubble = {
-          speaker: msg.speaker,
-          text: "",
-          date: msg.date,
-          isTyping: true,
-          isWriting: false,
-          isSent: false,
-          isRead: false,
-        };
-        chatBubbles.value.push(bubble);
-        await nextTick();
-        await sleep(1000);
-        bubble.isTyping = false;
-        bubble.isWriting = true;
-        await nextTick();
-        await typeMessage(msg.text, bubble).then(() => {
-          bubble.isWriting = false;
-          updateBubbleStatus(bubble);
-        });
-        await nextTick();
-        await sleep(120);
-        await nextTick();
-      } else {
-        const bubble: Bubble = {
-          speaker: msg.speaker,
-          text: "",
-          date: msg.date,
-          isTyping: false,
-          isWriting: false,
-          isSent: false,
-          isRead: false,
-        };
-        chatBubbles.value.push(bubble);
-        await nextTick();
-        bubble.isWriting = true;
-        await typeMessage(msg.text, bubble).then(() => {
-          bubble.isWriting = false;
-          updateBubbleStatus(bubble);
-        });
-        await nextTick();
-        await sleep(120);
-        await nextTick();
-      }
-    }
-  }
+  // Real-time rendering of messages from MessagesStore
+  const roomId = computed(() => String(((props.chat as any)?.id) || ''));
+  const storeRoom = computed(() => (messagesStore.byRoom[roomId.value] || { items: [] } as any));
+  const renderedBubbles = computed<Bubble[]>(() => {
+    const myId = authStore.userId;
+    const items = (storeRoom.value.items || []) as any[];
+    return items.map((m: any) => {
+      const authorId = (m?.author?.id as string | undefined) || undefined;
+      const speaker = myId && authorId && myId === authorId ? 0 : 1;
+      const date = typeof m?.timestamp === 'number' ? new Date(m.timestamp).toLocaleDateString() : new Date().toLocaleDateString();
+      return {
+        text: String(m?.content || ''),
+        speaker,
+        date,
+        isTyping: false,
+        isWriting: false,
+        isSent: true,
+        isRead: !!m?.edited ? true : true,
+      } as Bubble;
+    });
+  });
 
   onMounted(async () => {
     await AnimTypeTitle();
-    await sleep(200);
-    await AnimChat();
-    await sleep(200);
+    await sleep(100);
+    // Load initial history for this room if not already loaded
+    try { if (roomId.value) await messagesStore.loadRoomHistory(roomId.value, 0, 50); } catch {}
   });
 
   // Handler relayed from ChatHeader to parent components
@@ -148,6 +106,17 @@
     console.log("chat view closeConv :", conv);
     console.log("chat view props.chat :", props.chat);
     emit('close-conversation', conv || props.chat);
+  }
+
+  async function handleSend() {
+    try {
+      const content = String(inputValue.value || '').trim();
+      if (!content) return;
+      const rid = String(((props.chat as any)?.id) || '');
+      if (!rid) return;
+      await messagesStore.sendMessageToRoom(rid, content);
+      inputValue.value = '';
+    } catch {}
   }
 
   // Cleanup all pending timers on component destroy

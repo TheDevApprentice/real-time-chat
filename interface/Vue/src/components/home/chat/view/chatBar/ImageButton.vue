@@ -4,6 +4,7 @@
     class="image-btn"
     aria-label="Envoyer une image"
     @click="$emit('click-image')"
+    :disabled="disabled"
   >
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
       <rect
@@ -45,8 +46,11 @@ const emit = defineEmits(['click-image'])
   box-shadow: 0 2px 8px 0 rgba(68, 102, 214, 0.09);
   border: none;
   transition: background 0.16s, color 0.13s, transform 0.13s;
+  cursor: pointer;
+}
+.image-btn:disabled {
   cursor: not-allowed;
-  opacity: 0.8;
+  opacity: 0.6;
 }
 .image-btn svg {
   display: block;

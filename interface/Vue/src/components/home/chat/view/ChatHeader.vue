@@ -1,6 +1,6 @@
 <template>
   <div class="chat-header-preview px-2 mr-3">
-    <Avatar :avatar="chat.avatar" />
+    <Avatar :avatar="chat.avatar" :isOnline="isOneInConvIsOnline()" :showBadge="chat.type === 'user'" />
     <span class="chat-header-name">{{ chat.name }}</span>
     <button
       class="chat-header-close"
@@ -30,6 +30,16 @@ const props = defineProps<{
 
 const emit = defineEmits<{ closeConv: [Conversation] }>();
 
+function isOneInConvIsOnline() {
+  let isOnline = false;
+  if (props.chat.type === 'user') {
+    isOnline = props.chat.participants[1].isOnline;
+  }
+  for (const participant of props.chat.participants) {
+    if (participant.isOnline) isOnline = true;
+  }
+  return isOnline;
+}
 async function closeConv() {
   console.log("chat header closeConv :", props.chat);
   emit("closeConv", props.chat);

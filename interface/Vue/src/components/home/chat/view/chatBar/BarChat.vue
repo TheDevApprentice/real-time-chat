@@ -1,13 +1,14 @@
 <template>
   <div class="chat-bar-image-row">
-    <ImageButton @click-image="$emit('click-image')" />
+    <ImageButton :disabled="imageDisabled" @click-image="$emit('click-image')" />
     <div class="chat-bar chat-bar-redesign">
       <ChatInput
-        :modelValue="inputValueProxy"
+        v-model="inputValueProxy"
+        :disabled="inputDisabled"
         :placeholder="inputPlaceholder"
-        @keydown.enter="emit('click-send')"
+        @keydown.enter.prevent="emit('click-send')"
       />
-      <SendButton @click-send="$emit('click-send')" />
+      <SendButton :disabled="sendDisabled || !(inputValueProxy && inputValueProxy.trim().length > 0)" @click-send="$emit('click-send')" />
     </div>
   </div>
 </template>
