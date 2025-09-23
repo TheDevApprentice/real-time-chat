@@ -6,7 +6,7 @@
       <div class="scroll-bar flex flex-col flex-1 px-1 mx-0.5 overflow-y-auto min-h-0">
         <ChatBubble
           v-for="(bubble, bidx) in renderedBubbles"
-          :key="bidx"
+          :key="bubble.messageId ?? bidx"
           v-bind="bubble"
           :animationDelay="`${bidx * 0.22}s`"
           @request-edit="onRequestEdit"
