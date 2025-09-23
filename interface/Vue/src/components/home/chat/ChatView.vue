@@ -77,10 +77,14 @@
   const storeRoom = computed(() => (messagesStore.byRoom[roomId.value] || { items: [] } as any));
   const renderedBubbles = computed<Bubble[]>(() => {
     const myId = authStore.userId;
+    const myName = authStore.user;
     const items = (storeRoom.value.items || []) as any[];
     return items.map((m: any) => {
       const authorId = (m?.author?.id as string | undefined) || undefined;
-      const speaker = myId && authorId && myId === authorId ? 0 : 1;
+      const authorName = (m?.author?.name as string | undefined) || undefined;
+      const mineById = !!(myId && authorId && myId === authorId);
+      const mineByName = !!(myName && authorName && myName === authorName);
+      const speaker = (mineById || mineByName) ? 0 : 1;
       const date = typeof m?.timestamp === 'number' ? new Date(m.timestamp).toLocaleDateString() : new Date().toLocaleDateString();
       return {
         text: String(m?.content || ''),
@@ -98,7 +102,12 @@
     await AnimTypeTitle();
     await sleep(100);
     // Load initial history for this room if not already loaded
-    try { if (roomId.value) await messagesStore.loadRoomHistory(roomId.value, 0, 50); } catch {}
+    try {
+      if (roomId.value) {
+        messagesStore.setActiveRoom(roomId.value);
+        await messagesStore.loadRoomHistory(roomId.value, 0, 50);
+      }
+    } catch {}
   });
 
   // Handler relayed from ChatHeader to parent components
@@ -122,6 +131,7 @@
   // Cleanup all pending timers on component destroy
   onBeforeUnmount(() => {
     for (const id of timeoutIds) clearTimeout(id);
+    try { messagesStore.setActiveRoom(null); } catch {}
   });
   </script>
   

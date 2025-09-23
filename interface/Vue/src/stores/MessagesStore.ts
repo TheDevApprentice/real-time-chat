@@ -38,10 +38,28 @@ export const useMessagesStore = defineStore('messages', () => {
   function bindSocketListeners() {
     if (bound) return; bound = true;
 
+    // Normalizer to keep types consistent for matching/status updates
+    function normalizeMessage(m: any): MessageDTO {
+      const idNum = Number((m?.id as any));
+      const tsNum = Number((m?.timestamp as any));
+      const deliveredNum = m?.deliveredAt != null ? Number(m.deliveredAt) : undefined;
+      const readNum = m?.readAt != null ? Number(m.readAt) : undefined;
+      return {
+        id: Number.isFinite(idNum) ? idNum : (m?.id as any),
+        content: String(m?.content ?? ''),
+        author: m?.author ? { id: String((m.author as any)?.id ?? ''), name: String((m.author as any)?.name ?? '') } : undefined,
+        timestamp: Number.isFinite(tsNum) ? tsNum : undefined,
+        edited: !!m?.edited,
+        deleted: !!m?.deleted,
+        deliveredAt: Number.isFinite(deliveredNum as any) ? deliveredNum : undefined,
+        readAt: Number.isFinite(readNum as any) ? readNum : undefined,
+      } as MessageDTO;
+    }
+
     // New message to a room
     socketService.on('message', (p: any) => {
       const rid = p?.roomId as string;
-      const msg = p?.message as MessageDTO;
+      const msg = normalizeMessage(p?.message);
       if (!rid || !msg) return;
       const rs = ensureRoom(byRoom.value, rid);
       // Append in order; avoid duplicates by id
@@ -66,7 +84,7 @@ export const useMessagesStore = defineStore('messages', () => {
     // Initial room history received when joining a room (legacy push)
     socketService.on('roomHistory', (data: any) => {
       const rid = data?.roomId as string;
-      const messages = Array.isArray(data?.messages) ? (data.messages as MessageDTO[]) : [];
+      const messages = Array.isArray(data?.messages) ? (data.messages as any[]).map(normalizeMessage) : [];
       if (!rid) return;
       const rs = ensureRoom(byRoom.value, rid);
       rs.items = messages.slice();
