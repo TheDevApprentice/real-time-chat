@@ -82,20 +82,24 @@
         </div>
         <div class="flex flex-col relative scroll-bar overflow-y-auto">
           <!-- List of conversations filtrées par searchQuery -->
-          <UserConversationItem
-            :displayFullContent="sidebarExpanded"
-            :displayDate="false"
-            :sidebarExpanded="sidebarExpanded"
+          <div
             v-for="conv in filteredConversations"
             :key="conv.id"
-
-            :participants="conv.participants"
-            :name="conv.name"
-            :avatar="conv.avatar"
-            :type="conv.type"
-            :messages="conv.messages"
-            :active="conv.active"
-          />
+            class="cursor-pointer rounded-md hover:bg-white/5"
+            @click="$emit('open-conversation', conv)"
+          >
+            <UserConversationItem
+              :displayFullContent="sidebarExpanded"
+              :displayDate="false"
+              :sidebarExpanded="sidebarExpanded"
+              :participants="conv.participants"
+              :name="conv.name"
+              :avatar="conv.avatar"
+              :type="conv.type"
+              :messages="conv.messages"
+              :active="conv.active"
+            />
+          </div>
           <div
             v-if="filteredConversations.length === 0 && searchQuery"
             class="text-center text-xs text-gray-400 py-4"
@@ -127,6 +131,8 @@ export type Conversation = {
   active: boolean;
   mostRecent: boolean;
 };
+
+defineEmits(['open-conversation', 'create-conversation']);
 const UserConversationItem = defineAsyncComponent(
   () => import("../UserConversationItem.vue")
 );

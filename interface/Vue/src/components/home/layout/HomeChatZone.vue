@@ -71,11 +71,12 @@
               <SideBarConversations
                 :sidebarExpanded="sidebarExpended"
                 :conversations="conversations"
+                @open-conversation="(c) => emit('open-conversation', c)"
               />
             </div>
           </div>
           <div class="col-span-1 row-span-1 w-full h-full relative">
-            <ChatGrid :conversations="conversations" />
+            <ChatGrid :conversations="conversations" @close-conversation="(c) => emit('close-conversation', c)" />
           </div>
         </div>
       </section>
@@ -103,7 +104,7 @@ const props = defineProps<{
   sidebarExpended: boolean;
 }>();
 
-const emit = defineEmits(["updateSideBarExpended"]);
+const emit = defineEmits(["updateSideBarExpended", "open-conversation", "close-conversation"]);
 
 function toggleSidebar() {
   emit("updateSideBarExpended", !props.sidebarExpended);

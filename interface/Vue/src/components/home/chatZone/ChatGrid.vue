@@ -5,7 +5,7 @@
       :key="chat.id"
       :class="getChatItemClasses(index)"
     >
-      <ChatView :chat="chat" />
+      <ChatView :chat="chat" @close-conversation="$emit('close-conversation', $event)" />
     </div>
   </div>
 </template>
@@ -19,6 +19,8 @@ const ChatView = defineAsyncComponent(() => import("@home/chat/ChatView.vue"));
 const props = defineProps<{
   conversations: Conversation[];
 }>();
+
+defineEmits(['close-conversation']);
 
 const gridType = computed(() => {
   if (props.conversations.filter((c) => c.active).length === 1) {

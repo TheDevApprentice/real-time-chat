@@ -2,7 +2,7 @@
     <div
       class="relative h-full w-full flex flex-col gap-4 rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in transition-all"
     >
-      <ChatHeader :chat="props.chat" />
+      <ChatHeader :chat="props.chat" @closeConv="closeConv" />
       <div class="scroll-bar flex flex-col flex-1 px-1 mx-0.5 overflow-y-auto min-h-0">
         <ChatBubble
           v-for="(bubble, bidx) in chatBubbles"
@@ -34,6 +34,8 @@
   const props = defineProps<{
     chat: Conversation;
   }>();
+  const emit = defineEmits(['close-conversation']);
+  
   const realTimeFull = "Real‑Time";
   const chatFull = "Chat";
   const typedRealTime = ref("");
@@ -140,6 +142,13 @@
     await AnimChat();
     await sleep(200);
   });
+
+  // Handler relayed from ChatHeader to parent components
+  function closeConv(conv: Conversation) {
+    console.log("chat view closeConv :", conv);
+    console.log("chat view props.chat :", props.chat);
+    emit('close-conversation', conv || props.chat);
+  }
 
   // Cleanup all pending timers on component destroy
   onBeforeUnmount(() => {

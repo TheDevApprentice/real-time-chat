@@ -13,6 +13,7 @@
         @openAddFriendModal="openAddFriendModal"
         @openCreateRoomModal="openCreateRoomModal"
         @updateSideBarHover="updateSideBarHover"
+        @open-conversation="openConversation"
       />
     </template>
 
@@ -33,6 +34,8 @@
         :conversations="mockConversations"
         :sidebarExpended="sidebarExpended"
         @updateSideBarExpended="updateSideBarExpended"
+        @open-conversation="openConversation"
+        @close-conversation="closeConversation"
       />
     </template>
   </HomeLayout>
@@ -47,6 +50,7 @@ import { useRoomsStore } from "@/stores/RoomsStore";
 import { useMessagesStore } from "@/stores/MessagesStore";
 import { useUserStore } from "@/stores/UserStore";
 import { useFriendsStore } from "@/stores/FriendsStore";
+import { useDeviceStore } from "@/stores/DeviceStore";
 
 const HomeLayout = defineAsyncComponent({
   loader: () => import("@components/layouts/home/HomeLayout.vue"),
@@ -78,10 +82,13 @@ const roomsStore = useRoomsStore();
 const messagesStore = useMessagesStore();
 const userStore = useUserStore();
 const friendsStore = useFriendsStore();
+const deviceStore = useDeviceStore();
 const HomeLayoutChild = ref();
 const sidebarHovered = ref(false);
 const sidebarExpended = ref(true);
 const searchQuery = ref("");
+// Active rooms tracking for ChatGrid (device-aware)
+const activeRoomIds = ref<string[]>([]);
 // Users for the search bar (mapped from REST /chat/users/search)
 const users = ref<Array<{ id: string; name: string; avatar: string; isOnline: boolean; pendingInvitation: boolean; isFriend: boolean; incoming: boolean; outgoing: boolean; }>>([]);
 
@@ -95,6 +102,19 @@ const filteredUsers = computed(() => {
 function updateSearchQuery(searchQueryChanged: string) {
   console.log("Home Page searchQuery changed : ", searchQueryChanged);
   searchQuery.value = searchQueryChanged;
+}
+
+function closeConversation(conv: Conversation) {
+  const rid = String((conv as any).id || '');
+  if (!rid) return;
+  const arr = activeRoomIds.value.slice().filter(id => id !== rid);
+  activeRoomIds.value = arr;
+  // If the closed room was the active one, switch MessagesStore activeRoomId to the newest remaining
+  const currentActive = messagesStore.getActiveRoomId();
+  if (currentActive === rid) {
+    const next = arr[arr.length - 1] || null;
+    messagesStore.setActiveRoom(next);
+  }
 }
 
 // Map store Rooms/Messages to the Conversation/Bubble shapes expected by child components
@@ -147,7 +167,7 @@ const mockConversations = computed<Conversation[]>(() => {
       name: label,
       type: (r as any).type === 'user' ? 'user' : 'room',
       messages: bubbles,
-      active: messagesStore.getActiveRoomId() === r.id,
+      active: activeRoomIds.value.includes(String((r as any).id)),
       mostRecent: true,
     } as Conversation;
   });
@@ -199,7 +219,9 @@ onMounted(async () => {
   const first = (roomsStore.rooms || [])[0];
   if (first) {
     try { await roomsStore.joinRoom(first.id); } catch {}
+    // On init, open only one conversation regardless of device
     messagesStore.setActiveRoom(first.id);
+    activeRoomIds.value = [String(first.id)];
     try { await messagesStore.loadRoomHistory(first.id, 0, 50); } catch {}
   }
 });
@@ -231,6 +253,24 @@ watch(searchQuery, async (q) => {
   });
   console.log("users", users.value);
 });
+
+// Open a conversation with device-aware limits
+async function openConversation(conv: Conversation) {
+  try {
+    const rid = String((conv as any).id || '');
+    if (!rid) return;
+    // Join room to ensure data
+    try { await roomsStore.joinRoom(rid); } catch {}
+    messagesStore.setActiveRoom(rid);
+    // Determine device-based max open chats
+    const maxChats = deviceStore.isMobile ? 1 : (deviceStore.isTablet ? 2 : 4);
+    // Update activeRoomIds preserving order and uniqueness
+    const arr = activeRoomIds.value.slice().filter(id => id !== rid);
+    arr.push(rid);
+    while (arr.length > maxChats) arr.shift();
+    activeRoomIds.value = arr;
+  } catch {}
+}
 </script>
 
 <style scoped>

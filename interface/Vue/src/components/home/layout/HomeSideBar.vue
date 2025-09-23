@@ -59,20 +59,23 @@
             <!-- Liste des rooms -->
             <div class="flex mt-2 px-2">
               <div class="flex flex-col gap-2">
-                <UserConversationItem
-                  :displayFullContent="sidebarHovered"
-                  :displayDate="false"
-                  v-for="conv in mockConversations.filter(
-                    (conv: Conversation) => conv.type === 'room' && conv.mostRecent === true
-                  )"
+                <div
+                  v-for="conv in mockConversations.filter((conv: Conversation) => conv.type === 'room' && conv.mostRecent === true)"
                   :key="conv.id"
-                  :participants="conv.participants"
-                  :avatar="conv.avatar"
-                  :type="conv.type"
-                  :name="conv.name"
-                  :messages="conv.messages"
-                  :active="conv.active"
-                />
+                  class="cursor-pointer rounded-md hover:bg-white/5"
+                  @click="$emit('open-conversation', conv)"
+                >
+                  <UserConversationItem
+                    :displayFullContent="sidebarHovered"
+                    :displayDate="false"
+                    :participants="conv.participants"
+                    :avatar="conv.avatar"
+                    :type="conv.type"
+                    :name="conv.name"
+                    :messages="conv.messages"
+                    :active="conv.active"
+                  />
+                </div>
               </div>
             </div>
             <div class="sidebar-divider my-2"></div>
@@ -112,20 +115,23 @@
             </div>
             <div class="flex mt-2 px-2">
               <div class="flex flex-col gap-2">
-                <UserConversationItem
-                  :displayFullContent="sidebarHovered"
-                  :displayDate="false"
-                  v-for="conv in mockConversations.filter(
-                    (conv: Conversation) => conv.type === 'user'
-                  )"
+                <div
+                  v-for="conv in mockConversations.filter((conv: Conversation) => conv.type === 'user')"
                   :key="conv.id"
-                  :participants="conv.participants"
-                  :messages="conv.messages"
-                  :avatar="conv.avatar"
-                  :type="conv.type"
-                  :name="conv.name"
-                  :active="conv.active"
-                />
+                  class="cursor-pointer rounded-md hover:bg-white/5"
+                  @click="$emit('open-conversation', conv)"
+                >
+                  <UserConversationItem
+                    :displayFullContent="sidebarHovered"
+                    :displayDate="false"
+                    :participants="conv.participants"
+                    :messages="conv.messages"
+                    :avatar="conv.avatar"
+                    :type="conv.type"
+                    :name="conv.name"
+                    :active="conv.active"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -216,6 +222,7 @@ const emit = defineEmits([
   "openCreateRoomModal",
   "askLogout",
   "updateSideBarHover",
+  "open-conversation",
 ]);
 
 function openAddFriendModal() {
