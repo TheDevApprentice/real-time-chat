@@ -1,6 +1,6 @@
 <template>
   <div class="search-user-card">
-    <Avatar v-if="!noresult" :avatar="avatarComputed" :name="name" size="md" :isOnline="isOnline" />
+    <Avatar v-if="!noresult" :avatar="avatarComputed" :name="name" size="md" :isOnline="isOnline" :show-badge="true"/>
     <span v-if="!noresult" class="user-name">{{ name }}</span>
     <button
       v-if="!noresult"

@@ -3,6 +3,7 @@
     <template #default>
       <!-- Zone de chat qui doit laisser un espace en haut pour le bouton d'actions et de recherche -->
       <section
+       v-if="deviceStore.isMobile === true"
         class="flex relative min-w-0 w-full h-[calc(100vh-6.5rem)] md:mt-[4.4rem] md:h-[calc(100vh-4.5rem)]"
       >
         <div
@@ -68,7 +69,7 @@
               class="col-span-1 row-span-1 w-full h-full relative"
               :class="{
                 'relative top-0': sidebarExpended,
-                'absolute mt-[-2rem] ml-4': !sidebarExpended,
+                'absolute  ml-4': !sidebarExpended,
               }"
             >
               <SideBarConversations
@@ -81,6 +82,12 @@
           </div>
         </div>
       </section>
+      <section
+        v-else
+        class="flex relative min-w-0 w-full h-[calc(100vh-6.5rem)] md:mt-[4.4rem] md:h-[calc(100vh-4.5rem)]"
+      >
+        <ChatGrid />
+      </section>
     </template>
     <template #fallback>
       <LoadingOverlay />
@@ -92,6 +99,7 @@
 import { defineAsyncComponent } from "vue";
 import LoadingOverlay from "@layouts/LoadingOverlay.vue";
 import { useRoomsStore } from "@/stores/RoomsStore";
+import { useDeviceStore } from "@/stores/DeviceStore";
 
 const SideBarConversations = defineAsyncComponent(
   () => import("@home/chatZone/SideBarConversations.vue")
@@ -101,7 +109,7 @@ const ChatGrid = defineAsyncComponent(
 );
 
 const roomsStore = useRoomsStore();
-
+const deviceStore = useDeviceStore();
 const props = defineProps<{
   sidebarExpended: boolean;
 }>();

@@ -13,11 +13,10 @@
     >
       <div class="avatars">
         <LargeAvatar
-          v-for="(user, idx) in displayedParticipants"
-          :key="user.name + idx"
-          :avatar="user.avatar"
-          :name="user.name"
-          :isOnline="user.isOnline"
+          :key="displayedParticipants[1].name"
+          :avatar="displayedParticipants[1].avatar"
+          :name="displayedParticipants[1].name"
+          :isOnline="displayedParticipants[1].isOnline"
           v-if="type === 'user'"
         />
         <LargeAvatar

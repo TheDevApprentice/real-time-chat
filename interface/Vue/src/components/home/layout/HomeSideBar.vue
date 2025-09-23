@@ -9,7 +9,11 @@
         >
           <div class="flex mt-2">
             <div class="mt-6 ml-4">
-              <LargeAvatar avatar="🤖" :name="authStore.user" :isOnline="true"/>
+              <LargeAvatar
+                avatar="🤖"
+                :name="authStore.user"
+                :isOnline="true"
+              />
             </div>
             <span
               class="sidebar-room-label mt-4.5 ml-2 group-hover:opacity-100 opacity-0"
@@ -20,9 +24,57 @@
             >
           </div>
           <!-- Divider -->
+          <div v-if="sidebarHovered" class="sidebar-divider my-2"></div>
+
+          <div
+            v-if="sidebarHovered"
+            class="flex flex-row items-center px-2 py-2 relative min-h-[44px] min-w-0"
+          >
+            <!-- Bouton search -->
+            <button
+              v-if="sidebarHovered"
+              class="searchbar-toggle-btn mr-0.5 flex items-center justify-center w-10 h-10 rounded-full hover:bg-[#312f4e] transition"
+              :aria-label="'Rechercher une conversation'"
+              type="button"
+            >
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                <circle
+                  cx="10"
+                  cy="10"
+                  r="8.5"
+                  stroke="#4466d6"
+                  stroke-width="2"
+                />
+                <line
+                  x1="16"
+                  y1="16"
+                  x2="21"
+                  y2="21"
+                  stroke="#4466d6"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+
+            <transition name="expand-searchbar">
+              <div class="relative flex-1 flex items-center mr-2">
+                <input
+                  v-model="roomsStore.searchQuery"
+                  type="text"
+                  class="sidebar-searchbar-input pl-5 pr-4 py-2 w-full bg-[#23223a]/80 rounded-xl outline-none text-[15px] text-white placeholder:text-gray-400 shadow-sm border border-[#363657] focus:border-[#6c47ff] transition"
+                  placeholder="Rechercher..."
+                  autofocus
+                />
+              </div>
+            </transition>
+          </div>
+          <!-- Divider -->
           <div class="sidebar-divider my-2"></div>
+
           <div class="scroll-bar overflow-y-auto">
-            <!-- Rooms header + add -->
+            <div v-if="roomsStore.searchQuery.length === 0">
+                          <!-- Rooms header + add -->
             <div class="flex items-center justify-between px-2 py-2">
               <span
                 class="sidebar-section"
@@ -60,7 +112,7 @@
             <div class="flex mt-2 px-2">
               <div class="flex flex-col gap-2">
                 <div
-                  v-for="conv in roomsStore.conversations.filter((conv: Conversation) => conv.type === 'room' && conv.mostRecent === true)"
+                  v-for="conv in roomsStore.conversations.filter((conv: Conversation) => conv.type === 'room')"
                   :key="conv.id"
                   class="cursor-pointer rounded-md hover:bg-white/5"
                   @click="roomsStore.openConversation(conv)"
@@ -134,6 +186,13 @@
                 </div>
               </div>
             </div>
+
+            </div>
+
+            <SideBarConversations
+              v-if="roomsStore.searchQuery.length >= 1"
+              :sidebarExpanded="sidebarHovered"
+            />
           </div>
 
           <div class="flex-1"></div>
@@ -198,7 +257,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineAsyncComponent } from "vue";
+import { defineAsyncComponent, onBeforeUnmount, ref } from "vue";
 import type { Conversation } from "@home/chatZone/SideBarConversations.vue";
 import LoadingOverlay from "@layouts/LoadingOverlay.vue";
 import { useAuthStore } from "@/stores/AuthStore";
@@ -210,8 +269,11 @@ const LargeAvatar = defineAsyncComponent(
 const UserConversationItem = defineAsyncComponent(
   () => import("@home/UserConversationItem.vue")
 );
+const SideBarConversations = defineAsyncComponent(
+  () => import("@home/chatZone/SideBarConversations.vue")
+);
 
-const authStore = useAuthStore(); 
+const authStore = useAuthStore();
 const roomsStore = useRoomsStore();
 
 defineProps<{
@@ -225,6 +287,11 @@ const emit = defineEmits([
   "updateSideBarHover",
 ]);
 
+// Track and clear pending focus timeout on destroy
+let focusTimeoutId: number | null = null;
+onBeforeUnmount(() => {
+  if (focusTimeoutId !== null) clearTimeout(focusTimeoutId);
+});
 function openAddFriendModal() {
   emit("openAddFriendModal");
 }

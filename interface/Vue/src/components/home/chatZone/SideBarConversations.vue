@@ -3,19 +3,15 @@
     <template #default>
       <div class="flex flex-col w-full relative h-full">
         <!-- Global enveloppe of side bar conversations-->
-        <div
+        <!-- <div
           class="flex flex-row items-center px-2 py-2 relative min-h-[44px] min-w-0"
         >
-          <!-- Bouton search -->
           <button
             v-if="sidebarExpanded"
             class="searchbar-toggle-btn mr-0.5 flex items-center justify-center w-10 h-10 rounded-full hover:bg-[#312f4e] transition"
             :aria-label="
-              showSearchBar
-                ? 'Fermer la recherche'
-                : 'Rechercher une conversation'
+              'Rechercher une conversation'
             "
-            @click="toggleSearchBar"
             type="button"
           >
             <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -40,7 +36,6 @@
 
           <transition name="expand-searchbar">
             <div
-              v-if="showSearchBar"
               class="relative flex-1 flex items-center mr-2"
             >
               <input
@@ -48,38 +43,11 @@
                 type="text"
                 class="sidebar-searchbar-input pl-5 pr-4 py-2 w-full bg-[#23223a]/80 rounded-xl outline-none text-[15px] text-white placeholder:text-gray-400 shadow-sm border border-[#363657] focus:border-[#6c47ff] transition"
                 placeholder="Rechercher..."
-                @blur="showSearchBar = false"
                 autofocus
               />
             </div>
           </transition>
-
-          <button
-            v-if="sidebarExpanded"
-            class="sidebar-btn-add flex items-center justify-center ml-auto w-10 h-10 min-w-[40px] min-h-[40px] max-w-[40px] max-h-[40px] shadow-md"
-            title="Créer une conversation"
-            @click="$emit('create-conversation')"
-            type="button"
-            style="box-shadow: 0 2px 8px rgba(108, 71, 255, 0.13)"
-          >
-            <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-              <circle
-                cx="11"
-                cy="11"
-                r="9"
-                stroke="#fff"
-                stroke-width="2"
-                fill="#6c47ff"
-              />
-              <path
-                d="M11 7v8M7 11h8"
-                stroke="#fff"
-                stroke-width="2"
-                stroke-linecap="round"
-              />
-            </svg>
-          </button>
-        </div>
+        </div> -->
         <div class="flex flex-col relative scroll-bar overflow-y-auto">
           <!-- List of conversations filtrées par searchQuery -->
           <div
@@ -144,22 +112,6 @@ const UserConversationItem = defineAsyncComponent(
 defineProps<{
   sidebarExpanded: boolean;
 }>();
-
-const showSearchBar = ref(false);
-
-function toggleSearchBar() {
-  showSearchBar.value = !showSearchBar.value;
-  if (showSearchBar.value) {
-    // Debounced focus to avoid focusing after unmount
-    if (focusTimeoutId !== null) clearTimeout(focusTimeoutId);
-    focusTimeoutId = window.setTimeout(() => {
-      const input = document.querySelector(
-        ".sidebar-searchbar-input"
-      ) as HTMLInputElement;
-      if (input) input.focus();
-    }, 0);
-  }
-}
 
 // Track and clear pending focus timeout on destroy
 let focusTimeoutId: number | null = null;

@@ -2,6 +2,16 @@
   <div class="chat-header-preview px-2 mr-3">
     <Avatar :avatar="chat.avatar" :isOnline="isOneInConvIsOnline()" :showBadge="chat.type === 'user'" />
     <span class="chat-header-name">{{ chat.name }}</span>
+    <!-- Call button -->
+    <button
+      class="chat-header-call"
+      aria-label="Appeler"
+      @click="startCall()"
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.02-.24c1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20a1 1 0 01-1 1C10.85 21 3 13.15 3 3a1 1 0 011-1h3.5a1 1 0 011 1c0 1.24.2 2.45.57 3.57a1 1 0 01-.24 1.02l-2.21 2.2z" fill="currentColor"/>
+      </svg>
+    </button>
     <button
       class="chat-header-close"
       aria-label="Fermer"
@@ -28,7 +38,7 @@ const props = defineProps<{
   chat: Conversation;
 }>();
 
-const emit = defineEmits<{ closeConv: [Conversation] }>();
+const emit = defineEmits<{ closeConv: [Conversation]; 'click-call': [Conversation] }>();
 
 function isOneInConvIsOnline() {
   let isOnline = false;
@@ -43,6 +53,10 @@ function isOneInConvIsOnline() {
 async function closeConv() {
   console.log("chat header closeConv :", props.chat);
   emit("closeConv", props.chat);
+}
+
+function startCall() {
+  emit('click-call', props.chat);
 }
 </script>
 
@@ -108,6 +122,21 @@ async function closeConv() {
   opacity: 0.7;
   margin-left: 0.2rem;
 }
+.chat-header-call {
+  background: transparent;
+  border: none;
+  color: var(--page-text-color);
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.18s, color 0.18s, transform 0.1s;
+  margin-left: 0.2rem;
+}
+.chat-header-call:hover { color: #5b7fff; background: rgba(255,255,255,0.15); }
+.chat-header-call:active { transform: scale(0.96); }
 .chat-header-close:hover {
   cursor: pointer;
   color: var(--page-text-color);
