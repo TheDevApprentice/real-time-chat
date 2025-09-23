@@ -1,15 +1,24 @@
 <template>
   <div class="chat-header-preview px-2 mr-3">
-    <Avatar :avatar="chat.avatar" :isOnline="isOneInConvIsOnline()" :showBadge="chat.type === 'user'" />
+    <Avatar
+      :avatar="chat.avatar"
+      :isOnline="isOneInConvIsOnline()"
+      :showBadge="chat.type === 'user'"
+    />
     <span class="chat-header-name">{{ chat.name }}</span>
-    <!-- Call button -->
-    <button
-      class="chat-header-call"
-      aria-label="Appeler"
-      @click="startCall()"
-    >
+    <!-- Call Voice button -->
+    <button class="chat-header-call" aria-label="Appeler" @click="startCall()">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-        <path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.02-.24c1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20a1 1 0 01-1 1C10.85 21 3 13.15 3 3a1 1 0 011-1h3.5a1 1 0 011 1c0 1.24.2 2.45.57 3.57a1 1 0 01-.24 1.02l-2.21 2.2z" fill="currentColor"/>
+        <path
+          d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.02-.24c1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20a1 1 0 01-1 1C10.85 21 3 13.15 3 3a1 1 0 011-1h3.5a1 1 0 011 1c0 1.24.2 2.45.57 3.57a1 1 0 01-.24 1.02l-2.21 2.2z"
+          fill="currentColor"
+        />
+      </svg>
+    </button>
+    <!-- Call Video button -->
+    <button class="chat-header-call" aria-label="Appel vidéo" @click="startVideoCall()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <path d="M3 7.5C3 6.12 4.12 5 5.5 5h7A2.5 2.5 0 0 1 15 7.5v1.8l3.3-2.2a1 1 0 0 1 1.7.83v7.14a1 1 0 0 1-1.7.83L15 13.7v1.8A2.5 2.5 0 0 1 12.5 18h-7A2.5 2.5 0 0 1 3 15.5v-8Z" fill="currentColor"/>
       </svg>
     </button>
     <button
@@ -31,18 +40,22 @@
 </template>
 
 <script setup lang="ts">
-import Avatar from '@ui/avatars/Avatar.vue';
-import { type Conversation } from '@home/chatZone/SideBarConversations.vue';
+import Avatar from "@ui/avatars/Avatar.vue";
+import { type Conversation } from "@home/chatZone/SideBarConversations.vue";
 
 const props = defineProps<{
   chat: Conversation;
 }>();
 
-const emit = defineEmits<{ closeConv: [Conversation]; 'click-call': [Conversation] }>();
+const emit = defineEmits<{
+  closeConv: [Conversation];
+  "click-call": [Conversation];
+  "click-video-call": [Conversation];
+}>();
 
 function isOneInConvIsOnline() {
   let isOnline = false;
-  if (props.chat.type === 'user') {
+  if (props.chat.type === "user") {
     isOnline = props.chat.participants[1].isOnline;
   }
   for (const participant of props.chat.participants) {
@@ -56,7 +69,11 @@ async function closeConv() {
 }
 
 function startCall() {
-  emit('click-call', props.chat);
+  emit("click-call", props.chat);
+}
+
+function startVideoCall() {
+  emit("click-video-call", props.chat);
 }
 </script>
 
@@ -135,8 +152,13 @@ function startCall() {
   transition: background 0.18s, color 0.18s, transform 0.1s;
   margin-left: 0.2rem;
 }
-.chat-header-call:hover { color: #5b7fff; background: rgba(255,255,255,0.15); }
-.chat-header-call:active { transform: scale(0.96); }
+.chat-header-call:hover {
+  color: #5b7fff;
+  background: rgba(255, 255, 255, 0.15);
+}
+.chat-header-call:active {
+  transform: scale(0.96);
+}
 .chat-header-close:hover {
   cursor: pointer;
   color: var(--page-text-color);
