@@ -6,7 +6,26 @@
       'relative',
     ]"
     :style="{ animationDelay: `${animationDelay}` }"
+    @pointerdown="onPointerDown"
+    @pointerup="onPointerUp"
+    @pointercancel="onPointerCancel"
+    @pointerleave="onPointerCancel"
   >
+    <!-- Three dots actions button (desktop hover or always available) -->
+    <button
+      v-if="speaker === 0 && !isTyping && !isWriting"
+      class="bubble-actions-btn"
+      type="button"
+      aria-label="Actions"
+      @click.stop="toggleMenu"
+    >
+      <span class="dot-vert"></span><span class="dot-vert"></span><span class="dot-vert"></span>
+    </button>
+    <!-- Context menu -->
+    <div v-if="menuOpen" class="bubble-menu" @click.stop>
+      <button class="bubble-menu-item" type="button" @click="onEdit">Éditer</button>
+      <button class="bubble-menu-item danger" type="button" @click="onDelete">Supprimer</button>
+    </div>
     <span v-if="isTyping" class="typing-dots">
       <span class="dot">.</span><span class="dot">.</span
       ><span class="dot">.</span>
@@ -78,10 +97,60 @@
   align-items: center;
   z-index: 2;
 }
+
+/* Three dots actions */
+.bubble-actions-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(0,0,0,0.15);
+  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .15s ease, background .15s ease;
+}
+.chat-bubble:hover .bubble-actions-btn { opacity: 1; }
+.bubble-actions-btn:hover { background: rgba(0,0,0,0.25); }
+.dot-vert { display: inline-block; width: 3px; height: 3px; border-radius: 50%; background: currentColor; margin: 1px; }
+
+.bubble-menu {
+  position: absolute;
+  top: -2px;
+  right: 26px;
+  background: rgba(17, 24, 39, 0.95);
+  color: #e5e7eb;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+  padding: 4px;
+  z-index: 10;
+  min-width: 120px;
+}
+.bubble-menu .bubble-menu-item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.bubble-menu .bubble-menu-item:hover { background: rgba(59, 130, 246, 0.15); }
+.bubble-menu .bubble-menu-item.danger:hover { background: rgba(239, 68, 68, 0.15); }
 </style>
 
 <script setup lang="ts">
-import { computed, defineProps } from "vue";
+import { computed, defineProps, defineEmits, ref, onMounted, onBeforeUnmount } from "vue";
+import { useDeviceStore } from "@/stores/DeviceStore";
 
 // simulate chat conversation with typewriter effect
 export interface Bubble {
@@ -92,6 +161,7 @@ export interface Bubble {
   isWriting: boolean;
   isSent: boolean;
   isRead: boolean;
+  messageId?: number | string;
 }
 
 const props = defineProps<{
@@ -103,7 +173,62 @@ const props = defineProps<{
   isSent: boolean;
   isRead: boolean;
   animationDelay?: string;
+  messageId?: number | string;
 }>();
+
+const emit = defineEmits<{
+  (e: 'request-edit', payload: { id?: number | string; text: string }): void;
+  (e: 'request-delete', payload: { id?: number | string }): void;
+}>();
+
+const device = useDeviceStore();
+const menuOpen = ref(false);
+let longPressTimer: number | null = null;
+
+function toggleMenu() {
+  menuOpen.value = !menuOpen.value;
+}
+function closeMenu() {
+  menuOpen.value = false;
+}
+function onEdit() {
+  emit('request-edit', { id: props.messageId, text: props.text });
+  closeMenu();
+}
+function onDelete() {
+  emit('request-delete', { id: props.messageId });
+  closeMenu();
+}
+
+function isTouchMode() {
+  try { return device.isMobile || device.isTablet || device.isTouchDevice; } catch { return false; }
+}
+
+function onPointerDown(ev: PointerEvent) {
+  if (!isTouchMode()) return; // desktop: we use the button click
+  try { (ev as any).preventDefault?.(); } catch {}
+  if (longPressTimer) { window.clearTimeout(longPressTimer); longPressTimer = null; }
+  longPressTimer = window.setTimeout(() => {
+    menuOpen.value = true;
+  }, 500);
+}
+function onPointerUp() {
+  if (longPressTimer) { window.clearTimeout(longPressTimer); longPressTimer = null; }
+}
+function onPointerCancel() {
+  if (longPressTimer) { window.clearTimeout(longPressTimer); longPressTimer = null; }
+}
+
+function onDocClick() {
+  // Close when clicking anywhere outside (button/menu clicks use .stop on handlers)
+  if (menuOpen.value) closeMenu();
+}
+onMounted(() => {
+  document.addEventListener('click', onDocClick, { capture: true });
+});
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onDocClick, { capture: true } as any);
+});
 
 const formattedDate = computed(() => {
   const d = new Date(props.date);

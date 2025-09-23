@@ -9,9 +9,15 @@
           :key="bidx"
           v-bind="bubble"
           :animationDelay="`${bidx * 0.22}s`"
+          @request-edit="onRequestEdit"
+          @request-delete="onRequestDelete"
         />
       </div>
-      <BarChat v-model="inputValue" @click-send="handleSend" />
+      <BarChat
+        v-model="inputValue"
+        :inputPlaceholder="editingMessageId != null ? 'Modifier le message…' : 'Écrire un message…'"
+        @click-send="handleSend"
+      />
     </div>
   </template>
   
@@ -46,6 +52,7 @@
   const typedChat = ref("");
   const showCursor = ref(false);
   const inputValue = ref<string>("");
+  const editingMessageId = ref<number | null>(null);
   // Cancellable sleep helper to track timeouts for proper cleanup
   const timeoutIds: number[] = [];
   function sleep(ms: number) {
@@ -53,6 +60,26 @@
       const id = window.setTimeout(() => resolve(), ms);
       timeoutIds.push(id);
     });
+  }
+
+  async function onRequestEdit(payload: { id?: number | string; text: string }) {
+    try {
+      const mid = Number(payload?.id);
+      if (!Number.isFinite(mid)) return;
+      inputValue.value = String(payload?.text || '');
+      editingMessageId.value = mid;
+    } catch {}
+  }
+  async function onRequestDelete(payload: { id?: number | string }) {
+    try {
+      const rid = roomId.value;
+      if (!rid) return;
+      const mid = Number(payload?.id);
+      if (!Number.isFinite(mid)) return;
+      const ok = window.confirm('Supprimer ce message ?');
+      if (!ok) return;
+      await messagesStore.messageDelete(rid, mid);
+    } catch {}
   }
 
   // Legacy demo helpers removed; real rendering uses store messages
@@ -86,14 +113,16 @@
       const mineByName = !!(myName && authorName && myName === authorName);
       const speaker = (mineById || mineByName) ? 0 : 1;
       const date = typeof m?.timestamp === 'number' ? new Date(m.timestamp).toLocaleDateString() : new Date().toLocaleDateString();
+      const deleted = !!m?.deleted;
       return {
-        text: String(m?.content || ''),
+        text: deleted ? '[deleted]' : String(m?.content || ''),
         speaker,
         date,
         isTyping: false,
         isWriting: false,
-        isSent: typeof m?.deliveredAt === 'number',
-        isRead: typeof m?.readAt === 'number',
+        isSent: deleted ? false : typeof m?.deliveredAt === 'number',
+        isRead: deleted ? false : typeof m?.readAt === 'number',
+        messageId: m?.id,
       } as Bubble;
     });
   });
@@ -123,6 +152,12 @@
       if (!content) return;
       const rid = String(((props.chat as any)?.id) || '');
       if (!rid) return;
+      if (editingMessageId.value != null) {
+        await messagesStore.messageEdit(rid, Number(editingMessageId.value), content);
+        editingMessageId.value = null;
+        inputValue.value = '';
+        return;
+      }
       await messagesStore.sendMessageToRoom(rid, content);
       inputValue.value = '';
     } catch {}
