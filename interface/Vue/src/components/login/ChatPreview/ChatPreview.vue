@@ -31,8 +31,8 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick, reactive, onBeforeUnmount } from "vue";
 import { defineAsyncComponent } from "vue";
-import type { Bubble } from "@home/chat/view/ChatBubble.vue";
-import type { Conversation } from "@home/chatZone/SideBarConversations.vue";
+import type { Bubble } from "@login/chat/view/ChatBubble.vue";
+import type { Conversation } from "./chatZone/SideBarConversations.vue";
 import LoadingOverlay from "@layouts/LoadingOverlay.vue";
 
 const chatFull = "Chat";
@@ -45,13 +45,13 @@ const stopCursorWatch = watch(typedChat, (val) => {
 });
 
 const ChatBubble = defineAsyncComponent(
-  () => import("@home/chat/view/ChatBubble.vue")
+  () => import("@login/chat/view/ChatBubble.vue")
 );
 const BarChat = defineAsyncComponent(
-  () => import("@home/chat/view/chatBar/BarChat.vue")
+  () => import("@login/chat/view/chatBar/BarChat.vue")
 );
 const ChatHeader = defineAsyncComponent(
-  () => import("@home/chat/view/ChatHeader.vue")
+  () => import("@login/chat/view/ChatHeader.vue")
 );
 
 const chatBubbles = reactive<Bubble[]>([]);
@@ -124,7 +124,7 @@ const mockMessages: Bubble[] = [
 
 const mockConversation: Conversation = {
   id: 1,
-  participants: [{ name: "Bot Lidya", avatar: "🧛", isOnline: true }],
+  participants: [{ id: "1", name: "Bot Lidya", avatar: "🧛", isOnline: true }],
   avatar: "👪",
   name: "Famille",
   type: "room",

@@ -38,7 +38,7 @@ import { ref, onMounted, watch, reactive, defineAsyncComponent, onBeforeUnmount,
 import { useAuthStore } from "@stores/AuthStore";
 
 const ChatPreview = defineAsyncComponent({
-  loader: () => import("@components/login/ChatPreview.vue"),
+  loader: () => import("@components/login/ChatPreview/ChatPreview.vue"),
   delay: 200,
   timeout: 20000,
   suspensible: true,
