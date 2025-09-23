@@ -7,23 +7,17 @@
   >
     <template #sidebar>
       <HomeSideBar
-        :mockConversations="mockConversations"
         :sidebarHovered="sidebarHovered"
         @askLogout="askLogout"
         @openAddFriendModal="openAddFriendModal"
         @openCreateRoomModal="openCreateRoomModal"
         @updateSideBarHover="updateSideBarHover"
-        @open-conversation="openConversation"
       />
     </template>
 
     <template #upper-chat>
       <UpperChatZone
         :sidebarHovered="sidebarHovered"
-        :searchQuery="searchQuery"
-        :users="users"
-        :filteredUsers="filteredUsers"
-        @updateSearchQuery="updateSearchQuery"
         @add-friend="openAddFriendModal"
         @create-room="openCreateRoomModal"
       />
@@ -31,26 +25,16 @@
 
     <template #chat>
       <ChatZone
-        :conversations="mockConversations"
         :sidebarExpended="sidebarExpended"
         @updateSideBarExpended="updateSideBarExpended"
-        @open-conversation="openConversation"
-        @close-conversation="closeConversation"
       />
     </template>
   </HomeLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, defineAsyncComponent, onBeforeUnmount, onMounted, watch } from "vue";
-import type { Conversation } from "@components/home/chatZone/SideBarConversations.vue";
-import type { Bubble } from "@components/home/chat/view/ChatBubble.vue";
+import { ref, defineAsyncComponent, onBeforeUnmount, onMounted } from "vue";
 import { useAuthStore } from "@/stores/AuthStore";
-import { useRoomsStore } from "@/stores/RoomsStore";
-import { useMessagesStore } from "@/stores/MessagesStore";
-import { useUserStore } from "@/stores/UserStore";
-import { useFriendsStore } from "@/stores/FriendsStore";
-import { useDeviceStore } from "@/stores/DeviceStore";
 
 const HomeLayout = defineAsyncComponent({
   loader: () => import("@components/layouts/home/HomeLayout.vue"),
@@ -78,100 +62,9 @@ const UpperChatZone = defineAsyncComponent({
 });
 
 const authStore = useAuthStore();
-const roomsStore = useRoomsStore();
-const messagesStore = useMessagesStore();
-const userStore = useUserStore();
-const friendsStore = useFriendsStore();
-const deviceStore = useDeviceStore();
 const HomeLayoutChild = ref();
 const sidebarHovered = ref(false);
 const sidebarExpended = ref(true);
-const searchQuery = ref("");
-// Active rooms tracking for ChatGrid (device-aware)
-const activeRoomIds = ref<string[]>([]);
-// Users for the search bar (mapped from REST /chat/users/search)
-const users = ref<Array<{ id: string; name: string; avatar: string; isOnline: boolean; pendingInvitation: boolean; isFriend: boolean; incoming: boolean; outgoing: boolean; }>>([]);
-
-const filteredUsers = computed(() => {
-  if (!searchQuery.value) return [];
-  const userId = authStore.userId;
-  if (!userId) return [];
-  return users.value.filter((u) => u.id !== userId);  
-});
-
-function updateSearchQuery(searchQueryChanged: string) {
-  console.log("Home Page searchQuery changed : ", searchQueryChanged);
-  searchQuery.value = searchQueryChanged;
-}
-
-function closeConversation(conv: Conversation) {
-  const rid = String((conv as any).id || '');
-  if (!rid) return;
-  const arr = activeRoomIds.value.slice().filter(id => id !== rid);
-  activeRoomIds.value = arr;
-  // If the closed room was the active one, switch MessagesStore activeRoomId to the newest remaining
-  const currentActive = messagesStore.getActiveRoomId();
-  if (currentActive === rid) {
-    const next = arr[arr.length - 1] || null;
-    messagesStore.setActiveRoom(next);
-  }
-}
-
-// Map store Rooms/Messages to the Conversation/Bubble shapes expected by child components
-const mockConversations = computed<Conversation[]>(() => {
-  const rooms = roomsStore.rooms || [];
-  const myId = authStore.userId;
-  const friends = friendsStore.friends;
-  return rooms.map((r) => {
-    // Compute display label and avatar
-    let label = r.name || (r.type === 'user' ? 'DM' : 'Room');
-    let avatar = (label || '?').trim().charAt(0).toUpperCase();
-    if (r.type === 'user') {
-      const meId = myId || undefined;
-      const members: Array<{ id: string; name: string, avatar: string, isOnline: boolean }> = Array.isArray((r as any).users) ? (r as any).users : [];
-      const other = members.find((u) => !meId || u.id !== meId) || members[0];
-      if (other?.name) {
-        label = other.name;
-        avatar = (other.name || '?').trim().charAt(0).toUpperCase();
-      }
-    }
-    // Map messages for this room
-    const rs = messagesStore.byRoom[r.id] || { items: [] } as any;
-    const bubbles: Bubble[] = (rs.items as any[]).map((m) => {
-      const authorId = (m?.author?.id as string | undefined) || undefined;
-      const speaker = myId && authorId && myId === authorId ? 0 : 1;
-      const date = typeof m?.timestamp === 'number' ? new Date(m.timestamp).toLocaleDateString() : new Date().toLocaleDateString();
-      // We do not track isTyping/isWriting in message entries; typing is separate in RoomsStore
-      return {
-        text: String(m?.content || ''),
-        speaker,
-        date,
-        isTyping: false,
-        isWriting: false,
-        isSent: true,
-        isRead: !!m?.edited ? true : true,
-      } as Bubble;
-    });
-    return {
-      id: (r as any).id,
-      participants: Array.isArray((r as any).users)
-        ? (r as any).users.map((u: any) => {
-            const uid = String(u?.id || '');
-            const name = u?.name || 'User';
-            const initial = (name || '?').trim().charAt(0).toUpperCase() || '?';
-            const isOnline = friendsStore.presence?.[uid]?.status === 'online' || false;
-            return { id: uid, name, avatar: initial, isOnline };
-          })
-        : [],
-      avatar,
-      name: label,
-      type: (r as any).type === 'user' ? 'user' : 'room',
-      messages: bubbles,
-      active: activeRoomIds.value.includes(String((r as any).id)),
-      mostRecent: true,
-    } as Conversation;
-  });
-});
 
 function askLogout() {
   HomeLayoutChild.value.askLogout();
@@ -211,66 +104,6 @@ onBeforeUnmount(() => {
   if (hoverTimeoutId) clearTimeout(hoverTimeoutId);
   if (expendedTimeoutId) clearTimeout(expendedTimeoutId);
 });
-
-// === Lifecycle wiring ===
-onMounted(async () => {
-  try { await roomsStore.getRooms(); } catch {}
-  // Auto-select the first room if none active
-  const first = (roomsStore.rooms || [])[0];
-  if (first) {
-    try { await roomsStore.joinRoom(first.id); } catch {}
-    // On init, open only one conversation regardless of device
-    messagesStore.setActiveRoom(first.id);
-    activeRoomIds.value = [String(first.id)];
-    try { await messagesStore.loadRoomHistory(first.id, 0, 50); } catch {}
-  }
-});
-
-// Search bar: call REST search and merge with FriendsStore to expose presence and relation flags
-watch(searchQuery, async (q) => {
-  const s = String(q || '').trim();
-  if (!s) { users.value = []; return; }
-  const list = await userStore.searchUsers(s, 20);
-  // Build quick lookup sets from FriendsStore
-  const acceptedSet = new Set((friendsStore.friends || []).map(i => i.userId));
-  const pendingInSet = new Set((friendsStore.pendingIncoming || []).map(i => i.userId));
-  const pendingOutSet = new Set((friendsStore.pendingOutgoing || []).map(i => i.userId));
-
-  users.value = list.map(u => {
-    const id = u.id;
-    const name = u.name;
-    const avatar = (name || '?').trim().charAt(0).toUpperCase() || '?';
-    const isFriend = acceptedSet.has(id);
-    const outgoing = pendingOutSet.has(id);
-    const incoming = pendingInSet.has(id);
-    const pendingInvitation = outgoing || incoming;
-    const isOnline = friendsStore.presence?.[id]?.status === 'online';
-    // Opportunistically fetch presence for accepted friends that are missing
-    if (isFriend && !friendsStore.presence?.[id]) {
-      friendsStore.ensurePresence(id).catch(() => undefined);
-    }
-    return { id, name, avatar, isOnline, pendingInvitation, isFriend, incoming, outgoing };
-  });
-  console.log("users", users.value);
-});
-
-// Open a conversation with device-aware limits
-async function openConversation(conv: Conversation) {
-  try {
-    const rid = String((conv as any).id || '');
-    if (!rid) return;
-    // Join room to ensure data
-    try { await roomsStore.joinRoom(rid); } catch {}
-    messagesStore.setActiveRoom(rid);
-    // Determine device-based max open chats
-    const maxChats = deviceStore.isMobile ? 1 : (deviceStore.isTablet ? 2 : 4);
-    // Update activeRoomIds preserving order and uniqueness
-    const arr = activeRoomIds.value.slice().filter(id => id !== rid);
-    arr.push(rid);
-    while (arr.length > maxChats) arr.shift();
-    activeRoomIds.value = arr;
-  } catch {}
-}
 </script>
 
 <style scoped>

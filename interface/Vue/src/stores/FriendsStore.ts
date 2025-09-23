@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted } from "vue";
 import { axiosService } from "@/services/axios/axios";
 import { socketService } from "@/services/websocket/websocket";
 import { useRoomsStore } from "@/stores/RoomsStore";
+import { useUserStore } from "./UserStore";
 
 export interface FriendListItemDTO {
   id: string; // friendship id
@@ -20,6 +21,9 @@ export const useFriendsStore = defineStore("friends", () => {
   const loading = ref(false);
   const error = ref<string | null>(null);
 
+  const userStore = useUserStore();
+  const friendStore = useFriendsStore();
+  const roomsStore = useRoomsStore();
   // presence for friends only (updated via presenceChanged broadcast)
   const presence = ref<
     Record<string, { status: "online" | "offline"; lastSeen: number | null }>
@@ -35,7 +39,69 @@ export const useFriendsStore = defineStore("friends", () => {
   const pendingOutgoing = computed(() =>
     items.value.filter((i) => i.status === "pending" && i.isRequester)
   );
+  
+  const friendRequests = computed(() => {
+    const list: Array<{
+      userId?: string;
+      name: string;
+      avatar: string;
+      pendingInvitation: boolean;
+      isFriend: boolean;
+      incoming?: boolean;
+      outgoing?: boolean;
+      isOnline?: boolean;
+    }> = [];
 
+    // Accepted friends
+    for (const i of friends.value || []) {
+      const display = i.name;
+      const avatar = (display || "?").trim().charAt(0).toUpperCase() || "?";
+      const isOnline = presence.value?.[i.userId]?.status === "online";
+      list.push({
+        userId: i.userId,
+        name: display,
+        avatar,
+        pendingInvitation: false,
+        isFriend: true,
+        isOnline,
+      });
+    }
+
+    // Pending outgoing requests (you sent)
+    for (const i of pendingOutgoing.value || []) {
+      const display = i.name;
+      const avatar = (display || "?").trim().charAt(0).toUpperCase() || "?";
+      const isOnline = presence.value?.[i.userId]?.status === "online";
+      list.push({
+        userId: i.userId,
+        name: display,
+        avatar,
+        pendingInvitation: true,
+        isFriend: false,
+        outgoing: true,
+        isOnline,
+      });
+    }
+
+    // Pending incoming requests (received)
+    for (const i of pendingIncoming.value || []) {
+      const display = i.name;
+      const avatar = (display || "?").trim().charAt(0).toUpperCase() || "?";
+      const isOnline = presence.value?.[i.userId]?.status === "online";
+      list.push({
+        userId: i.userId,
+        name: display,
+        avatar,
+        pendingInvitation: true,
+        isFriend: false,
+        incoming: true,
+        isOnline,
+      });
+    }
+
+    return list;
+  });
+  
   // --- Bind listeners once ---
   let bound = false;
   function bindSocketListeners() {
@@ -169,6 +235,7 @@ export const useFriendsStore = defineStore("friends", () => {
     if (idx >= 0) items.value[idx] = { ...items.value[idx], ...base };
     else items.value.push(base);
   }
+
   // Ensure we show up-to-date pending/accepted entries when the modal opens
   onMounted(async () => {
     try {
@@ -181,6 +248,7 @@ export const useFriendsStore = defineStore("friends", () => {
     //   }
     // } catch {}
   });
+
   // Keep presence fresh when accepted friends list changes
   watch(
     () => friends.value,
@@ -196,67 +264,26 @@ export const useFriendsStore = defineStore("friends", () => {
     { deep: false }
   );
 
-  const friendRequests = computed(() => {
-    const list: Array<{
-      userId?: string;
-      name: string;
-      avatar: string;
-      pendingInvitation: boolean;
-      isFriend: boolean;
-      incoming?: boolean;
-      outgoing?: boolean;
-      isOnline?: boolean;
-    }> = [];
-
-    // Accepted friends
-    for (const i of friends.value || []) {
-      const display = i.name;
-      const avatar = (display || "?").trim().charAt(0).toUpperCase() || "?";
-      const isOnline = presence.value?.[i.userId]?.status === "online";
-      list.push({
-        userId: i.userId,
-        name: display,
-        avatar,
-        pendingInvitation: false,
-        isFriend: true,
-        isOnline,
-      });
+  async function addFriendRequest(e: {
+    userId: string;
+    name: string;
+    avatar: string;
+  }) {
+    console.log("handleAddFriend", e);
+    console.log("userId", e.userId);
+    console.log("name", e.name);
+    console.log("avatar", e.avatar);
+    const target = userStore.filteredUsers.find((u) => u.id === e.userId);
+    if (!target) return;
+    try {
+      const res = await friendStore.friendRequest(target.id);
+      if (!res?.success) throw new Error(res?.error || "Erreur");
+      friendStore.upsertLocalPending(target.id, target.name, true);
+      return target;
+    } catch (err) {
+      console.error("friendRequest failed", err);
     }
-
-    // Pending outgoing requests (you sent)
-    for (const i of pendingOutgoing.value || []) {
-      const display = i.name;
-      const avatar = (display || "?").trim().charAt(0).toUpperCase() || "?";
-      const isOnline = presence.value?.[i.userId]?.status === "online";
-      list.push({
-        userId: i.userId,
-        name: display,
-        avatar,
-        pendingInvitation: true,
-        isFriend: false,
-        outgoing: true,
-        isOnline,
-      });
-    }
-
-    // Pending incoming requests (received)
-    for (const i of pendingIncoming.value || []) {
-      const display = i.name;
-      const avatar = (display || "?").trim().charAt(0).toUpperCase() || "?";
-      const isOnline = presence.value?.[i.userId]?.status === "online";
-      list.push({
-        userId: i.userId,
-        name: display,
-        avatar,
-        pendingInvitation: true,
-        isFriend: false,
-        incoming: true,
-        isOnline,
-      });
-    }
-
-    return list;
-  });
+  }
 
   return {
     items,
@@ -267,6 +294,7 @@ export const useFriendsStore = defineStore("friends", () => {
     presence,
     loading,
     error,
+    addFriendRequest,
     friendList,
     friendRequest,
     friendRespond,

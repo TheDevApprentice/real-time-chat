@@ -7,13 +7,11 @@
         <div class="search-bar">
           <SearchBar
             v-if="authStore.isAuthenticated"
-            :modelValue="searchQuery"
-            @update:modelValue="updateSearchQuery($event)"
             placeholder="Rechercher"
           >
-            <template v-if="searchQuery && filteredUsers.length > 0" #results>
+            <template v-if="userStore.searchQuery && userStore.filteredUsers.length > 0" #results>
               <SearchBarUserCard
-                v-for="user in filteredUsers"
+                v-for="user in userStore.filteredUsers"
                 :key="user.name"
                 :avatar="user.avatar"
                 :name="user.name"
@@ -28,7 +26,7 @@
               />
             </template>
             <template
-              v-if="searchQuery && filteredUsers.length === 0"
+              v-if="userStore.searchQuery && userStore.filteredUsers.length === 0"
               #no-result
             >
               <SearchBarUserCard :noresult="true" />
@@ -105,11 +103,12 @@
 
 <script setup lang="ts">
 import LoadingOverlay from "@layouts/LoadingOverlay.vue";
-import { computed, defineAsyncComponent, ref } from "vue";
+import { defineAsyncComponent } from "vue";
 import { useAuthStore } from "@stores/AuthStore";
 import { useFriendsStore } from "@/stores/FriendsStore";
 import { useRoomsStore } from "@/stores/RoomsStore";
 import { useMessagesStore } from "@/stores/MessagesStore";
+import { useUserStore } from "@/stores/UserStore";
 
 const SearchBar = defineAsyncComponent(
   () => import("@ui/SearchBars/SearchBar.vue")
@@ -122,50 +121,25 @@ const authStore = useAuthStore();
 const friendsStore = useFriendsStore();
 const roomsStore = useRoomsStore();
 const messagesStore = useMessagesStore();
+const userStore = useUserStore();
 
-const props = defineProps<{
+defineProps<{
   sidebarHovered: boolean;
-  searchQuery: string;
-  users: { id: string; name: string; avatar: string }[];
-  filteredUsers: {
-    id: string;
-    name: string;
-    avatar: string;
-    isOnline: boolean;
-    pendingInvitation: boolean;
-    isFriend: boolean;
-    incoming: boolean;
-    outgoing: boolean;
-  }[];
 }>();
 
-const emit = defineEmits(["add-friend", "create-room", "updateSearchQuery"]);
-
-function updateSearchQuery(searchQuery: string) {
-  emit("updateSearchQuery", searchQuery);
-}
+const emit = defineEmits(["add-friend", "create-room"]);
 
 async function handleAddFriend(e: {
   userId: string;
   name: string;
   avatar: string;
 }) {
-  console.log("handleAddFriend", e);
-  console.log("userId", e.userId);
-  console.log("name", e.name);
-  console.log("avatar", e.avatar);
-  // Find selected user id by name (component does not expose id). If multiple same names, pick first.
-  const target = props.filteredUsers.find((u) => u.id === e.userId);
-  if (!target) return;
   try {
-    const res = await friendsStore.friendRequest(target.id);
-    if (!res?.success) throw new Error(res?.error || "Erreur");
-    // Immediately reflect pending outgoing request locally for requester UI
-    friendsStore.upsertLocalPending(target.id, target.name, true);
-    // Do not simulate acceptance; UI will update via FriendsStore 'friendUpdated' event
-    emit("updateSearchQuery", "");
+    const target = await friendsStore.addFriendRequest(e);
+    if (!target) throw new Error("User not found");
+    emit("add-friend", target.id);
   } catch (err) {
-    console.error("friendRequest failed", err);
+    console.error("handleAddFriend failed", err);
   }
 }
 
@@ -207,7 +181,7 @@ async function handleMessage(e: { userId: string; name?: string }) {
       try { await roomsStore.joinRoom(roomId); } catch {}
       messagesStore.setActiveRoom(roomId);
       // Clear search so dropdown collapses
-      emit('updateSearchQuery', '');
+      userStore.updateSearchQuery('');
     }
   } catch {}
 }

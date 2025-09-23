@@ -9,10 +9,13 @@
           class="min-w-0 w-full relative grid grid-rows-1 bg-white/10 rounded-xl shadow-lg animate-fade-in"
           :class="{
             'grid-cols-[100%_minmax(400px,_1fr)_0px]':
-            sidebarExpended && conversations.filter((c) => c.active).length === 0,
+              sidebarExpended &&
+              roomsStore.conversations.filter((c) => c.active).length === 0,
             'grid-cols-[200px_minmax(400px,_1fr)_0px] md:grid-cols-[220px_minmax(400px,_1fr)_0px]':
-            sidebarExpended && conversations.filter((c) => c.active).length > 0,
-            'grid-cols-[0px_minmax(400px,_1fr)_0px] md:grid-cols-[90px_minmax(400px,_1fr)_0px]': !sidebarExpended,
+              sidebarExpended &&
+              roomsStore.conversations.filter((c) => c.active).length > 0,
+            'grid-cols-[0px_minmax(400px,_1fr)_0px] md:grid-cols-[90px_minmax(400px,_1fr)_0px]':
+              !sidebarExpended,
           }"
           style="
             transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -20,7 +23,7 @@
         >
           <div class="col-span-1 row-span-1 w-full h-full relative">
             <button
-              v-if="conversations.filter((c) => c.active).length > 0"
+              v-if="roomsStore.conversations.filter((c) => c.active).length > 0"
               class="sidebar-toggle-btn absolute -right-6.5 top-20 z-40"
               :aria-label="
                 sidebarExpended
@@ -62,7 +65,7 @@
               </svg>
             </button>
             <div
-              class="col-span-1 row-span-1 w-full h-full relative "
+              class="col-span-1 row-span-1 w-full h-full relative"
               :class="{
                 'relative top-0': sidebarExpended,
                 'absolute mt-[-2rem] ml-4': !sidebarExpended,
@@ -70,13 +73,16 @@
             >
               <SideBarConversations
                 :sidebarExpanded="sidebarExpended"
-                :conversations="conversations"
-                @open-conversation="(c) => emit('open-conversation', c)"
+                :conversations="roomsStore.conversations"
+                @open-conversation="(c) => roomsStore.openConversation(c)"
               />
             </div>
           </div>
           <div class="col-span-1 row-span-1 w-full h-full relative">
-            <ChatGrid :conversations="conversations" @close-conversation="(c) => emit('close-conversation', c)" />
+            <ChatGrid
+              :conversations="roomsStore.conversations"
+              @close-conversation="(c) => roomsStore.closeConversation(c)"
+            />
           </div>
         </div>
       </section>
@@ -89,8 +95,8 @@
 
 <script setup lang="ts">
 import { defineAsyncComponent } from "vue";
-import { type Conversation } from "@home/chatZone/SideBarConversations.vue";
 import LoadingOverlay from "@layouts/LoadingOverlay.vue";
+import { useRoomsStore } from "@/stores/RoomsStore";
 
 const SideBarConversations = defineAsyncComponent(
   () => import("@home/chatZone/SideBarConversations.vue")
@@ -99,12 +105,13 @@ const ChatGrid = defineAsyncComponent(
   () => import("@home/chatZone/ChatGrid.vue")
 );
 
+const roomsStore = useRoomsStore();
+
 const props = defineProps<{
-  conversations: Conversation[];
   sidebarExpended: boolean;
 }>();
 
-const emit = defineEmits(["updateSideBarExpended", "open-conversation", "close-conversation"]);
+const emit = defineEmits(["updateSideBarExpended"]);
 
 function toggleSidebar() {
   emit("updateSideBarExpended", !props.sidebarExpended);

@@ -28,12 +28,15 @@ function ensureRoom(state: Record<string, RoomHistoryState>, roomId: string): Ro
 }
 
 export const useMessagesStore = defineStore('messages', () => {
+  // --- Stores ---
+  const auth = useAuthStore();
+
+  // --- State ---
   // roomId -> state
   const byRoom = ref<Record<string, RoomHistoryState>>({});
   const activeRoomId = ref<string | null>(null);
-  const auth = useAuthStore();
 
-  // Bind listeners once
+  // --- Bind listeners once ---
   let bound = false;
   function bindSocketListeners() {
     if (bound) return; bound = true;
@@ -114,7 +117,11 @@ export const useMessagesStore = defineStore('messages', () => {
       if (!rid || !Number.isFinite(mid)) return;
       const rs = ensureRoom(byRoom.value, rid);
       const idx = rs.items.findIndex((m) => m.id === mid);
-      if (idx >= 0) rs.items[idx] = { ...rs.items[idx], content: p?.content, edited: !p?.restored };
+      if (idx >= 0) {
+        rs.items[idx] = { ...rs.items[idx], content: p?.content, edited: !p?.restored };
+        // Force reactivity in some edge cases
+        rs.items = rs.items.slice();
+      }
     });
 
     // Message deleted
@@ -123,7 +130,10 @@ export const useMessagesStore = defineStore('messages', () => {
       if (!rid || !Number.isFinite(mid)) return;
       const rs = ensureRoom(byRoom.value, rid);
       const idx = rs.items.findIndex((m) => m.id === mid);
-      if (idx >= 0) rs.items[idx] = { ...rs.items[idx], deleted: true };
+      if (idx >= 0) {
+        rs.items[idx] = { ...rs.items[idx], deleted: true };
+        rs.items = rs.items.slice();
+      }
     });
 
     // Delivery/read receipts
@@ -147,6 +157,7 @@ export const useMessagesStore = defineStore('messages', () => {
           if (!msg.deliveredAt) msg.deliveredAt = msg.readAt;
         }
         rs.items[idx] = { ...msg };
+        rs.items = rs.items.slice();
       };
 
       if (rid) {
@@ -203,7 +214,6 @@ export const useMessagesStore = defineStore('messages', () => {
   function messageRead(roomId: string, messageId: number, timestamp?: number): Promise<any>{
     return new Promise((resolve) => socketService.emit('messageRead', { roomId, messageId, timestamp }, resolve));
   }
-
   function messageEdit(roomId: string, messageId: number, newContent: string): Promise<any>{
     return new Promise((resolve) => socketService.emit('messageEdit', { roomId, messageId, newContent }, resolve));
   }

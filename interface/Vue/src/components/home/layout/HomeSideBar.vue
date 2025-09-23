@@ -9,14 +9,14 @@
         >
           <div class="flex mt-2">
             <div class="mt-6 ml-4">
-              <LargeAvatar avatar="🤖" :name="{currentUser}" :isOnline="true"/>
+              <LargeAvatar avatar="🤖" :name="authStore.user" :isOnline="true"/>
             </div>
             <span
               class="sidebar-room-label mt-4.5 ml-2 group-hover:opacity-100 opacity-0"
               style="
                 transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
               "
-              >{{ currentUser }}</span
+              >{{ authStore.user }}</span
             >
           </div>
           <!-- Divider -->
@@ -60,10 +60,10 @@
             <div class="flex mt-2 px-2">
               <div class="flex flex-col gap-2">
                 <div
-                  v-for="conv in mockConversations.filter((conv: Conversation) => conv.type === 'room' && conv.mostRecent === true)"
+                  v-for="conv in roomsStore.conversations.filter((conv: Conversation) => conv.type === 'room' && conv.mostRecent === true)"
                   :key="conv.id"
                   class="cursor-pointer rounded-md hover:bg-white/5"
-                  @click="$emit('open-conversation', conv)"
+                  @click="roomsStore.openConversation(conv)"
                 >
                   <UserConversationItem
                     :displayFullContent="sidebarHovered"
@@ -116,10 +116,10 @@
             <div class="flex mt-2 px-2">
               <div class="flex flex-col gap-2">
                 <div
-                  v-for="conv in mockConversations.filter((conv: Conversation) => conv.type === 'user')"
+                  v-for="conv in roomsStore.conversations.filter((conv: Conversation) => conv.type === 'user')"
                   :key="conv.id"
                   class="cursor-pointer rounded-md hover:bg-white/5"
-                  @click="$emit('open-conversation', conv)"
+                  @click="roomsStore.openConversation(conv)"
                 >
                   <UserConversationItem
                     :displayFullContent="sidebarHovered"
@@ -202,6 +202,7 @@ import { defineAsyncComponent } from "vue";
 import type { Conversation } from "@home/chatZone/SideBarConversations.vue";
 import LoadingOverlay from "@layouts/LoadingOverlay.vue";
 import { useAuthStore } from "@/stores/AuthStore";
+import { useRoomsStore } from "@/stores/RoomsStore";
 
 const LargeAvatar = defineAsyncComponent(
   () => import("@ui/avatars/LargeAvatar.vue")
@@ -211,9 +212,9 @@ const UserConversationItem = defineAsyncComponent(
 );
 
 const authStore = useAuthStore(); 
-const currentUser = authStore.user;
+const roomsStore = useRoomsStore();
+
 defineProps<{
-  mockConversations: Conversation[];
   sidebarHovered: boolean;
 }>();
 
@@ -222,7 +223,6 @@ const emit = defineEmits([
   "openCreateRoomModal",
   "askLogout",
   "updateSideBarHover",
-  "open-conversation",
 ]);
 
 function openAddFriendModal() {
@@ -237,7 +237,6 @@ function askLogout() {
 function updateSideBarHover(value: boolean) {
   emit("updateSideBarHover", value);
 }
-
 </script>
 
 <style scoped>
