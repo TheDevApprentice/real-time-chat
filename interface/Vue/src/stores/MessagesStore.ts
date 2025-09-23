@@ -11,6 +11,8 @@ export interface MessageDTO {
   timestamp?: number;
   edited?: boolean;
   deleted?: boolean;
+  deliveredAt?: number;
+  readAt?: number;
 }
 
 interface RoomHistoryState {
@@ -108,8 +110,35 @@ export const useMessagesStore = defineStore('messages', () => {
 
     // Delivery/read receipts
     socketService.on('messageStatusUpdated', (p: any) => {
-      // You can extend this to track per-message delivery/read status if UI needs it
-      // p: { messageId, status: 'delivered' | 'read', deliveredAt?, readAt? }
+      // p: { roomId?, messageId, status: 'delivered' | 'read', deliveredAt?, readAt? }
+      const rid = p?.roomId as string | undefined;
+      const mid = Number(p?.messageId);
+      const status = String(p?.status || '');
+      if (!Number.isFinite(mid)) return;
+
+      const apply = (rs: RoomHistoryState | undefined) => {
+        if (!rs) return;
+        const idx = rs.items.findIndex((m) => m.id === mid);
+        if (idx < 0) return;
+        const msg = rs.items[idx];
+        if (status === 'delivered') {
+          msg.deliveredAt = typeof p?.deliveredAt === 'number' ? p.deliveredAt : Date.now();
+        } else if (status === 'read') {
+          msg.readAt = typeof p?.readAt === 'number' ? p.readAt : Date.now();
+          // Ensure deliveredAt exists if read
+          if (!msg.deliveredAt) msg.deliveredAt = msg.readAt;
+        }
+        rs.items[idx] = { ...msg };
+      };
+
+      if (rid) {
+        apply(ensureRoom(byRoom.value, rid));
+      } else {
+        // Fallback: search all rooms for this message id
+        for (const key of Object.keys(byRoom.value)) {
+          apply(byRoom.value[key]);
+        }
+      }
     });
   }
   bindSocketListeners();

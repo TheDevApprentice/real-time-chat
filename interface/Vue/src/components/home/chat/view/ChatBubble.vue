@@ -23,7 +23,7 @@
         >
         <!-- Icônes envoyé/lu -->
         <span
-          v-if="isTyping === false && isWriting === false && speaker === 1"
+          v-if="isTyping === false && isWriting === false && speaker === 0"
           class="bubble-status-icons"
         >
           <!-- Icône envoyé/message -->

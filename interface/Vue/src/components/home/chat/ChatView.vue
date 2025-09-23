@@ -16,7 +16,7 @@
   </template>
   
   <script setup lang="ts">
-  import { nextTick, onMounted, ref, defineAsyncComponent, onBeforeUnmount, computed } from "vue";
+  import { onMounted, ref, defineAsyncComponent, onBeforeUnmount, computed } from "vue";
   import { useMessagesStore } from "@/stores/MessagesStore";
   import { useAuthStore } from "@/stores/AuthStore";
   
@@ -88,8 +88,8 @@
         date,
         isTyping: false,
         isWriting: false,
-        isSent: true,
-        isRead: !!m?.edited ? true : true,
+        isSent: typeof m?.deliveredAt === 'number',
+        isRead: typeof m?.readAt === 'number',
       } as Bubble;
     });
   });
