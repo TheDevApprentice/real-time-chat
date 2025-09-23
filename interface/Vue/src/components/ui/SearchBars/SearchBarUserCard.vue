@@ -95,7 +95,7 @@
         </svg>
       </button>
     </div>
-    <!-- <span v-if="!noresult" class="user-name">Aucun résultat</span> -->
+    <span v-if="noresult" class="user-name">Aucun résultat</span>
   </div>
 </template>
 

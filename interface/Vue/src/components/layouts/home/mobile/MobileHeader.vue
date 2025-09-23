@@ -7,15 +7,20 @@
   >
     <div class="flex items-center gap-3">
       <div class="relative">
-        <Avatar avatar="🤖" :name="currentUser" :isOnline="true" />
+        <Avatar
+          avatar="🤖"
+          :name="currentUser"
+          :isOnline="true"
+          :show-badge="true"
+        />
       </div>
     </div>
-    <button
-      class="flex items-center justify-center w-10 h-10 rounded-full bg-[var(--background-secondary)]/60 hover:bg-[var(--background-secondary)]/90 shadow transition-all duration-200 ring-1 ring-[var(--color-primary)]"
-      aria-label="Changer le thème"
-    >
-      <ThemeSwitcher class="text-xl" />
-    </button>
+    <div class="w-full z-10 md:flex lg:flex">
+      <div class="header-actions">
+        <ThemeSwitcher />
+        <LanguageSwitcher />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -23,7 +28,22 @@
 import { useAuthStore } from "@stores/AuthStore";
 import Avatar from "@ui/avatars/Avatar.vue";
 import ThemeSwitcher from "@ui/ThemeSwitcher.vue";
+import LanguageSwitcher from "@ui/LanguageSwitcher.vue";
 
 const authStore = useAuthStore();
 const currentUser = authStore.user;
 </script>
+
+<style scoped>
+.header-actions {
+  display: flex;
+  justify-self: flex-end;
+  align-self: flex-start;
+  gap: 0.7rem;
+  z-index: 50;
+  position: fixed;
+  padding: 1.3rem 2.2rem 0.5rem 0;
+  top: -1.1rem;
+  right: -1.4rem;
+}
+</style>

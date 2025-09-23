@@ -9,9 +9,9 @@
           <SearchBar
             :modelValue="searchQuery"
             @update:modelValue="updateSearchQuery($event)"
-            placeholder="Rechercher"
+            placeholder="Rechercher un nouvel ami"
           >
-            <template v-if="searchQuery && filteredUsers.length > 0" #results>
+            <template v-if="searchQuery && filteredUsers.length >= 1" #results>
               <SearchBarUserCard
                 v-for="user in filteredUsers"
                 :key="user.id || user.name"
@@ -20,6 +20,7 @@
                 :userId="user.id"
                 @action="handleAddFriend($event)"
                 @message="handleMessage($event)"
+                :noresult="false"
               />
             </template>
             <template
@@ -82,7 +83,7 @@ const friendsStore = useFriendsStore();
 const roomsStore = useRoomsStore();
 const messagesStore = useMessagesStore();
 
-const searchQuery = ref("");
+const searchQuery = ref<string>("");
 // Live results populated from REST /chat/users/search
 const users = ref<Array<{ id: string; name: string; avatar: string }>>([]);
 
@@ -174,7 +175,7 @@ async function handleAccept(e: { userId: string; name: string }) {
     const target = friendsStore.friendRequests.find(u => u.userId === e.userId);
     console.log("target", target);
     if (!target) return;
-    const res = await friendsStore.friendRespond(target.userId, 'accept');
+    const res = await friendsStore.friendRespond(String(target.userId), 'accept');
     if (!res?.success) throw new Error(res?.error || 'Erreur');
   } catch (err) {
     console.error('friendAccept failed', err);
@@ -189,14 +190,12 @@ async function handleReject(e: { userId: string; name: string }) {
     const target = friendsStore.friendRequests.find(u => u.userId === e.userId);
     console.log("target", target);
     if (!target) return;
-    const res = await friendsStore.friendRespond(target.userId, 'reject');
+    const res = await friendsStore.friendRespond(String(target.userId), 'reject');
     if (!res?.success) throw new Error(res?.error || 'Erreur');
   } catch (err) {
     console.error('friendReject failed', err);
   }
 }
-
-
 
 // Live search: fetch results when query changes
 watch(searchQuery, async (q) => {

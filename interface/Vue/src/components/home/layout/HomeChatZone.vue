@@ -73,16 +73,11 @@
             >
               <SideBarConversations
                 :sidebarExpanded="sidebarExpended"
-                :conversations="roomsStore.conversations"
-                @open-conversation="(c) => roomsStore.openConversation(c)"
               />
             </div>
           </div>
           <div class="col-span-1 row-span-1 w-full h-full relative">
-            <ChatGrid
-              :conversations="roomsStore.conversations"
-              @close-conversation="(c) => roomsStore.closeConversation(c)"
-            />
+            <ChatGrid />
           </div>
         </div>
       </section>

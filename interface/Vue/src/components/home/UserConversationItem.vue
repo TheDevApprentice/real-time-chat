@@ -1,11 +1,18 @@
- <template>
-  <Transition
-    name="fade-slide"
-    appear
-  >
-    <div :class="[displayFullContent ? 'user-conv-item' : 'user-conv-item-full', { active, unread: lastMessage?.isRead === false && displayFullContent && displayDate }]" @click="$emit('click')">
+<template>
+  <Transition name="fade-slide" appear>
+    <div
+      :class="[
+        displayFullContent ? 'user-conv-item' : 'user-conv-item-full',
+        {
+          active,
+          unread:
+            lastMessage?.isRead === false && displayFullContent && displayDate,
+        },
+      ]"
+      @click="$emit('click')"
+    >
       <div class="avatars">
-        <LargeAvatar  
+        <LargeAvatar
           v-for="(user, idx) in displayedParticipants"
           :key="user.name + idx"
           :avatar="user.avatar"
@@ -21,21 +28,32 @@
         />
         <span v-if="extraCount > 0" class="extra-count">+{{ extraCount }}</span>
       </div>
-      <div v-if="displayFullContent" class="conv-content ">
+      <div v-if="displayFullContent" class="conv-content">
         <Transition name="fade-slide-in" appear>
-          <div class="conv-title"><span>{{ name }}</span></div>
+          <div class="conv-title">
+            <span>{{ name }}</span>
+          </div>
         </Transition>
         <Transition name="fade-slide-in" appear>
           <div class="conv-last-msg">
             <span v-if="lastMessage?.speaker === 1" class="me">Moi: </span>
             <span class="msg">{{ lastMessage?.text }}</span>
 
-            <span v-if="!sidebarExpanded || lastMessage?.isRead === false" class="unread-dot"></span>
+            <span
+              v-if="!sidebarExpanded || lastMessage?.isRead === false"
+              class="unread-dot"
+            ></span>
           </div>
         </Transition>
       </div>
       <Transition name="fade-in" appear>
-        <div v-if="sidebarExpanded && displayDate || displayFullContent && displayDate" class="conv-meta">
+        <div
+          v-if="
+            (sidebarExpanded && displayDate) ||
+            (displayFullContent && displayDate)
+          "
+          class="conv-meta"
+        >
           <span class="date">{{ formattedDate }}</span>
         </div>
       </Transition>
@@ -44,10 +62,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import LargeAvatar from '@ui/avatars/LargeAvatar.vue';
-import type { ConversationType } from '@home/chatZone/SideBarConversations.vue';
-import type { Bubble } from '@home/chat/view/ChatBubble.vue';
+import { computed } from "vue";
+import LargeAvatar from "@ui/avatars/LargeAvatar.vue";
+import type { ConversationType } from "@home/chatZone/SideBarConversations.vue";
+import type { Bubble } from "@home/chat/view/ChatBubble.vue";
 
 const props = defineProps<{
   displayFullContent?: boolean;
@@ -56,26 +74,33 @@ const props = defineProps<{
   avatar?: string;
   type?: ConversationType;
   messages: Bubble[];
-  participants: { name: string, avatar: string, isOnline: boolean }[];
+  participants: { name: string; avatar: string; isOnline: boolean }[];
   name?: string;
   active?: boolean;
-}>()
+}>();
 
 const displayedParticipants = computed(() => props.participants);
 const extraCount = computed(() => Math.max(0, props.participants.length - 2));
 const lastMessage = computed(() => props.messages[props.messages.length - 1]);
 
 const formattedDate = computed(() => {
-  if (!lastMessage.value?.date) return '';
+  if (!lastMessage.value?.date) return "";
   const d = new Date(lastMessage.value.date);
-  if (isNaN(d.getTime())) return '';
+  if (isNaN(d.getTime())) return "";
   const now = new Date();
-  const isToday = d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const isToday =
+    d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear();
+  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   if (isToday) {
     return time;
   } else {
-    const date = d.toLocaleDateString([], { day: 'numeric', month: 'numeric', year: '2-digit' });
+    const date = d.toLocaleDateString([], {
+      day: "numeric",
+      month: "numeric",
+      year: "2-digit",
+    });
     return `${date}, ${time}`;
   }
 });
@@ -105,7 +130,7 @@ const formattedDate = computed(() => {
   width: 100%;
   min-width: 0rem;
   border-radius: 1.2rem;
-  background: rgba(255,255,255,0.04);
+  background: rgba(255, 255, 255, 0.04);
   transition: background 0.18s, box-shadow 0.18s;
   cursor: pointer;
   margin-bottom: 0.4rem;
@@ -121,7 +146,7 @@ const formattedDate = computed(() => {
 }
 
 .user-conv-item.unread::after {
-  content: '';
+  content: "";
   position: absolute;
   right: 0.8rem;
   top: 50%;
@@ -131,7 +156,7 @@ const formattedDate = computed(() => {
   border-radius: 50%;
   background: #ff4e6a;
   box-shadow: 0 0 0 0 rgba(255, 78, 106, 0.7);
-  animation: unread-pulse 1.1s cubic-bezier(0.4,0,0.6,1) infinite;
+  animation: unread-pulse 1.1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 @keyframes unread-pulse {
   0% {
@@ -204,7 +229,7 @@ const formattedDate = computed(() => {
   background: #ff4e6a;
   margin-left: 0.5em;
   box-shadow: 0 0 0 0 rgba(255, 78, 106, 0.7);
-  animation: unread-pulse 1.1s cubic-bezier(0.4,0,0.6,1) infinite;
+  animation: unread-pulse 1.1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 @keyframes unread-pulse {
   0% {
@@ -233,7 +258,8 @@ const formattedDate = computed(() => {
 }
 .fade-slide-enter-active,
 .fade-slide-leave-active {
-  transition: opacity 0.18s cubic-bezier(0.4,0,0.2,1), transform 0.18s cubic-bezier(0.4,0,0.2,1);
+  transition: opacity 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .fade-slide-enter-from,
 .fade-slide-leave-to {
@@ -247,7 +273,8 @@ const formattedDate = computed(() => {
 }
 
 .fade-slide-in-enter-active {
-  transition: opacity 0.22s 0.07s cubic-bezier(0.4,0,0.2,1), transform 0.22s 0.07s cubic-bezier(0.4,0,0.2,1);
+  transition: opacity 0.22s 0.07s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.22s 0.07s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .fade-slide-in-enter-from {
   opacity: 0;
@@ -259,7 +286,7 @@ const formattedDate = computed(() => {
 }
 
 .fade-in-enter-active {
-  transition: opacity 0.22s 0.13s cubic-bezier(0.4,0,0.2,1);
+  transition: opacity 0.22s 0.13s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .fade-in-enter-from {
   opacity: 0;

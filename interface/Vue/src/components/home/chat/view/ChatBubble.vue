@@ -87,67 +87,6 @@
   </div>
 </template>
 
-<style scoped>
-.bubble-status-icons {
-  position: absolute;
-  right: 0.45rem;
-  bottom: 0.4rem;
-  display: flex;
-  gap: 2px;
-  align-items: center;
-  z-index: 2;
-}
-
-/* Three dots actions */
-.bubble-actions-btn {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 26px;
-  height: 26px;
-  border-radius: 999px;
-  border: none;
-  background: rgba(0,0,0,0.15);
-  color: #e2e8f0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity .15s ease, background .15s ease;
-}
-.chat-bubble:hover .bubble-actions-btn { opacity: 1; }
-.bubble-actions-btn:hover { background: rgba(0,0,0,0.25); }
-.dot-vert { display: inline-block; width: 3px; height: 3px; border-radius: 50%; background: currentColor; margin: 1px; }
-
-.bubble-menu {
-  position: absolute;
-  top: -2px;
-  right: 26px;
-  background: rgba(17, 24, 39, 0.95);
-  color: #e5e7eb;
-  border: 1px solid rgba(59, 130, 246, 0.25);
-  border-radius: 8px;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
-  padding: 4px;
-  z-index: 10;
-  min-width: 120px;
-}
-.bubble-menu .bubble-menu-item {
-  width: 100%;
-  text-align: left;
-  background: transparent;
-  color: inherit;
-  border: none;
-  padding: 6px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.bubble-menu .bubble-menu-item:hover { background: rgba(59, 130, 246, 0.15); }
-.bubble-menu .bubble-menu-item.danger:hover { background: rgba(239, 68, 68, 0.15); }
-</style>
-
 <script setup lang="ts">
 import { computed, defineProps, defineEmits, ref, onMounted, onBeforeUnmount } from "vue";
 import { useDeviceStore } from "@/stores/DeviceStore";
@@ -253,6 +192,64 @@ const formattedDate = computed(() => {
 </script>
 
 <style scoped>
+.bubble-status-icons {
+  position: absolute;
+  right: 0.45rem;
+  bottom: 0.4rem;
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  z-index: 2;
+}
+
+/* Three dots actions */
+.bubble-actions-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(0,0,0,0.15);
+  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .15s ease, background .15s ease;
+}
+.chat-bubble:hover .bubble-actions-btn { opacity: 1; }
+.bubble-actions-btn:hover { background: rgba(0,0,0,0.25); }
+.dot-vert { display: inline-block; width: 3px; height: 3px; border-radius: 50%; background: currentColor; margin: 1px; }
+
+.bubble-menu {
+  position: absolute;
+  top: -2px;
+  right: 26px;
+  background: rgba(17, 24, 39, 0.95);
+  color: #e5e7eb;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+  padding: 4px;
+  z-index: 10;
+  min-width: 120px;
+}
+.bubble-menu .bubble-menu-item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.bubble-menu .bubble-menu-item:hover { background: rgba(59, 130, 246, 0.15); }
+.bubble-menu .bubble-menu-item.danger:hover { background: rgba(239, 68, 68, 0.15); }
 .chat-bubble {
   padding: 0.6rem 0.8rem;
   margin-top: 0.1rem;

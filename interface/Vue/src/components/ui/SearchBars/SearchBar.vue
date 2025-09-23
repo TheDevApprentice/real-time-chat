@@ -10,12 +10,12 @@
     <input
       class="search-input"
       :placeholder="placeholder"
-      :value="userStore.searchQuery"
-      @input="event => userStore.updateSearchQuery(event.target.value)"
-      @keydown.enter="$emit('search', userStore.searchQuery)"
+      :value="modelValue"
+      @input="event => $emit('update:modelValue', event.target.value)"
+      @keydown.enter="$emit('search', modelValue)"
       :disabled="disabled"
     />
-    <button v-if="userStore.searchQuery" class="clear-btn" @click="userStore.updateSearchQuery('')" type="button">
+    <button v-if="modelValue" class="clear-btn" @click="$emit('update:modelValue', '')" type="button">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <line x1="6" y1="6" x2="18" y2="18"/>
         <line x1="6" y1="18" x2="18" y2="6"/>
@@ -32,15 +32,12 @@
 </template>
 
 <script setup lang="ts">
-import { useUserStore } from '@/stores/UserStore';
-
 defineProps<{
+  modelValue: string,
   placeholder?: string,
   disabled?: boolean
 }>()
-defineEmits(['search'])
-
-const userStore = useUserStore();
+defineEmits(['update:modelValue', 'search'])
 </script>
 
 <style scoped>

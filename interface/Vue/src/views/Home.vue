@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, defineAsyncComponent, onBeforeUnmount, onMounted } from "vue";
+import { ref, defineAsyncComponent, onBeforeUnmount } from "vue";
 import { useAuthStore } from "@/stores/AuthStore";
 
 const HomeLayout = defineAsyncComponent({

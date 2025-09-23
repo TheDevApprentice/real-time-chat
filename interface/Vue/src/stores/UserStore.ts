@@ -28,7 +28,7 @@ export const useUserStore = defineStore('userSearch', () => {
 
   // Users for the search bar (mapped from REST /chat/users/search)
 const users = ref<Array<{ id: string; name: string; avatar: string; isOnline: boolean; pendingInvitation: boolean; isFriend: boolean; incoming: boolean; outgoing: boolean; }>>([]);
-const searchQuery = ref("");
+const searchQuery = ref<string>("");
 const filteredUsers = computed(() => {
   if (!searchQuery.value) return [];
   const userId = authStore.userId;

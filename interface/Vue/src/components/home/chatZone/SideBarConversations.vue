@@ -44,7 +44,7 @@
               class="relative flex-1 flex items-center mr-2"
             >
               <input
-                v-model="searchQuery"
+                v-model="roomsStore.searchQuery"
                 type="text"
                 class="sidebar-searchbar-input pl-5 pr-4 py-2 w-full bg-[#23223a]/80 rounded-xl outline-none text-[15px] text-white placeholder:text-gray-400 shadow-sm border border-[#363657] focus:border-[#6c47ff] transition"
                 placeholder="Rechercher..."
@@ -83,10 +83,10 @@
         <div class="flex flex-col relative scroll-bar overflow-y-auto">
           <!-- List of conversations filtrées par searchQuery -->
           <div
-            v-for="conv in filteredConversations"
+            v-for="conv in roomsStore.filteredConversations"
             :key="conv.id"
             class="cursor-pointer rounded-md hover:bg-white/5"
-            @click="$emit('open-conversation', conv)"
+            @click="roomsStore.openConversation(conv)"
           >
             <UserConversationItem
               :displayFullContent="sidebarExpanded"
@@ -101,7 +101,7 @@
             />
           </div>
           <div
-            v-if="filteredConversations.length === 0 && searchQuery"
+            v-if="roomsStore.filteredConversations.length === 0 && roomsStore.searchQuery"
             class="text-center text-xs text-gray-400 py-4"
           >
             Aucune conversation trouvée.
@@ -118,6 +118,9 @@
 <script setup lang="ts">
 import LoadingOverlay from "@layouts/LoadingOverlay.vue";
 import { defineAsyncComponent } from "vue";
+import { ref, onBeforeUnmount } from "vue";
+import type { Bubble } from "@home/chat/view/ChatBubble.vue";
+import { useRoomsStore } from "@/stores/RoomsStore";
 
 export type ConversationType = "user" | "room";
 
@@ -132,43 +135,17 @@ export type Conversation = {
   mostRecent: boolean;
 };
 
-defineEmits(['open-conversation', 'create-conversation']);
+const roomsStore = useRoomsStore();
+defineEmits(['create-conversation']);
 const UserConversationItem = defineAsyncComponent(
   () => import("../UserConversationItem.vue")
 );
 
-const props = defineProps<{
+defineProps<{
   sidebarExpanded: boolean;
-  conversations: Conversation[];
 }>();
-import { ref, computed, onBeforeUnmount } from "vue";
-import type { Bubble } from "@home/chat/view/ChatBubble.vue";
 
 const showSearchBar = ref(false);
-const searchQuery = ref("");
-
-// Filtrage des conversations selon le searchQuery (titre, participants, dernier message)
-const filteredConversations = computed(() => {
-  if (!searchQuery.value) return props.conversations;
-  const q = searchQuery.value.toLowerCase();
-  return props.conversations.filter((conv) => {
-    // Recherche sur le titre
-    if (conv.name && conv.name.toLowerCase().includes(q)) return true;
-    // Recherche sur le texte des messages
-    if (conv.messages.some((msg) => msg.text.toLowerCase().includes(q)))
-      return true;
-    // Recherche sur les participants
-    if (conv.participants.some((p) => p.name.toLowerCase().includes(q)))
-      return true;
-    // Recherche sur le texte du dernier message
-    if (
-      conv.messages.length > 0 &&
-      conv.messages[conv.messages.length - 1].text.toLowerCase().includes(q)
-    )
-      return true;
-    return false;
-  });
-});
 
 function toggleSearchBar() {
   showSearchBar.value = !showSearchBar.value;

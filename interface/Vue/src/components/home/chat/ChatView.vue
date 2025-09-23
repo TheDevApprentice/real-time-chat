@@ -2,20 +2,20 @@
     <div
       class="relative h-full w-full flex flex-col gap-4 rounded-xl bg-white/10 shadow-lg p-4 animate-fade-in transition-all"
     >
-      <ChatHeader :chat="props.chat" @closeConv="closeConv" />
+      <ChatHeader :chat="props.chat" @closeConv="roomsStore.closeConversation($event)" />
       <div class="scroll-bar flex flex-col flex-1 px-1 mx-0.5 overflow-y-auto min-h-0">
         <ChatBubble
           v-for="(bubble, bidx) in renderedBubbles"
-          :key="`${bubble.messageId ?? bidx}:${bubble.text}`"
+          :key="`${bubble.messageId ?? bidx}`"
           v-bind="bubble"
-          :animationDelay="`${bidx * 0.22}s`"
+          :animationDelay="`${bidx * 0.12}s`"
           @request-edit="onRequestEdit"
           @request-delete="onRequestDelete"
         />
       </div>
       <BarChat
         v-model="inputValue"
-        :inputPlaceholder="editingMessageId != null ? 'Modifier le message…' : 'Écrire un message…'"
+        :inputPlaceholder=" 'Écrire un message…'"
         @click-send="handleSend"
       />
     </div>
@@ -25,6 +25,7 @@
   import { onMounted, ref, defineAsyncComponent, onBeforeUnmount, computed } from "vue";
   import { useMessagesStore } from "@/stores/MessagesStore";
   import { useAuthStore } from "@/stores/AuthStore";
+  import { useRoomsStore } from "@/stores/RoomsStore";
   
   import type { Conversation } from "@home/chatZone/SideBarConversations.vue";
   import type { Bubble } from "@home/chat/view/ChatBubble.vue";
@@ -38,11 +39,12 @@
   const ChatHeader = defineAsyncComponent(
     () => import("@home/chat/view/ChatHeader.vue")
   );
+  const roomsStore = useRoomsStore();
   
   const props = defineProps<{
     chat: Conversation;
   }>();
-  const emit = defineEmits(['close-conversation']);
+
   const messagesStore = useMessagesStore();
   const authStore = useAuthStore();
   
@@ -53,6 +55,7 @@
   const showCursor = ref(false);
   const inputValue = ref<string>("");
   const editingMessageId = ref<number | null>(null);
+  
   // Cancellable sleep helper to track timeouts for proper cleanup
   const timeoutIds: number[] = [];
   function sleep(ms: number) {
@@ -70,14 +73,13 @@
       editingMessageId.value = mid;
     } catch {}
   }
+
   async function onRequestDelete(payload: { id?: number | string }) {
     try {
       const rid = roomId.value;
       if (!rid) return;
       const mid = Number(payload?.id);
       if (!Number.isFinite(mid)) return;
-      const ok = window.confirm('Supprimer ce message ?');
-      if (!ok) return;
       await messagesStore.messageDelete(rid, mid);
     } catch {}
   }
@@ -138,13 +140,6 @@
       }
     } catch {}
   });
-
-  // Handler relayed from ChatHeader to parent components
-  function closeConv(conv: Conversation) {
-    console.log("chat view closeConv :", conv);
-    console.log("chat view props.chat :", props.chat);
-    emit('close-conversation', conv || props.chat);
-  }
 
   async function handleSend() {
     try {

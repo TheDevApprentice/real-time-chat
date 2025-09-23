@@ -42,6 +42,31 @@ export const useRoomsStore = defineStore('rooms', () => {
     return map;
   });
 
+  const searchQuery = ref("");
+
+// Filtrage des conversations selon le searchQuery (titre, participants, dernier message)
+const filteredConversations = computed(() => {
+  if (!searchQuery.value) return conversations.value;
+  const q = searchQuery.value.toLowerCase();
+  return conversations.value.filter((conv) => {
+    // Recherche sur le titre
+    if (conv.name && conv.name.toLowerCase().includes(q)) return true;
+    // Recherche sur le texte des messages
+    if (conv.messages.some((msg) => msg.text.toLowerCase().includes(q)))
+      return true;
+    // Recherche sur les participants
+    if (conv.participants.some((p) => p.name.toLowerCase().includes(q)))
+      return true;
+    // Recherche sur le texte du dernier message
+    if (
+      conv.messages.length > 0 &&
+      conv.messages[conv.messages.length - 1].text.toLowerCase().includes(q)
+    )
+      return true;
+    return false;
+  });
+});
+
   // --- Bind listeners once ---
   let bound = false;
   function bindSocketListeners() {
@@ -195,7 +220,7 @@ async function openConversation(conv: Conversation) {
   function getRoomMessageCounts(roomId: string, range: 'hour' | 'day' = 'hour', from?: number, to?: number): Promise<{ success: boolean; items: Array<{ bucket: string; count: number }> }>{
     return new Promise((resolve) => socketService.emit('getRoomMessageCounts', { roomId, range, from, to }, resolve));
   }
-  
+
   // === Lifecycle wiring ===
   onMounted(async () => {
     try { await getRooms(); } catch {}
@@ -212,6 +237,8 @@ async function openConversation(conv: Conversation) {
     typingCount,
     loading,
     error,
+    searchQuery,
+    filteredConversations,
     getRooms,
     createRoom,
     joinRoom,

@@ -6,10 +6,11 @@
       <section class="flex-row relative hidden md:flex lg:flex transition-all">
         <div class="search-bar">
           <SearchBar
-            v-if="authStore.isAuthenticated"
+            :modelValue="userStore.searchQuery"
+            @update:modelValue="userStore.updateSearchQuery($event)"
             placeholder="Rechercher"
           >
-            <template v-if="userStore.searchQuery && userStore.filteredUsers.length > 0" #results>
+            <template v-if="userStore.searchQuery && userStore.filteredUsers.length >= 1" #results>
               <SearchBarUserCard
                 v-for="user in userStore.filteredUsers"
                 :key="user.name"
@@ -23,6 +24,7 @@
                 :userId="user.id"
                 @action="handleAddFriend($event)"
                 @message="handleMessage($event)"
+                :noresult="false"
               />
             </template>
             <template

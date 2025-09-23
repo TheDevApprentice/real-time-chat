@@ -1,52 +1,47 @@
 <template>
   <div :class="gridClasses" class="h-full w-full gap-1">
     <div
-      v-for="(chat, index) in props.conversations.filter((c) => c.active)"
+      v-for="(chat, index) in roomsStore.conversations.filter((c) => c.active)"
       :key="chat.id"
       :class="getChatItemClasses(index)"
     >
-      <ChatView :chat="chat" @close-conversation="$emit('close-conversation', $event)" />
+      <ChatView :chat="chat" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, defineAsyncComponent } from "vue";
-import type { Conversation } from "@home/chatZone/SideBarConversations.vue";
+import { useRoomsStore } from "@/stores/RoomsStore";
 
 const ChatView = defineAsyncComponent(() => import("@home/chat/ChatView.vue"));
-
-const props = defineProps<{
-  conversations: Conversation[];
-}>();
-
-defineEmits(['close-conversation']);
+const roomsStore = useRoomsStore();
 
 const gridType = computed(() => {
-  if (props.conversations.filter((c) => c.active).length === 1) {
+  if (roomsStore.conversations.filter((c) => c.active).length === 1) {
     return {
       cols: 1,
       rows: 1,
     };
-  } else if (props.conversations.filter((c) => c.active).length === 2) {
+  } else if (roomsStore.conversations.filter((c) => c.active).length === 2) {
     return {
       cols: 2,
       rows: 1,
     };
-  } else if (props.conversations.filter((c) => c.active).length === 3) {
+  } else if (roomsStore.conversations.filter((c) => c.active).length === 3) {
     return {
       cols: 2,
       rows: 2,
     };
-  } else if (props.conversations.filter((c) => c.active).length === 4) {
+  } else if (roomsStore.conversations.filter((c) => c.active).length === 4) {
     return {
       cols: 2,
       rows: 2,
     };
   }
   return {
-    cols: Math.min(props.conversations.filter((c) => c.active).length, 4),
-    rows: Math.ceil(props.conversations.filter((c) => c.active).length / 4),
+    cols: Math.min(roomsStore.conversations.filter((c) => c.active).length, 4),
+    rows: Math.ceil(roomsStore.conversations.filter((c) => c.active).length / 4),
   };
 });
 
@@ -56,7 +51,7 @@ const gridClasses = computed(() => {
 
 // Fonction pour déterminer les classes de chaque chat selon sa position
 const getChatItemClasses = (index: number) => {
-  const totalChats = props.conversations.filter((c) => c.active).length;
+  const totalChats = roomsStore.conversations.filter((c) => c.active).length;
 
   if (totalChats === 1) {
     // 1 chat : prend tout l'espace
