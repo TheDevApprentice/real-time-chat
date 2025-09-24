@@ -2,6 +2,13 @@
   <transition name="fade">
     <div v-if="visible" class="call-overlay">
       <div class="call-stage">
+        <!-- Signaling HUD -->
+        <div class="signal-hud">
+          <span class="sig-badge">PC: {{ callsStore.pcState }}</span>
+          <span class="sig-badge">ICE: {{ callsStore.iceState }}</span>
+          <span class="sig-badge" v-if="callsStore.status === 'ringing'">Ringing…</span>
+          <span class="sig-badge" v-if="previewReady && type==='video' && !localReady">Prévisualisation</span>
+        </div>
         <template v-if="showIncomingCard && caller">
           <div class="incoming-card">
             <div class="incoming-title">Appel entrant</div>
@@ -431,4 +438,23 @@ onBeforeUnmount(() => stopPreview());
 
 .fade-enter-active, .fade-leave-active { transition: opacity .2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+/* Signaling HUD */
+.signal-hud {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  z-index: 10;
+}
+.sig-badge {
+  font-size: 12px;
+  color: #dbe2ff;
+  background: rgba(108,71,255,0.22);
+  border: 1px solid rgba(108,71,255,0.35);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
 </style>

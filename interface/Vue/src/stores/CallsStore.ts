@@ -23,6 +23,9 @@ export const useCallsStore = defineStore('calls', () => {
   const micEnabled = ref(true);
   const camEnabled = ref(true);
   const outgoingMedia = ref<MediaKind | null>(null);
+  let preAcquiredStream: MediaStream | null = null;
+  const pcState = ref<RTCPeerConnectionState>('new');
+  const iceState = ref<RTCIceConnectionState>('new');
 
   // --- Derived ---
   const inCall = computed(() => status.value === 'accepted');
@@ -53,6 +56,7 @@ export const useCallsStore = defineStore('calls', () => {
             onLocalStream: (s) => { localStream.value = (s?.value ?? null) as MediaStream | null; },
             onRemoteStream: (s) => { remoteStream.value = (s?.value ?? null) as MediaStream | null; },
             onQuality: (q) => { quality.value = (q?.value ?? { bitrateKbps: 0, rttMs: 0, packetsLostPct: 0 }); },
+            getPreAcquiredStream: () => preAcquiredStream,
           });
           webrtcClient.startCaller(activeCallId.value!, outgoingMedia.value!, iceServers.value as any);
         });
@@ -63,6 +67,8 @@ export const useCallsStore = defineStore('calls', () => {
         status.value = 'ended';
         incoming.value = null;
         activeCallId.value = null;
+        try { preAcquiredStream?.getTracks().forEach(t => t.stop()); } catch {}
+        preAcquiredStream = null;
       }
     });
     socketService.on('callCanceled', (p: any) => {
@@ -70,6 +76,8 @@ export const useCallsStore = defineStore('calls', () => {
         status.value = 'ended';
         incoming.value = null;
         activeCallId.value = null;
+        try { preAcquiredStream?.getTracks().forEach(t => t.stop()); } catch {}
+        preAcquiredStream = null;
       }
     });
     socketService.on('callEnded', (p: any) => {
@@ -80,6 +88,8 @@ export const useCallsStore = defineStore('calls', () => {
         webrtcClient.end();
         localStream.value = null; remoteStream.value = null;
         micEnabled.value = true; camEnabled.value = true;
+        try { preAcquiredStream?.getTracks().forEach(t => t.stop()); } catch {}
+        preAcquiredStream = null;
       }
     });
 
@@ -110,6 +120,23 @@ export const useCallsStore = defineStore('calls', () => {
             status.value = 'ringing';
             // Defer WebRTC start until 'callAccepted'
             outgoingMedia.value = media;
+            // Pre-acquire local media for preview immediately
+            (async () => {
+              try {
+                const constraints: MediaStreamConstraints = media === 'video'
+                  ? { audio: true, video: true }
+                  : { audio: true };
+                preAcquiredStream = await navigator.mediaDevices.getUserMedia(constraints);
+                localStream.value = preAcquiredStream;
+                // Respect initial mic/cam toggles
+                try { preAcquiredStream.getAudioTracks().forEach(t => t.enabled = !!micEnabled.value); } catch {}
+                if (media === 'video') { try { preAcquiredStream.getVideoTracks().forEach(t => t.enabled = !!camEnabled.value); } catch {} }
+              } catch (err) {
+                // If pre-acquire fails, keep going; WebRTC will try again at accept
+                // Optionally notify UI via console
+                try { console.warn('[CallsStore] pre-acquire stream failed', err); } catch {}
+              }
+            })();
           }
           resolve(res);
         });
@@ -125,13 +152,16 @@ export const useCallsStore = defineStore('calls', () => {
         if (res?.success) {
           fetchTurnConfig().finally(() => {
             webrtcClient.attachStore({
-              sendOffer: (callId, sdp) => new Promise((r) => socketService.emit('callOffer', { callId, sdp }, r)),
-              sendAnswer: (callId, sdp) => new Promise((r) => socketService.emit('callAnswer', { callId, sdp }, r)),
-              sendIceCandidate: (callId, cand) => new Promise((r) => socketService.emit('callIceCandidate', { callId, candidate: cand }, r)),
+              sendOffer: (callId, sdp) => new Promise((r) => socketService.emit('callOffer', { callId, sdp: (sdp?.sdp ?? '') }, r)),
+              sendAnswer: (callId, sdp) => new Promise((r) => socketService.emit('callAnswer', { callId, sdp: (sdp?.sdp ?? '') }, r)),
+              sendIceCandidate: (callId, cand) => new Promise((r) => socketService.emit('callIceCandidate', { callId, candidate: (cand?.candidate ?? '') }, r)),
               getIceServers: () => iceServers.value as any,
               onLocalStream: (s) => { localStream.value = (s?.value ?? null) as MediaStream | null; },
               onRemoteStream: (s) => { remoteStream.value = (s?.value ?? null) as MediaStream | null; },
               onQuality: (q) => { quality.value = (q?.value ?? { bitrateKbps: 0, rttMs: 0, packetsLostPct: 0 }); },
+              getPreAcquiredStream: () => preAcquiredStream,
+              onConnectionState: (st) => { pcState.value = st; },
+              onIceConnectionState: (st) => { iceState.value = st; },
             });
             const media = incoming.value?.media || 'audio';
             webrtcClient.startCalleeIfNeeded(cid, media, iceServers.value as any);
@@ -153,6 +183,8 @@ export const useCallsStore = defineStore('calls', () => {
           webrtcClient.end();
           localStream.value = null; remoteStream.value = null;
           micEnabled.value = true; camEnabled.value = true;
+          try { preAcquiredStream?.getTracks().forEach(t => t.stop()); } catch {}
+          preAcquiredStream = null;
         }
         resolve(res);
       });
@@ -167,6 +199,8 @@ export const useCallsStore = defineStore('calls', () => {
           status.value = 'ended';
           incoming.value = null;
           activeCallId.value = null;
+          try { preAcquiredStream?.getTracks().forEach(t => t.stop()); } catch {}
+          preAcquiredStream = null;
         }
         resolve(res);
       });
@@ -234,6 +268,8 @@ export const useCallsStore = defineStore('calls', () => {
     camEnabled,
     inCall,
     isRinging,
+    pcState,
+    iceState,
     requestCall,
     acceptCall,
     declineCall,
