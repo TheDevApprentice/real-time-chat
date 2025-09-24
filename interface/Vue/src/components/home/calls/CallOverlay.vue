@@ -31,18 +31,40 @@
           </div>
         </template>
         <template v-else>
-          <!-- Outgoing: show waiting note and optional local preview for video while ringing -->
+          <!-- In-call view or ringing (outgoing) -->
           <div class="tiles">
-            <div class="tile" v-for="(p, idx) in normalizedParticipants" :key="idx">
+            <!-- Left tile: caller/remote -->
+            <div class="tile">
               <div class="video-placeholder" :class="{ muted: effectiveType === 'voice' }">
-                <!-- Local preview for first tile if video and we have stream -->
-                <template v-if="effectiveType === 'video' && idx === 1 && previewReady">
+                <template v-if="callsStore.status === 'accepted' && effectiveType === 'video' && remoteReady">
+                  <video ref="remoteVideo" autoplay playsinline class="preview-video"></video>
+                  <div class="qual-badges">
+                    <span class="q-badge">{{ qualityText }}</span>
+                    <span class="q-badge subtle">RTT {{ callsStore.quality.rttMs }} ms</span>
+                    <span class="q-badge subtle">Perte {{ callsStore.quality.packetsLostPct }}%</span>
+                  </div>
+                </template>
+                <template v-else>
+                  <div class="avatar-circle">{{ normalizedParticipants[0].initials }}</div>
+                  <div class="name">{{ normalizedParticipants[0].name }}</div>
+                  <div class="badge" v-if="effectiveType === 'voice'">Audio</div>
+                  <div class="badge" v-else>Vidéo</div>
+                </template>
+              </div>
+            </div>
+            <!-- Right tile: me/local -->
+            <div class="tile">
+              <div class="video-placeholder" :class="{ muted: effectiveType === 'voice' }">
+                <template v-if="callsStore.status === 'accepted' && effectiveType === 'video' && localReady">
+                  <video ref="localVideo" autoplay playsinline muted class="preview-video"></video>
+                </template>
+                <template v-else-if="effectiveType === 'video' && previewReady">
                   <video ref="previewVideo" autoplay playsinline muted class="preview-video"></video>
                   <div class="badge">Prévisualisation</div>
                 </template>
                 <template v-else>
-                  <div class="avatar-circle">{{ p.initials }}</div>
-                  <div class="name">{{ p.name }}</div>
+                  <div class="avatar-circle">{{ normalizedParticipants[1].initials }}</div>
+                  <div class="name">{{ normalizedParticipants[1].name }}</div>
                   <div class="badge" v-if="effectiveType === 'voice'">Audio</div>
                   <div class="badge" v-else>Vidéo</div>
                 </template>
@@ -89,6 +111,10 @@ const emit = defineEmits<{ close: [] }>();
 
 const micOn = ref(true);
 const camOn = ref(true);
+const localVideo = ref<HTMLVideoElement | null>(null);
+const remoteVideo = ref<HTMLVideoElement | null>(null);
+const localReady = ref(false);
+const remoteReady = ref(false);
 const callsStore = useCallsStore();
 
 function toggleMic() { micOn.value = !micOn.value; }
@@ -141,6 +167,35 @@ watch(callsStore.$state, () => {
     // Emit close so parent hides overlay
     emit('close');
   }
+});
+
+// Attach streams to video elements when available
+watch(() => callsStore.localStream, async (s) => {
+  await nextTick();
+  const stream = s as any as MediaStream | null;
+  if (localVideo.value && stream) {
+    (localVideo.value as any).srcObject = stream;
+    localReady.value = true;
+  } else {
+    localReady.value = false;
+  }
+});
+watch(() => callsStore.remoteStream, async (s) => {
+  await nextTick();
+  const stream = s as any as MediaStream | null;
+  if (remoteVideo.value && stream) {
+    (remoteVideo.value as any).srcObject = stream;
+    remoteReady.value = true;
+  } else {
+    remoteReady.value = false;
+  }
+});
+
+const qualityText = computed(() => {
+  const kbps = callsStore.quality?.bitrateKbps ?? 0;
+  if (kbps > 1500) return `Qualité: Haute (${kbps} kbps)`;
+  if (kbps > 600) return `Qualité: Moyenne (${kbps} kbps)`;
+  return `Qualité: Basse (${kbps} kbps)`;
 });
 
 function onHangup() {

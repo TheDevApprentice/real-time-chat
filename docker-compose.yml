@@ -113,9 +113,9 @@ services:
       MARIADB_SSL_BACKUP: false
       WEBRTC_STUN: stun:stun.l.google.com:19302
       # Point to the local TURN (coturn) service below; replace with public DNS when deployed
-      WEBRTC_TURN_URLS: turn:turn:3478
-      WEBRTC_TURN_USERNAME: devuser
-      WEBRTC_TURN_CREDENTIAL: devpass
+      WEBRTC_TURN_URLS: turn:openrelay.metered.ca:80
+      WEBRTC_TURN_USERNAME: openrelayproject
+      WEBRTC_TURN_CREDENTIAL: openrelayproject
       CALL_RING_TIMEOUT: 20
     networks:
       - proxy

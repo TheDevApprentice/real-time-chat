@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import { webrtcClient } from '@/services/webrtc/WebRTCClient';
 import { socketService } from '@/services/websocket/websocket';
 
 export type MediaKind = 'audio' | 'video';
@@ -16,6 +17,11 @@ export const useCallsStore = defineStore('calls', () => {
   const incoming = ref<IncomingCall | null>(null);
   const status = ref<'idle' | 'ringing' | 'accepted' | 'ended'>('idle');
   const iceServers = ref<Array<{ urls: string | string[]; username?: string; credential?: string }>>([]);
+  const localStream = ref<MediaStream | null>(null);
+  const remoteStream = ref<MediaStream | null>(null);
+  const quality = ref<{ bitrateKbps: number; rttMs: number; packetsLostPct: number }>({ bitrateKbps: 0, rttMs: 0, packetsLostPct: 0 });
+  const micEnabled = ref(true);
+  const camEnabled = ref(true);
 
   // --- Derived ---
   const inCall = computed(() => status.value === 'accepted');
@@ -55,25 +61,50 @@ export const useCallsStore = defineStore('calls', () => {
         status.value = 'ended';
         incoming.value = null;
         activeCallId.value = null;
+        webrtcClient.end();
+        localStream.value = null; remoteStream.value = null;
+        micEnabled.value = true; camEnabled.value = true;
       }
     });
 
     // WebRTC signaling relays (UI layer should handle RTCPeerConnection and use these events)
-    socketService.on('callOffer', (_p: any) => {/* handled by UI layer via store subscription */});
-    socketService.on('callAnswer', (_p: any) => {/* handled by UI layer via store subscription */});
-    socketService.on('callIceCandidate', (_p: any) => {/* handled by UI layer via store subscription */});
+    socketService.on('callOffer', async (p: any) => {
+      if (!p?.callId || !p?.sdp) return;
+      await webrtcClient.handleOffer(p.callId, p.sdp);
+    });
+    socketService.on('callAnswer', async (p: any) => {
+      if (!p?.callId || !p?.sdp) return;
+      await webrtcClient.handleAnswer(p.callId, p.sdp);
+    });
+    socketService.on('callIceCandidate', async (p: any) => {
+      if (!p?.callId || !p?.candidate) return;
+      await webrtcClient.handleIceCandidate(p.callId, p.candidate);
+    });
   }
+  
   bindSocketListeners();
 
   // --- Actions (emit to server) ---
   function requestCall(targetUserId: string, media: MediaKind): Promise<{ success: boolean; callId?: string; error?: string }>{
     return new Promise((resolve) => {
-      socketService.emit('callRequest', { targetUserId, media }, (res: any) => {
-        if (res?.success) {
-          activeCallId.value = res.callId;
-          status.value = 'ringing';
-        }
-        resolve(res);
+      fetchTurnConfig().finally(() => {
+        socketService.emit('callRequest', { targetUserId, media }, (res: any) => {
+          if (res?.success) {
+            activeCallId.value = res.callId;
+            status.value = 'ringing';
+            webrtcClient.attachStore({
+              sendOffer: (callId, sdp) => new Promise((r) => socketService.emit('callOffer', { callId, sdp }, r)),
+              sendAnswer: (callId, sdp) => new Promise((r) => socketService.emit('callAnswer', { callId, sdp }, r)),
+              sendIceCandidate: (callId, cand) => new Promise((r) => socketService.emit('callIceCandidate', { callId, candidate: cand }, r)),
+              getIceServers: () => iceServers.value as any,
+              onLocalStream: (s) => { localStream.value = (s?.value ?? null) as MediaStream | null; },
+              onRemoteStream: (s) => { remoteStream.value = (s?.value ?? null) as MediaStream | null; },
+              onQuality: (q) => { quality.value = (q?.value ?? { bitrateKbps: 0, rttMs: 0, packetsLostPct: 0 }); },
+            });
+            webrtcClient.startCaller(res.callId, media, iceServers.value as any);
+          }
+          resolve(res);
+        });
       });
     });
   }
@@ -83,6 +114,21 @@ export const useCallsStore = defineStore('calls', () => {
     return new Promise((resolve) => {
       socketService.emit('callAccept', { callId: cid }, (res: any) => {
         if (res?.success) status.value = 'accepted';
+        if (res?.success) {
+          fetchTurnConfig().finally(() => {
+            webrtcClient.attachStore({
+              sendOffer: (callId, sdp) => new Promise((r) => socketService.emit('callOffer', { callId, sdp }, r)),
+              sendAnswer: (callId, sdp) => new Promise((r) => socketService.emit('callAnswer', { callId, sdp }, r)),
+              sendIceCandidate: (callId, cand) => new Promise((r) => socketService.emit('callIceCandidate', { callId, candidate: cand }, r)),
+              getIceServers: () => iceServers.value as any,
+              onLocalStream: (s) => { localStream.value = (s?.value ?? null) as MediaStream | null; },
+              onRemoteStream: (s) => { remoteStream.value = (s?.value ?? null) as MediaStream | null; },
+              onQuality: (q) => { quality.value = (q?.value ?? { bitrateKbps: 0, rttMs: 0, packetsLostPct: 0 }); },
+            });
+            const media = incoming.value?.media || 'audio';
+            webrtcClient.startCalleeIfNeeded(cid, media, iceServers.value as any);
+          });
+        }
         resolve(res);
       });
     });
@@ -96,6 +142,9 @@ export const useCallsStore = defineStore('calls', () => {
           status.value = 'ended';
           incoming.value = null;
           activeCallId.value = null;
+          webrtcClient.end();
+          localStream.value = null; remoteStream.value = null;
+          micEnabled.value = true; camEnabled.value = true;
         }
         resolve(res);
       });
@@ -124,10 +173,23 @@ export const useCallsStore = defineStore('calls', () => {
           status.value = 'ended';
           incoming.value = null;
           activeCallId.value = null;
+          webrtcClient.end();
+          localStream.value = null; remoteStream.value = null;
+          micEnabled.value = true; camEnabled.value = true;
         }
         resolve(res);
       });
     });
+  }
+
+  // --- Media controls ---
+  function setMicEnabled(enabled: boolean) {
+    micEnabled.value = enabled;
+    try { localStream.value?.getAudioTracks().forEach(t => t.enabled = enabled); } catch {}
+  }
+  function setCamEnabled(enabled: boolean) {
+    camEnabled.value = enabled;
+    try { localStream.value?.getVideoTracks().forEach(t => t.enabled = enabled); } catch {}
   }
 
   // Signaling relays
@@ -157,6 +219,11 @@ export const useCallsStore = defineStore('calls', () => {
     incoming,
     status,
     iceServers,
+    localStream,
+    remoteStream,
+    quality,
+    micEnabled,
+    camEnabled,
     inCall,
     isRinging,
     requestCall,
@@ -164,9 +231,12 @@ export const useCallsStore = defineStore('calls', () => {
     declineCall,
     cancelCall,
     hangup,
+    setMicEnabled,
+    setCamEnabled,
     sendOffer,
     sendAnswer,
     sendIceCandidate,
     fetchTurnConfig,
+    getIceServers: () => iceServers.value,
   };
 });
