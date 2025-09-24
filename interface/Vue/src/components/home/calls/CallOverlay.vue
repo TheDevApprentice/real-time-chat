@@ -26,43 +26,27 @@
         <template v-else>
           <!-- In-call view or ringing (outgoing) -->
           <div class="tiles">
-            <!-- Left tile: remote -->
+            <!-- Left tile: me/local -->
             <div class="tile">
               <div
                 class="video-placeholder"
                 :class="{ muted: effectiveType === 'voice' }"
               >
-                <template
-                  v-if="effectiveType === 'video'"
-                >
-                  <template v-if="callsStore.isIncomingCall">
-                    <video
-                    v-if="callsStore.camEnabled"
-                      ref="localVideo"
-                      autoplay
-                      playsinline
-                      class="preview-video"
-                    ></video>
-                  </template>
-                  <template v-else>
-                    <video
-                      ref="remoteVideo"
-                      autoplay
-                      playsinline
-                      class="preview-video"
-                    ></video>
-                  </template>
+                <template v-if="effectiveType === 'video' && hasLocalVideo">
+                  <video
+                    ref="localVideo"
+                    autoplay
+                    playsinline
+                    muted
+                    class="preview-video"
+                  ></video>
                 </template>
                 <template v-else>
                   <div class="avatar-circle">
-                    {{
-                      callsStore.isIncomingCall
-                        ? callee.initials
-                        : caller.initials
-                    }}
+                    {{ me.initials }}
                   </div>
                   <div class="name">
-                    {{ callsStore.isIncomingCall ? callee.name : caller.name }}
+                    {{ me.name }}
                   </div>
                   <div class="badge" v-if="effectiveType === 'voice'">
                     Audio
@@ -71,43 +55,26 @@
                 </template>
               </div>
             </div>
-            <!-- Right tile: me/local -->
+            <!-- Right tile: remote/peer -->
             <div class="tile">
               <div
                 class="video-placeholder"
                 :class="{ muted: effectiveType === 'voice' }"
               >
-                <template
-                  v-if="effectiveType === 'video'"
-                >
-                  <template v-if="callsStore.isIncomingCall">
-                    <video
-                      ref="remoteVideo"
-                      autoplay
-                      playsinline
-                      class="preview-video"
-                    ></video>
-                  </template>
-                  <template v-else>
-                    <video
-                    v-if="callsStore.camEnabled"
-                      ref="localVideo"
-                      autoplay
-                      playsinline
-                      class="preview-video"
-                    ></video>
-                  </template>
+                <template v-if="effectiveType === 'video' && hasRemoteVideo">
+                  <video
+                    ref="remoteVideo"
+                    autoplay
+                    playsinline
+                    class="preview-video"
+                  ></video>
                 </template>
                 <template v-else>
                   <div class="avatar-circle">
-                    {{
-                      callsStore.isIncomingCall
-                        ? caller.initials
-                        : callee.initials
-                    }}
+                    {{ peer.initials }}
                   </div>
                   <div class="name">
-                    {{ callsStore.isIncomingCall ? caller.name : callee.name }}
+                    {{ peer.name }}
                   </div>
                   <div class="badge" v-if="effectiveType === 'voice'">
                     Audio
@@ -236,7 +203,7 @@ const callee = computed(() => {
     const name = to.name || "Utilisateur";
     return { name, initials: name.trim().slice(0, 2).toUpperCase() };
   }
-  // Fallback to first participant provided by parent (Home watcher fills this on incoming)
+  // Fallback to second participant
   const p = (props.participants && props.participants[1]) as any;
   if (p && (p.name || p.id)) {
     const name = p.name || "Utilisateur";
@@ -244,6 +211,44 @@ const callee = computed(() => {
   }
   return null as any;
 });
+// Map to UI positions: left is always "me", right is always "peer" on both sides
+const me = computed(() => {
+  // When this client is the callee (incoming), "me" corresponds to callee
+  const m = callsStore.isIncomingCall ? callee.value : caller.value;
+  return (
+    m || { name: normalizedParticipants.value[1].name, initials: normalizedParticipants.value[1].initials }
+  );
+});
+const peer = computed(() => {
+  // The other party
+  const p = callsStore.isIncomingCall ? caller.value : callee.value;
+  return (
+    p || { name: normalizedParticipants.value[0].name, initials: normalizedParticipants.value[0].initials }
+  );
+});
+
+// Helper computeds to decide when to render video vs avatar/name
+const hasLocalVideo = computed(() => {
+  if (effectiveType.value !== 'video') return false;
+  const s = callsStore.localStream as MediaStream | null;
+  if (!s) return false;
+  if (!callsStore.camEnabled) return false;
+  try {
+    const tracks = s.getVideoTracks ? s.getVideoTracks() : [];
+    return tracks.some(t => t.enabled !== false && t.readyState === 'live');
+  } catch { return false; }
+});
+
+const hasRemoteVideo = computed(() => {
+  if (effectiveType.value !== 'video') return false;
+  const s = callsStore.remoteStream as MediaStream | null;
+  if (!s) return false;
+  try {
+    const tracks = s.getVideoTracks ? s.getVideoTracks() : [];
+    return tracks.some(t => t.readyState === 'live');
+  } catch { return false; }
+});
+
 function onHangup() {
   callsStore.hangup().finally(() => {
     // Ensure UI closes even if network is slow
