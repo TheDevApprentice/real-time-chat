@@ -26,7 +26,7 @@
         <template v-else>
           <!-- In-call view or ringing (outgoing) -->
           <div class="tiles">
-            <!-- Left tile: me -->
+            <!-- Left tile: remote -->
             <div class="tile">
               <div
                 class="video-placeholder"
@@ -35,7 +35,6 @@
                 <template
                   v-if="
                     effectiveType === 'video' &&
-                    callsStore.camEnabled &&
                     callsStore.remoteStream
                   "
                 >
@@ -58,7 +57,7 @@
                 </template>
               </div>
             </div>
-            <!-- Right tile: caller/remote -->
+            <!-- Right tile: me/local -->
             <div class="tile">
               <div
                 class="video-placeholder"
@@ -66,9 +65,8 @@
               >
                 <template
                   v-if="
-                    callsStore.status === 'accepted' &&
                     effectiveType === 'video' &&
-                    callsStore.remoteStream
+                    callsStore.localStream
                   "
                 >
                   <video
@@ -122,7 +120,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, ref, watch, nextTick, onMounted } from "vue";
 import { useCallsStore } from "@/stores/CallsStore";
 import { ensureAudioPermission, ensureVideoPermission } from "@/utils/media";
 import ControlButton from "./ControlButton.vue";
@@ -137,6 +135,10 @@ const props = defineProps<{
 const emit = defineEmits<{ close: [] }>();
 
 const callsStore = useCallsStore();
+// Media element refs
+const localVideo = ref<HTMLVideoElement | null>(null);
+const remoteVideo = ref<HTMLVideoElement | null>(null);
+const remoteAudio = ref<HTMLAudioElement | null>(null);
 
 function toggleMic() {
   try {
@@ -233,6 +235,38 @@ onMounted(async () => {
 
   await ensureAudioPermission();
   await ensureVideoPermission();
+
+  // Minimal binding: whenever store streams change, bind them to media elements
+  watch(
+    () => callsStore.localStream,
+    async (s) => {
+      await nextTick();
+      const stream = s as MediaStream | null;
+      if (localVideo.value && stream) {
+        try { (localVideo.value as any).srcObject = stream; } catch {}
+        try { await (localVideo.value as HTMLVideoElement).play(); } catch {}
+      }
+    },
+    { immediate: true }
+  );
+  watch(
+    () => callsStore.remoteStream,
+    async (s) => {
+      await nextTick();
+      const stream = s as MediaStream | null;
+      // Always attach audio
+      if (remoteAudio.value && stream) {
+        try { (remoteAudio.value as any).srcObject = stream; } catch {}
+        try { await (remoteAudio.value as HTMLAudioElement).play(); } catch {}
+      }
+      // Attach video if this is a video call
+      if (remoteVideo.value && stream && effectiveType.value === 'video') {
+        try { (remoteVideo.value as any).srcObject = stream; } catch {}
+        try { await (remoteVideo.value as HTMLVideoElement).play(); } catch {}
+      }
+    },
+    { immediate: true }
+  );
 });
 </script>
 
