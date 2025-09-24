@@ -2,77 +2,105 @@
   <transition name="fade">
     <div v-if="visible" class="call-overlay">
       <div class="call-stage">
-        <!-- Signaling HUD -->
-        <div class="signal-hud">
-          <span class="sig-badge">PC: {{ callsStore.pcState }}</span>
-          <span class="sig-badge">ICE: {{ callsStore.iceState }}</span>
-          <span class="sig-badge" v-if="callsStore.status === 'ringing'">Ringing…</span>
-          <span class="sig-badge" v-if="previewReady && type==='video' && !localReady">Prévisualisation</span>
-        </div>
+        <SignalHud
+          :pc-state="callsStore.pcState"
+          :ice-state="callsStore.iceState"
+          :status="callsStore.status"
+          :preview-ready="previewReady"
+          :local-ready="localReady"
+          :type="type"
+        />
         <template v-if="showIncomingCard && caller">
-          <div class="incoming-card">
-            <div class="incoming-title">Appel entrant</div>
-            <div class="incoming-caller">
-              <div class="avatar-circle sm pulse">{{ caller.initials }}</div>
-              <div class="who">
-                <div class="name">{{ caller.name }}</div>
-                <div class="kind">{{ incomingKindLabel }}</div>
-              </div>
-            </div>
-            <div class="incoming-actions">
-              <button class="action-btn accept" @click="accept">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <!-- Phone/answer icon -->
-                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.12.9.31 1.78.57 2.63a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.45-1.09a2 2 0 0 1 2.11-.45c.85.26 1.73.45 2.63.57A2 2 0 0 1 22 16.92z"/>
-                </svg>
-                <span>Accepter</span>
-              </button>
-              <button class="action-btn decline" @click="decline">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <!-- Hangup icon (curved handset) -->
-                  <path d="M4 13c2.5-2 5.3-3 8-3s5.5 1 8 3l-2 4c-1.7-1.4-3.7-2.2-6-2.2S7.7 15.6 6 17L4 13z"/>
-                </svg>
-                <span>Refuser</span>
-              </button>
-            </div>
-          </div>
+          <IncomingCard
+            :caller="caller"
+            :kind="incomingKindLabel"
+            @accept="accept"
+            @decline="decline"
+          />
         </template>
         <template v-else>
           <!-- In-call view or ringing (outgoing) -->
           <div class="tiles">
             <!-- Left tile: caller/remote -->
             <div class="tile">
-              <div class="video-placeholder" :class="{ muted: effectiveType === 'voice' }">
-                <template v-if="callsStore.status === 'accepted' && effectiveType === 'video' && remoteReady">
-                  <video ref="remoteVideo" autoplay playsinline class="preview-video"></video>
+              <div
+                class="video-placeholder"
+                :class="{ muted: effectiveType === 'voice' }"
+              >
+                <template
+                  v-if="
+                    callsStore.status === 'accepted' &&
+                    effectiveType === 'video' &&
+                    remoteReady
+                  "
+                >
+                  <video
+                    ref="remoteVideo"
+                    autoplay
+                    playsinline
+                    class="preview-video"
+                  ></video>
                   <div class="qual-badges">
                     <span class="q-badge">{{ qualityText }}</span>
-                    <span class="q-badge subtle">RTT {{ callsStore.quality.rttMs }} ms</span>
-                    <span class="q-badge subtle">Perte {{ callsStore.quality.packetsLostPct }}%</span>
+                    <span class="q-badge subtle"
+                      >RTT {{ callsStore.quality.rttMs }} ms</span
+                    >
+                    <span class="q-badge subtle"
+                      >Perte {{ callsStore.quality.packetsLostPct }}%</span
+                    >
                   </div>
                 </template>
                 <template v-else>
-                  <div class="avatar-circle">{{ normalizedParticipants[0].initials }}</div>
+                  <div class="avatar-circle">
+                    {{ normalizedParticipants[0].initials }}
+                  </div>
                   <div class="name">{{ normalizedParticipants[0].name }}</div>
-                  <div class="badge" v-if="effectiveType === 'voice'">Audio</div>
+                  <div class="badge" v-if="effectiveType === 'voice'">
+                    Audio
+                  </div>
                   <div class="badge" v-else>Vidéo</div>
                 </template>
               </div>
             </div>
             <!-- Right tile: me/local -->
             <div class="tile">
-              <div class="video-placeholder" :class="{ muted: effectiveType === 'voice' }">
-                <template v-if="callsStore.status === 'accepted' && effectiveType === 'video' && localReady">
-                  <video ref="localVideo" autoplay playsinline muted class="preview-video"></video>
+              <div
+                class="video-placeholder"
+                :class="{ muted: effectiveType === 'voice' }"
+              >
+                <template
+                  v-if="
+                    callsStore.status === 'accepted' &&
+                    effectiveType === 'video' &&
+                    localReady
+                  "
+                >
+                  <video
+                    ref="localVideo"
+                    autoplay
+                    playsinline
+                    muted
+                    class="preview-video"
+                  ></video>
                 </template>
                 <template v-else-if="effectiveType === 'video' && previewReady">
-                  <video ref="previewVideo" autoplay playsinline muted class="preview-video"></video>
+                  <video
+                    ref="previewVideo"
+                    autoplay
+                    playsinline
+                    muted
+                    class="preview-video"
+                  ></video>
                   <div class="badge">Prévisualisation</div>
                 </template>
                 <template v-else>
-                  <div class="avatar-circle">{{ normalizedParticipants[1].initials }}</div>
+                  <div class="avatar-circle">
+                    {{ normalizedParticipants[1].initials }}
+                  </div>
                   <div class="name">{{ normalizedParticipants[1].name }}</div>
-                  <div class="badge" v-if="effectiveType === 'voice'">Audio</div>
+                  <div class="badge" v-if="effectiveType === 'voice'">
+                    Audio
+                  </div>
                   <div class="badge" v-else>Vidéo</div>
                 </template>
               </div>
@@ -82,37 +110,51 @@
       </div>
 
       <div class="controls">
-        <button class="ctrl-btn" :class="{ active: micOn }" @click="toggleMic" aria-label="Micro">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M12 14a3 3 0 003-3V6a3 3 0 10-6 0v5a3 3 0 003 3z" stroke="currentColor" stroke-width="2"/>
-            <path d="M19 11a7 7 0 11-14 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <path d="M12 18v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </button>
-        <button class="ctrl-btn" :class="{ active: camOn }" @click="toggleCam" aria-label="Caméra" v-if="type==='video'">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M3 7.5C3 6.12 4.12 5 5.5 5h7A2.5 2.5 0 0115 7.5v1.8l3.3-2.2a1 1 0 011.7.83v7.14a1 1 0 01-1.7.83L15 13.7v1.8A2.5 2.5 0 0112.5 18h-7A2.5 2.5 0 013 15.5v-8Z" fill="currentColor"/>
-          </svg>
-        </button>
-        <button class="ctrl-btn hangup" @click="onHangup" aria-label="Raccrocher">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M4 13c2.5-2 5.3-3 8-3s5.5 1 8 3l-2 4c-1.7-1.4-3.7-2.2-6-2.2S7.7 15.6 6 17L4 13z" fill="currentColor"/>
-          </svg>
-        </button>
+        <ControlButton
+          :class="{ active: micOn }"
+          :active="micOn"
+          aria-label="Micro"
+          :icon-svg="`<svg width='22' height='22' viewBox='0 0 24 24' fill='none'><path d='M12 14a3 3 0 003-3V6a3 3 0 10-6 0v5a3 3 0 003 3z' stroke='currentColor' stroke-width='2'/><path d='M19 11a7 7 0 11-14 0' stroke='currentColor' stroke-width='2' stroke-linecap='round'/><path d='M12 18v3' stroke='currentColor' stroke-width='2' stroke-linecap='round'/></svg>`"
+          @click="toggleMic"
+        />
+        <ControlButton
+          v-if="type === 'video'"
+          :class="{ active: camOn }"
+          :active="camOn"
+          aria-label="Caméra"
+          :icon-svg="`<svg width='22' height='22' viewBox='0 0 24 24' fill='none'><path d='M3 7.5C3 6.12 4.12 5 5.5 5h7A2.5 2.5 0 0115 7.5v1.8l3.3-2.2a1 1 0 011.7.83v7.14a1 1 0 01-1.7.83L15 13.7v1.8A2.5 2.5 0 0112.5 18h-7A2.5 2.5 0 013 15.5v-8Z' fill='currentColor'/></svg>`"
+          @click="toggleCam"
+        />
+        <ControlButton
+          :extra-class="'hangup'"
+          aria-label="Raccrocher"
+          :icon-svg="`<svg width='22' height='22' viewBox='0 0 24 24' fill='none'><path d='M4 13c2.5-2 5.3-3 8-3s5.5 1 8 3l-2 4c-1.7-1.4-3.7-2.2-6-2.2S7.7 15.6 6 17L4 13z' fill='currentColor'/></svg>`"
+          @click="onHangup"
+        />
       </div>
     </div>
   </transition>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
-import { useCallsStore } from '@/stores/CallsStore';
-import { ensureAudioPermission, ensureVideoPermission } from '@/utils/media';
+import {
+  computed,
+  ref,
+  watch,
+  onMounted,
+  onBeforeUnmount,
+  nextTick,
+} from "vue";
+import { useCallsStore } from "@/stores/CallsStore";
+import { ensureAudioPermission, ensureVideoPermission } from "@/utils/media";
+import ControlButton from "./ControlButton.vue";
+import SignalHud from "./SignalHud.vue";
+import IncomingCard from "./IncomingCard.vue";
 
-const props = defineProps<{ 
-  visible: boolean; 
-  participants: Array<{ id?: string; name?: string; avatar?: string }>; 
-  type: 'voice' | 'video';
+const props = defineProps<{
+  visible: boolean;
+  participants: Array<{ id?: string; name?: string; avatar?: string }>;
+  type: "voice" | "video";
 }>();
 const emit = defineEmits<{ close: [] }>();
 
@@ -126,59 +168,75 @@ const callsStore = useCallsStore();
 
 function toggleMic() {
   micOn.value = !micOn.value;
-  try { callsStore.setMicEnabled(micOn.value); } catch {}
+  try { 
+    callsStore.setMicEnabled(micOn.value);
+    console.log("micEnabled", callsStore.micEnabled);
+   } catch {}
 }
+
 function toggleCam() {
   camOn.value = !camOn.value;
-  try { callsStore.setCamEnabled(camOn.value); } catch {}
+  try { 
+    callsStore.setCamEnabled(camOn.value);
+    console.log("camEnabled", callsStore.camEnabled);
+   } catch {}
 }
 
 const normalizedParticipants = computed(() => {
   const list = (props.participants || []).slice(0, 2);
   // Ensure order: caller on the left, 'Moi' on the right when present
   if (list.length === 2) {
-    const meIdx = list.findIndex(p => (p.name || '').trim().toLowerCase() === 'moi');
+    const meIdx = list.findIndex(
+      (p) => (p.name || "").trim().toLowerCase() === "moi"
+    );
     if (meIdx === 0) {
       list.reverse();
     }
   }
-  while (list.length < 2) list.push({ name: 'Participant', avatar: '?' });
-  return list.map(p => ({
-    name: p.name || 'Participant',
-    initials: (p.name || '?').trim().slice(0, 2).toUpperCase(),
+  while (list.length < 2) list.push({ name: "Participant", avatar: "?" });
+  return list.map((p) => ({
+    name: p.name || "Participant",
+    initials: (p.name || "?").trim().slice(0, 2).toUpperCase(),
   }));
 });
 // Show accept/refuse if we have an incoming call and it's not accepted/ended yet
-const showIncomingCard = computed(() => !!callsStore.incoming && callsStore.status !== 'accepted' && callsStore.status !== 'ended');
+const showIncomingCard = computed(
+  () =>
+    !!callsStore.incoming &&
+    callsStore.status !== "accepted" &&
+    callsStore.status !== "ended"
+);
 const incomingKindLabel = computed(() => {
-  const k = callsStore.incoming?.media === 'video' ? 'Appel vidéo' : 'Appel audio';
+  const k =
+    callsStore.incoming?.media === "video" ? "Appel vidéo" : "Appel audio";
   return k;
 });
+
 const effectiveType = computed(() => {
-  return (callsStore.status === 'ringing' && callsStore.incoming?.media)
+  return callsStore.status === "ringing" && callsStore.incoming?.media
     ? callsStore.incoming.media
     : props.type;
 });
 const caller = computed(() => {
   const from = callsStore.incoming?.fromUser as any;
   if (from && (from.name || from.id)) {
-    const name = from.name || 'Utilisateur';
-    return { name, initials: name.trim().slice(0,2).toUpperCase() };
+    const name = from.name || "Utilisateur";
+    return { name, initials: name.trim().slice(0, 2).toUpperCase() };
   }
   // Fallback to first participant provided by parent (Home watcher fills this on incoming)
   const p = (props.participants && props.participants[0]) as any;
   if (p && (p.name || p.id)) {
-    const name = p.name || 'Utilisateur';
-    return { name, initials: name.trim().slice(0,2).toUpperCase() };
+    const name = p.name || "Utilisateur";
+    return { name, initials: name.trim().slice(0, 2).toUpperCase() };
   }
   return null as any;
 });
 // Close overlay when call ends
 watch(callsStore.$state, () => {
   const s = callsStore.status;
-  if (s === 'ended') {
+  if (s === "ended") {
     // Emit close so parent hides overlay
-    emit('close');
+    emit("close");
   }
 });
 
@@ -187,28 +245,38 @@ watch(() => callsStore.micEnabled, (v) => { micOn.value = !!v; });
 watch(() => callsStore.camEnabled, (v) => { camOn.value = !!v; });
 
 // Attach streams to video elements when available
-watch(() => callsStore.localStream, async (s) => {
-  await nextTick();
-  const stream = s as any as MediaStream | null;
-  if (localVideo.value && stream) {
-    (localVideo.value as any).srcObject = stream;
-    localReady.value = true;
-    try { await (localVideo.value as HTMLVideoElement).play(); } catch {}
-  } else {
-    localReady.value = false;
+watch(
+  () => callsStore.localStream,
+  async (s) => {
+    await nextTick();
+    const stream = s as any as MediaStream | null;
+    if (localVideo.value && stream) {
+      (localVideo.value as any).srcObject = stream;
+      localReady.value = true;
+      try {
+        await (localVideo.value as HTMLVideoElement).play();
+      } catch {}
+    } else {
+      localReady.value = false;
+    }
   }
-});
-watch(() => callsStore.remoteStream, async (s) => {
-  await nextTick();
-  const stream = s as any as MediaStream | null;
-  if (remoteVideo.value && stream) {
-    (remoteVideo.value as any).srcObject = stream;
-    remoteReady.value = true;
-    try { await (remoteVideo.value as HTMLVideoElement).play(); } catch {}
-  } else {
-    remoteReady.value = false;
+);
+watch(
+  () => callsStore.remoteStream,
+  async (s) => {
+    await nextTick();
+    const stream = s as any as MediaStream | null;
+    if (remoteVideo.value && stream) {
+      (remoteVideo.value as any).srcObject = stream;
+      remoteReady.value = true;
+      try {
+        await (remoteVideo.value as HTMLVideoElement).play();
+      } catch {}
+    } else {
+      remoteReady.value = false;
+    }
   }
-});
+);
 
 const qualityText = computed(() => {
   const kbps = callsStore.quality?.bitrateKbps ?? 0;
@@ -220,14 +288,14 @@ const qualityText = computed(() => {
 function onHangup() {
   callsStore.hangup().finally(() => {
     // Ensure UI closes even if network is slow
-    emit('close');
+    emit("close");
   });
 }
 
 async function accept() {
   try {
     const media = callsStore.incoming?.media || props.type;
-    if (media === 'video') {
+    if (media === "video") {
       await ensureVideoPermission();
     } else {
       await ensureAudioPermission();
@@ -236,8 +304,8 @@ async function accept() {
   callsStore.acceptCall();
 }
 function decline() {
-  callsStore.declineCall('user-declined');
-  emit('close');
+  callsStore.declineCall("user-declined");
+  emit("close");
 }
 
 // -------- Local preview for outgoing video (ringing without incoming) --------
@@ -246,14 +314,18 @@ const previewStream = ref<MediaStream | null>(null);
 const previewReady = ref(false);
 
 async function startPreviewIfNeeded() {
-  const isOutgoingRinging = callsStore.status === 'ringing' && !callsStore.incoming;
+  const isOutgoingRinging =
+    callsStore.status === "ringing" && !callsStore.incoming;
   if (!isOutgoingRinging) return stopPreview();
-  if (props.type !== 'video') return stopPreview();
+  if (props.type !== "video") return stopPreview();
   if (previewStream.value) return; // already started
   try {
     await ensureVideoPermission();
     if (navigator?.mediaDevices?.getUserMedia) {
-      previewStream.value = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+      previewStream.value = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: true,
+      });
       await nextTick();
       if (previewVideo.value && previewStream.value) {
         (previewVideo.value as any).srcObject = previewStream.value;
@@ -268,25 +340,45 @@ async function startPreviewIfNeeded() {
 function stopPreview() {
   previewReady.value = false;
   if (previewStream.value) {
-    try { previewStream.value.getTracks().forEach(t => t.stop()); } catch {}
+    try {
+      previewStream.value.getTracks().forEach((t) => t.stop());
+    } catch {}
   }
   previewStream.value = null;
 }
 
-watch(() => callsStore.status, () => startPreviewIfNeeded());
-watch(() => props.type, () => startPreviewIfNeeded());
-onMounted(() => startPreviewIfNeeded());
+watch(
+  () => callsStore.status,
+  () => startPreviewIfNeeded()
+);
+watch(
+  () => props.type,
+  () => startPreviewIfNeeded()
+);
+onMounted(() => {
+  // Ensure initial UI state matches store
+  try { micOn.value = !!callsStore.micEnabled; } catch {}
+  try { camOn.value = !!callsStore.camEnabled; } catch {}
+  startPreviewIfNeeded();
+});
 onBeforeUnmount(() => stopPreview());
-
 </script>
 
 <style scoped>
 .call-overlay {
   position: fixed;
   inset: 0;
-  background: radial-gradient(1200px 600px at 20% -10%, rgba(123, 97, 255, 0.18) 0%, rgba(123, 97, 255, 0) 50%),
-              radial-gradient(1600px 700px at 110% -40%, rgba(0, 194, 255, 0.18) 0%, rgba(0, 194, 255, 0) 55%),
-              rgba(17, 24, 39, 0.95);
+  background: radial-gradient(
+      1200px 600px at 20% -10%,
+      rgba(123, 97, 255, 0.18) 0%,
+      rgba(123, 97, 255, 0) 50%
+    ),
+    radial-gradient(
+      1600px 700px at 110% -40%,
+      rgba(0, 194, 255, 0.18) 0%,
+      rgba(0, 194, 255, 0) 55%
+    ),
+    rgba(17, 24, 39, 0.95);
   display: flex;
   flex-direction: column;
   z-index: 9999;
@@ -309,15 +401,18 @@ onBeforeUnmount(() => stopPreview());
 }
 
 @media (max-width: 768px) {
-  .tiles { grid-template-columns: 1fr; height: auto; }
+  .tiles {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
 }
 
 .tile {
   position: relative;
-  background: rgba(255,255,255,0.06);
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(93, 140, 255, 0.25);
   border-radius: 14px;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
   overflow: hidden;
 }
 
@@ -332,7 +427,9 @@ onBeforeUnmount(() => stopPreview());
   justify-content: center;
   color: #e5e7eb;
 }
-.video-placeholder.muted { filter: grayscale(0.1); }
+.video-placeholder.muted {
+  filter: grayscale(0.1);
+}
 
 .avatar-circle {
   width: 84px;
@@ -344,23 +441,38 @@ onBeforeUnmount(() => stopPreview());
   justify-content: center;
   font-size: 32px;
   font-weight: 800;
-  text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   box-shadow: 0 8px 22px rgba(68, 102, 214, 0.35);
 }
-.avatar-circle.sm { width: 72px; height: 72px; }
-.avatar-circle.pulse { animation: callerPulse 1.8s ease-in-out infinite; }
-@keyframes callerPulse {
-  0% { box-shadow: 0 0 0 0 rgba(68, 102, 214, 0.35); }
-  70% { box-shadow: 0 0 0 18px rgba(68, 102, 214, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(68, 102, 214, 0); }
+.avatar-circle.sm {
+  width: 72px;
+  height: 72px;
 }
-.name { margin-top: 0.7rem; font-weight: 600; letter-spacing: .02em; }
+.avatar-circle.pulse {
+  animation: callerPulse 1.8s ease-in-out infinite;
+}
+@keyframes callerPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(68, 102, 214, 0.35);
+  }
+  70% {
+    box-shadow: 0 0 0 18px rgba(68, 102, 214, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(68, 102, 214, 0);
+  }
+}
+.name {
+  margin-top: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
 .badge {
-  margin-top: .35rem;
+  margin-top: 0.35rem;
   font-size: 12px;
   color: #c8d1ff;
-  background: rgba(108,71,255,0.22);
-  border: 1px solid rgba(108,71,255,0.35);
+  background: rgba(108, 71, 255, 0.22);
+  border: 1px solid rgba(108, 71, 255, 0.35);
   padding: 2px 8px;
   border-radius: 999px;
 }
@@ -372,18 +484,41 @@ onBeforeUnmount(() => stopPreview());
   align-items: center;
   gap: 10px;
   padding: 16px 18px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
   backdrop-filter: blur(10px);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
 }
-.incoming-title { color: #eaf0ff; font-weight: 600; opacity: 0.95; }
-.incoming-caller { display: flex; align-items: center; gap: 12px; }
-.incoming-caller .who { display: flex; flex-direction: column; }
-.incoming-caller .who .name { margin: 0; font-size: 1.05rem; }
-.incoming-caller .who .kind { color: #c9d4ff; font-size: 0.95rem; opacity: .9; }
-.incoming-actions { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.incoming-title {
+  color: #eaf0ff;
+  font-weight: 600;
+  opacity: 0.95;
+}
+.incoming-caller {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.incoming-caller .who {
+  display: flex;
+  flex-direction: column;
+}
+.incoming-caller .who .name {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.incoming-caller .who .kind {
+  color: #c9d4ff;
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+.incoming-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
 .action-btn {
   display: inline-flex;
   align-items: center;
@@ -393,15 +528,26 @@ onBeforeUnmount(() => stopPreview());
   padding: 8px 12px;
   color: #fff;
   cursor: pointer;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.2);
-  transition: transform .12s ease, filter .12s ease, box-shadow .12s ease;
-  background: rgba(255,255,255,0.1);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+  transition: transform 0.12s ease, filter 0.12s ease, box-shadow 0.12s ease;
+  background: rgba(255, 255, 255, 0.1);
 }
-.action-btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
-.action-btn:active { transform: scale(0.98); }
-.action-btn svg { display: block; }
-.action-btn.accept { background: #19c37d; }
-.action-btn.decline { background: #ef4444; }
+.action-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+.action-btn:active {
+  transform: scale(0.98);
+}
+.action-btn svg {
+  display: block;
+}
+.action-btn.accept {
+  background: #19c37d;
+}
+.action-btn.decline {
+  background: #ef4444;
+}
 
 .controls {
   position: absolute;
@@ -411,33 +557,51 @@ onBeforeUnmount(() => stopPreview());
   display: flex;
   gap: 12px;
   background: rgba(17, 24, 39, 0.55);
-  border: 1px solid rgba(93,140,255,0.25);
+  border: 1px solid rgba(93, 140, 255, 0.25);
   border-radius: 999px;
   padding: 8px 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
 }
 
 .ctrl-btn {
   width: 42px;
   height: 42px;
   border-radius: 999px;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   color: #e5e7eb;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background .18s, transform .08s, color .18s;
+  transition: background 0.18s, transform 0.08s, color 0.18s;
 }
-.ctrl-btn:hover { background: rgba(255,255,255,0.16); }
-.ctrl-btn:active { transform: scale(0.96); }
-.ctrl-btn.active { color: #7fa6ff; }
+.ctrl-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+.ctrl-btn:active {
+  transform: scale(0.96);
+}
+.ctrl-btn.active {
+  color: #7fa6ff;
+}
 
-.ctrl-btn.hangup { background: #ef4444; color: white; border-color: rgba(0,0,0,0.08); }
-.ctrl-btn.hangup:hover { background: #f05252; }
+.ctrl-btn.hangup {
+  background: #ef4444;
+  color: white;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+.ctrl-btn.hangup:hover {
+  background: #f05252;
+}
 
-.fade-enter-active, .fade-leave-active { transition: opacity .2s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
 
 /* Signaling HUD */
 .signal-hud {
@@ -452,8 +616,8 @@ onBeforeUnmount(() => stopPreview());
 .sig-badge {
   font-size: 12px;
   color: #dbe2ff;
-  background: rgba(108,71,255,0.22);
-  border: 1px solid rgba(108,71,255,0.35);
+  background: rgba(108, 71, 255, 0.22);
+  border: 1px solid rgba(108, 71, 255, 0.35);
   padding: 2px 8px;
   border-radius: 999px;
 }
