@@ -45,6 +45,7 @@
 
 <script setup lang="ts">
 import { ref, defineAsyncComponent, onBeforeUnmount, watch } from "vue";
+import { ensureAudioPermission, ensureVideoPermission } from '@/utils/media';
 import { useAuthStore } from "@/stores/AuthStore";
 import { useCallsStore } from "@/stores/CallsStore";
 import type { Conversation } from "@/components/home/chatZone/SideBarConversations.vue";
@@ -129,6 +130,8 @@ async function clickVoiceCall(chat: Conversation) {
     console.log("Voice call id me ", me);
     console.log("Voice call target ", target);
     if (target?.id) {
+      const ok = await ensureAudioPermission();
+      if (!ok) console.warn('Microphone permission not granted');
       try { await callsStore.requestCall(String(target.id), 'audio'); } catch {}
     }
   } else {
@@ -147,6 +150,8 @@ async function clickVideoCall(chat: Conversation) {
     console.log("Video call id me ", me);
     console.log("Video call target ", target);
     if (target?.id) {
+      const ok = await ensureVideoPermission();
+      if (!ok) console.warn('Camera/Microphone permission not granted');
       try { await callsStore.requestCall(String(target.id), 'video'); } catch {}
     }
   } else {
@@ -154,6 +159,23 @@ async function clickVideoCall(chat: Conversation) {
   }
   callVisible.value = true;
 }
+
+// Auto open overlay on incoming calls and close on end
+watch(() => callsStore.incoming, (inc) => {
+  if (inc) {
+    callType.value = inc.media === 'video' ? 'video' : 'voice';
+    const caller = inc.fromUser || { name: 'Utilisateur', avatar: '?' } as any;
+    const meLabel = (authStore as any)?.user?.name || 'Moi';
+    callParticipants.value = [
+      { name: caller.name || 'Utilisateur', avatar: caller.avatar || '?' },
+      { name: meLabel, avatar: (meLabel || '?').toString().trim().charAt(0).toUpperCase() },
+    ];
+    callVisible.value = true;
+  }
+});
+watch(() => callsStore.status, (s) => {
+  if (s === 'ended') callVisible.value = false;
+});
 
 // Track pending timeouts to avoid updates after unmount
 let hoverTimeoutId: number | undefined;

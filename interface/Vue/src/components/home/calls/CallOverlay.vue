@@ -2,7 +2,7 @@
   <transition name="fade">
     <div v-if="visible" class="call-overlay">
       <div class="call-stage">
-        <template v-if="isRinging && caller">
+        <template v-if="showIncomingCard && caller">
           <div class="incoming-card">
             <div class="incoming-title">Appel entrant</div>
             <div class="incoming-caller">
@@ -58,6 +58,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useCallsStore } from '@/stores/CallsStore';
+import { ensureAudioPermission, ensureVideoPermission } from '@/utils/media';
 
 const props = defineProps<{ 
   visible: boolean; 
@@ -81,19 +82,30 @@ const normalizedParticipants = computed(() => {
     initials: (p.name || '?').trim().slice(0, 2).toUpperCase(),
   }));
 });
-const isRinging = computed(() => callsStore.isRinging);
+// Show accept/refuse if we have an incoming call and it's not accepted/ended yet
+const showIncomingCard = computed(() => !!callsStore.incoming && callsStore.status !== 'accepted' && callsStore.status !== 'ended');
 const incomingKindLabel = computed(() => {
   const k = callsStore.incoming?.media === 'video' ? 'Appel vidéo' : 'Appel audio';
   return k;
 });
 const effectiveType = computed(() => {
-  return isRinging.value && callsStore.incoming?.media ? callsStore.incoming.media : props.type;
+  return (callsStore.status === 'ringing' && callsStore.incoming?.media)
+    ? callsStore.incoming.media
+    : props.type;
 });
 const caller = computed(() => {
-  const from = callsStore.incoming?.fromUser;
-  if (!from) return null as any;
-  const name = from.name || 'Utilisateur';
-  return { name, initials: name.trim().slice(0,2).toUpperCase() };
+  const from = callsStore.incoming?.fromUser as any;
+  if (from && (from.name || from.id)) {
+    const name = from.name || 'Utilisateur';
+    return { name, initials: name.trim().slice(0,2).toUpperCase() };
+  }
+  // Fallback to first participant provided by parent (Home watcher fills this on incoming)
+  const p = (props.participants && props.participants[0]) as any;
+  if (p && (p.name || p.id)) {
+    const name = p.name || 'Utilisateur';
+    return { name, initials: name.trim().slice(0,2).toUpperCase() };
+  }
+  return null as any;
 });
 // Close overlay when call ends
 watch(callsStore.$state, () => {
@@ -111,7 +123,15 @@ function onHangup() {
   });
 }
 
-function accept() {
+async function accept() {
+  try {
+    const media = callsStore.incoming?.media || props.type;
+    if (media === 'video') {
+      await ensureVideoPermission();
+    } else {
+      await ensureAudioPermission();
+    }
+  } catch {}
   callsStore.acceptCall();
 }
 function decline() {

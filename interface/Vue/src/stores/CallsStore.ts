@@ -27,7 +27,8 @@ export const useCallsStore = defineStore('calls', () => {
     if (bound) return; bound = true;
 
     socketService.on('callIncoming', (p: any) => {
-      incoming.value = { callId: p?.callId, fromUser: p?.fromUser, media: p?.media } as IncomingCall;
+      const from = p?.fromUser || p?.from || p?.caller;
+      incoming.value = { callId: p?.callId, fromUser: from, media: p?.media } as IncomingCall;
       status.value = 'ringing';
       activeCallId.value = p?.callId || null;
     });
