@@ -20,6 +20,7 @@ export class WebRTCClient {
     onLocalStream?: (s: ReturnType<typeof ref<MediaStream | null>>) => void,
     onRemoteStream?: (s: ReturnType<typeof ref<MediaStream | null>>) => void,
     onQuality?: (q: ReturnType<typeof ref<WebRTCQuality>>) => void,
+    onError?: (err: unknown) => void,
   } | null = null;
 
   public localStream = ref<MediaStream | null>(null);
@@ -34,16 +35,20 @@ export class WebRTCClient {
     this.pc = new RTCPeerConnection({ iceServers });
     this.pc.onicecandidate = (e) => {
       if (e.candidate && this.callId && this.store) {
+        try { console.debug('[RTC] onicecandidate -> sending', e.candidate.candidate); } catch {}
         this.store.sendIceCandidate(this.callId, e.candidate);
       }
     };
     this.pc.onconnectionstatechange = () => {
+      try { console.debug('[RTC] connectionState', this.pc!.connectionState); } catch {}
       this.connectionState.value = this.pc!.connectionState;
     };
     this.pc.oniceconnectionstatechange = () => {
+      try { console.debug('[RTC] iceConnectionState', this.pc!.iceConnectionState); } catch {}
       this.iceConnectionState.value = this.pc!.iceConnectionState;
     };
     this.pc.ontrack = (ev) => {
+      try { console.debug('[RTC] ontrack', ev.track.kind, ev.streams?.[0]?.id); } catch {}
       if (!this.remoteStream.value) this.remoteStream.value = new MediaStream();
       this.remoteStream.value.addTrack(ev.track);
       if (this.store?.onRemoteStream) this.store.onRemoteStream(this.remoteStream);
@@ -55,16 +60,34 @@ export class WebRTCClient {
     if (this.pc) await this.end();
     this.createPC(iceServers);
 
+    // Ensure we announce we are ready to receive tracks
+    try {
+      this.pc!.addTransceiver('audio', { direction: 'sendrecv' });
+      this.pc!.addTransceiver('video', { direction: media === 'video' ? 'sendrecv' : 'inactive' });
+    } catch {}
+
     // Get local media
     const constraints: MediaStreamConstraints = media === 'video'
       ? { audio: true, video: true }
       : { audio: true };
-    this.localStream.value = await navigator.mediaDevices.getUserMedia(constraints);
+    try {
+      this.localStream.value = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (err: any) {
+      try { console.warn('[RTC] getUserMedia failed for video, falling back to audio-only', err?.name || err); } catch {}
+      this.media = 'audio';
+      try {
+        this.localStream.value = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (e2) {
+        this.store?.onError?.(e2);
+        throw e2;
+      }
+    }
     this.localStream.value.getTracks().forEach(t => this.pc!.addTrack(t, this.localStream.value!));
     if (this.store?.onLocalStream) this.store.onLocalStream(this.localStream);
 
-    const offer = await this.pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: media === 'video' });
+    const offer = await this.pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: this.media === 'video' });
     await this.pc.setLocalDescription(offer);
+    try { console.debug('[RTC] sending offer, hasVideo?', /\bm=video\b/.test(offer.sdp || '')); } catch {}
     await this.store?.sendOffer(callId, offer);
     this.startStatsLoop();
   }
@@ -73,10 +96,25 @@ export class WebRTCClient {
     this.callId = callId; this.media = media;
     if (this.pc) return; // already started
     this.createPC(iceServers);
+    try {
+      this.pc!.addTransceiver('audio', { direction: 'sendrecv' });
+      this.pc!.addTransceiver('video', { direction: media === 'video' ? 'sendrecv' : 'inactive' });
+    } catch {}
     const constraints: MediaStreamConstraints = media === 'video'
       ? { audio: true, video: true }
       : { audio: true };
-    this.localStream.value = await navigator.mediaDevices.getUserMedia(constraints);
+    try {
+      this.localStream.value = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (err: any) {
+      try { console.warn('[RTC] getUserMedia failed for video (callee), falling back to audio-only', err?.name || err); } catch {}
+      this.media = 'audio';
+      try {
+        this.localStream.value = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (e2) {
+        this.store?.onError?.(e2);
+        throw e2;
+      }
+    }
     this.localStream.value.getTracks().forEach(t => this.pc!.addTrack(t, this.localStream.value!));
     if (this.store?.onLocalStream) this.store.onLocalStream(this.localStream);
     this.startStatsLoop();
@@ -94,6 +132,7 @@ export class WebRTCClient {
     await this.pc!.setRemoteDescription(new RTCSessionDescription(sdp));
     const answer = await this.pc!.createAnswer();
     await this.pc!.setLocalDescription(answer);
+    try { console.debug('[RTC] sending answer, hasVideo?', /\bm=video\b/.test(answer.sdp || '')); } catch {}
     await this.store?.sendAnswer(callId, answer);
   }
 
@@ -118,7 +157,8 @@ export class WebRTCClient {
     if (this.localStream.value) { try { this.localStream.value.getTracks().forEach(t => t.stop()); } catch {} }
     if (this.remoteStream.value) { try { this.remoteStream.value.getTracks().forEach(t => t.stop()); } catch {} }
     this.localStream.value = null; this.remoteStream.value = null;
-    if (this.store) { this.store.localStream = this.localStream; this.store.remoteStream = this.remoteStream; }
+    if (this.store?.onLocalStream) this.store.onLocalStream(this.localStream);
+    if (this.store?.onRemoteStream) this.store.onRemoteStream(this.remoteStream);
   }
 
   private startStatsLoop() {

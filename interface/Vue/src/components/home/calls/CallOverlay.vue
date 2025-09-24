@@ -186,6 +186,7 @@ watch(() => callsStore.localStream, async (s) => {
   if (localVideo.value && stream) {
     (localVideo.value as any).srcObject = stream;
     localReady.value = true;
+    try { await (localVideo.value as HTMLVideoElement).play(); } catch {}
   } else {
     localReady.value = false;
   }
@@ -196,6 +197,7 @@ watch(() => callsStore.remoteStream, async (s) => {
   if (remoteVideo.value && stream) {
     (remoteVideo.value as any).srcObject = stream;
     remoteReady.value = true;
+    try { await (remoteVideo.value as HTMLVideoElement).play(); } catch {}
   } else {
     remoteReady.value = false;
   }

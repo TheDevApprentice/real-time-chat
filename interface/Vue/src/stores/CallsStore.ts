@@ -22,6 +22,7 @@ export const useCallsStore = defineStore('calls', () => {
   const quality = ref<{ bitrateKbps: number; rttMs: number; packetsLostPct: number }>({ bitrateKbps: 0, rttMs: 0, packetsLostPct: 0 });
   const micEnabled = ref(true);
   const camEnabled = ref(true);
+  const outgoingMedia = ref<MediaKind | null>(null);
 
   // --- Derived ---
   const inCall = computed(() => status.value === 'accepted');
@@ -41,6 +42,21 @@ export const useCallsStore = defineStore('calls', () => {
     socketService.on('callAccepted', (p: any) => {
       if (!activeCallId.value || p?.callId !== activeCallId.value) return;
       status.value = 'accepted';
+      // If we are the caller, start WebRTC now (some servers expect offer after accept)
+      if (outgoingMedia.value) {
+        fetchTurnConfig().finally(() => {
+          webrtcClient.attachStore({
+            sendOffer: (callId, sdp) => new Promise((r) => socketService.emit('callOffer', { callId, sdp: (sdp?.sdp ?? '') }, r)),
+            sendAnswer: (callId, sdp) => new Promise((r) => socketService.emit('callAnswer', { callId, sdp: (sdp?.sdp ?? '') }, r)),
+            sendIceCandidate: (callId, cand) => new Promise((r) => socketService.emit('callIceCandidate', { callId, candidate: (cand?.candidate ?? '') }, r)),
+            getIceServers: () => iceServers.value as any,
+            onLocalStream: (s) => { localStream.value = (s?.value ?? null) as MediaStream | null; },
+            onRemoteStream: (s) => { remoteStream.value = (s?.value ?? null) as MediaStream | null; },
+            onQuality: (q) => { quality.value = (q?.value ?? { bitrateKbps: 0, rttMs: 0, packetsLostPct: 0 }); },
+          });
+          webrtcClient.startCaller(activeCallId.value!, outgoingMedia.value!, iceServers.value as any);
+        });
+      }
     });
     socketService.on('callDeclined', (p: any) => {
       if (activeCallId.value && p?.callId === activeCallId.value) {
@@ -92,16 +108,8 @@ export const useCallsStore = defineStore('calls', () => {
           if (res?.success) {
             activeCallId.value = res.callId;
             status.value = 'ringing';
-            webrtcClient.attachStore({
-              sendOffer: (callId, sdp) => new Promise((r) => socketService.emit('callOffer', { callId, sdp: (sdp?.sdp ?? '') }, r)),
-              sendAnswer: (callId, sdp) => new Promise((r) => socketService.emit('callAnswer', { callId, sdp: (sdp?.sdp ?? '') }, r)),
-              sendIceCandidate: (callId, cand) => new Promise((r) => socketService.emit('callIceCandidate', { callId, candidate: (cand?.candidate ?? '') }, r)),
-              getIceServers: () => iceServers.value as any,
-              onLocalStream: (s) => { localStream.value = (s?.value ?? null) as MediaStream | null; },
-              onRemoteStream: (s) => { remoteStream.value = (s?.value ?? null) as MediaStream | null; },
-              onQuality: (q) => { quality.value = (q?.value ?? { bitrateKbps: 0, rttMs: 0, packetsLostPct: 0 }); },
-            });
-            webrtcClient.startCaller(res.callId, media, iceServers.value as any);
+            // Defer WebRTC start until 'callAccepted'
+            outgoingMedia.value = media;
           }
           resolve(res);
         });
