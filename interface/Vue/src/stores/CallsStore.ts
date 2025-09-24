@@ -69,16 +69,16 @@ export const useCallsStore = defineStore('calls', () => {
 
     // WebRTC signaling relays (UI layer should handle RTCPeerConnection and use these events)
     socketService.on('callOffer', async (p: any) => {
-      if (!p?.callId || !p?.sdp) return;
-      await webrtcClient.handleOffer(p.callId, p.sdp);
+      if (!p?.callId || typeof p?.sdp !== 'string') return;
+      await webrtcClient.handleOffer(p.callId, { type: 'offer', sdp: p.sdp });
     });
     socketService.on('callAnswer', async (p: any) => {
-      if (!p?.callId || !p?.sdp) return;
-      await webrtcClient.handleAnswer(p.callId, p.sdp);
+      if (!p?.callId || typeof p?.sdp !== 'string') return;
+      await webrtcClient.handleAnswer(p.callId, { type: 'answer', sdp: p.sdp });
     });
     socketService.on('callIceCandidate', async (p: any) => {
-      if (!p?.callId || !p?.candidate) return;
-      await webrtcClient.handleIceCandidate(p.callId, p.candidate);
+      if (!p?.callId || typeof p?.candidate !== 'string') return;
+      await webrtcClient.handleIceCandidate(p.callId, { candidate: p.candidate });
     });
   }
   
@@ -93,9 +93,9 @@ export const useCallsStore = defineStore('calls', () => {
             activeCallId.value = res.callId;
             status.value = 'ringing';
             webrtcClient.attachStore({
-              sendOffer: (callId, sdp) => new Promise((r) => socketService.emit('callOffer', { callId, sdp }, r)),
-              sendAnswer: (callId, sdp) => new Promise((r) => socketService.emit('callAnswer', { callId, sdp }, r)),
-              sendIceCandidate: (callId, cand) => new Promise((r) => socketService.emit('callIceCandidate', { callId, candidate: cand }, r)),
+              sendOffer: (callId, sdp) => new Promise((r) => socketService.emit('callOffer', { callId, sdp: (sdp?.sdp ?? '') }, r)),
+              sendAnswer: (callId, sdp) => new Promise((r) => socketService.emit('callAnswer', { callId, sdp: (sdp?.sdp ?? '') }, r)),
+              sendIceCandidate: (callId, cand) => new Promise((r) => socketService.emit('callIceCandidate', { callId, candidate: (cand?.candidate ?? '') }, r)),
               getIceServers: () => iceServers.value as any,
               onLocalStream: (s) => { localStream.value = (s?.value ?? null) as MediaStream | null; },
               onRemoteStream: (s) => { remoteStream.value = (s?.value ?? null) as MediaStream | null; },

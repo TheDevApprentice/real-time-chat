@@ -117,8 +117,14 @@ const localReady = ref(false);
 const remoteReady = ref(false);
 const callsStore = useCallsStore();
 
-function toggleMic() { micOn.value = !micOn.value; }
-function toggleCam() { camOn.value = !camOn.value; }
+function toggleMic() {
+  micOn.value = !micOn.value;
+  try { callsStore.setMicEnabled(micOn.value); } catch {}
+}
+function toggleCam() {
+  camOn.value = !camOn.value;
+  try { callsStore.setCamEnabled(camOn.value); } catch {}
+}
 
 const normalizedParticipants = computed(() => {
   const list = (props.participants || []).slice(0, 2);
@@ -168,6 +174,10 @@ watch(callsStore.$state, () => {
     emit('close');
   }
 });
+
+// Keep UI toggle in sync with store when streams come in
+watch(() => callsStore.micEnabled, (v) => { micOn.value = !!v; });
+watch(() => callsStore.camEnabled, (v) => { camOn.value = !!v; });
 
 // Attach streams to video elements when available
 watch(() => callsStore.localStream, async (s) => {

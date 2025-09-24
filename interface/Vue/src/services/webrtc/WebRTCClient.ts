@@ -83,8 +83,13 @@ export class WebRTCClient {
   }
 
   async handleOffer(callId: string, sdp: RTCSessionDescriptionInit) {
+    // Infer media kind from SDP to avoid starting as audio-only for video calls
+    const sdpText = (sdp as any)?.sdp as string | undefined;
+    const hasVideo = !!sdpText && /\bm=video\b/.test(sdpText);
+    const inferred: MediaKind = hasVideo ? 'video' : 'audio';
+    this.media = this.media || inferred;
     if (!this.pc) {
-      await this.startCalleeIfNeeded(callId, this.media || 'audio', this.store?.getIceServers() || []);
+      await this.startCalleeIfNeeded(callId, this.media, this.store?.getIceServers() || []);
     }
     await this.pc!.setRemoteDescription(new RTCSessionDescription(sdp));
     const answer = await this.pc!.createAnswer();
