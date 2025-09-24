@@ -2,12 +2,14 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { webrtcClient } from '@/services/webrtc/WebRTCClient';
 import { socketService } from '@/services/websocket/websocket';
+import { useAuthStore } from './AuthStore';
 
 export type MediaKind = 'audio' | 'video';
 
 interface IncomingCall {
   callId: string;
   fromUser: { id: string; name?: string; avatar?: string };
+  toUser?: { id: string; name?: string; avatar?: string };
   media: MediaKind;
 }
 
@@ -26,11 +28,12 @@ export const useCallsStore = defineStore('calls', () => {
   let preAcquiredStream: MediaStream | null = null;
   const pcState = ref<RTCPeerConnectionState>('new');
   const iceState = ref<RTCIceConnectionState>('new');
-
+  const isIncomingCall = ref<boolean>(false);
+  const isOutgoingCall = ref<boolean>(false);
   // --- Derived ---
   const inCall = computed(() => status.value === 'accepted');
   const isRinging = computed(() => status.value === 'ringing');
-
+  const userStore = useAuthStore();
   // --- Bind listeners once ---
   let bound = false;
   function bindSocketListeners() {
@@ -38,9 +41,12 @@ export const useCallsStore = defineStore('calls', () => {
 
     socketService.on('callIncoming', (p: any) => {
       const from = p?.fromUser || p?.from || p?.caller;
-      incoming.value = { callId: p?.callId, fromUser: from, media: p?.media } as IncomingCall;
+      incoming.value = { callId: p?.callId, fromUser: from, media: p?.media, toUser: { id: userStore.userId, name: userStore.user } } as IncomingCall;
+      console.log("call incoming p", p)
       status.value = 'ringing';
       activeCallId.value = p?.callId || null;
+      isIncomingCall.value = true;
+      isOutgoingCall.value = false;
     });
     socketService.on('callAccepted', (p: any) => {
       if (!activeCallId.value || p?.callId !== activeCallId.value) return;
@@ -122,6 +128,8 @@ export const useCallsStore = defineStore('calls', () => {
             status.value = 'ringing';
             // Defer WebRTC start until 'callAccepted'
             outgoingMedia.value = media;
+            isOutgoingCall.value = true;
+            isIncomingCall.value = false;
             // Pre-acquire local media for preview immediately
             (async () => {
               try {
@@ -274,6 +282,8 @@ export const useCallsStore = defineStore('calls', () => {
     isRinging,
     pcState,
     iceState,
+    isIncomingCall,
+    isOutgoingCall,
     requestCall,
     acceptCall,
     declineCall,

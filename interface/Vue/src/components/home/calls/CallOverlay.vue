@@ -33,23 +33,37 @@
                 :class="{ muted: effectiveType === 'voice' }"
               >
                 <template
-                  v-if="
-                    effectiveType === 'video' &&
-                    callsStore.remoteStream
-                  "
+                  v-if="effectiveType === 'video'"
                 >
-                  <video
-                    ref="remoteVideo"
-                    autoplay
-                    playsinline
-                    class="preview-video"
-                  ></video>
+                  <template v-if="callsStore.isIncomingCall">
+                    <video
+                    v-if="callsStore.camEnabled"
+                      ref="localVideo"
+                      autoplay
+                      playsinline
+                      class="preview-video"
+                    ></video>
+                  </template>
+                  <template v-else>
+                    <video
+                      ref="remoteVideo"
+                      autoplay
+                      playsinline
+                      class="preview-video"
+                    ></video>
+                  </template>
                 </template>
                 <template v-else>
                   <div class="avatar-circle">
-                    {{ normalizedParticipants[0].initials }}
+                    {{
+                      callsStore.isIncomingCall
+                        ? callee.initials
+                        : caller.initials
+                    }}
                   </div>
-                  <div class="name">{{ normalizedParticipants[0].name }}</div>
+                  <div class="name">
+                    {{ callsStore.isIncomingCall ? callee.name : caller.name }}
+                  </div>
                   <div class="badge" v-if="effectiveType === 'voice'">
                     Audio
                   </div>
@@ -64,24 +78,37 @@
                 :class="{ muted: effectiveType === 'voice' }"
               >
                 <template
-                  v-if="
-                    effectiveType === 'video' &&
-                    callsStore.localStream
-                  "
+                  v-if="effectiveType === 'video'"
                 >
-                  <video
-                    ref="localVideo"
-                    autoplay
-                    playsinline
-                    muted
-                    class="preview-video"
-                  ></video>
+                  <template v-if="callsStore.isIncomingCall">
+                    <video
+                      ref="remoteVideo"
+                      autoplay
+                      playsinline
+                      class="preview-video"
+                    ></video>
+                  </template>
+                  <template v-else>
+                    <video
+                    v-if="callsStore.camEnabled"
+                      ref="localVideo"
+                      autoplay
+                      playsinline
+                      class="preview-video"
+                    ></video>
+                  </template>
                 </template>
                 <template v-else>
                   <div class="avatar-circle">
-                    {{ normalizedParticipants[1].initials }}
+                    {{
+                      callsStore.isIncomingCall
+                        ? caller.initials
+                        : callee.initials
+                    }}
                   </div>
-                  <div class="name">{{ normalizedParticipants[1].name }}</div>
+                  <div class="name">
+                    {{ callsStore.isIncomingCall ? caller.name : callee.name }}
+                  </div>
                   <div class="badge" v-if="effectiveType === 'voice'">
                     Audio
                   </div>
@@ -203,7 +230,20 @@ const caller = computed(() => {
   }
   return null as any;
 });
-
+const callee = computed(() => {
+  const to = callsStore.incoming?.toUser as any;
+  if (to && (to.name || to.id)) {
+    const name = to.name || "Utilisateur";
+    return { name, initials: name.trim().slice(0, 2).toUpperCase() };
+  }
+  // Fallback to first participant provided by parent (Home watcher fills this on incoming)
+  const p = (props.participants && props.participants[1]) as any;
+  if (p && (p.name || p.id)) {
+    const name = p.name || "Utilisateur";
+    return { name, initials: name.trim().slice(0, 2).toUpperCase() };
+  }
+  return null as any;
+});
 function onHangup() {
   callsStore.hangup().finally(() => {
     // Ensure UI closes even if network is slow
@@ -243,8 +283,12 @@ onMounted(async () => {
       await nextTick();
       const stream = s as MediaStream | null;
       if (localVideo.value && stream) {
-        try { (localVideo.value as any).srcObject = stream; } catch {}
-        try { await (localVideo.value as HTMLVideoElement).play(); } catch {}
+        try {
+          (localVideo.value as any).srcObject = stream;
+        } catch {}
+        try {
+          await (localVideo.value as HTMLVideoElement).play();
+        } catch {}
       }
     },
     { immediate: true }
@@ -256,13 +300,21 @@ onMounted(async () => {
       const stream = s as MediaStream | null;
       // Always attach audio
       if (remoteAudio.value && stream) {
-        try { (remoteAudio.value as any).srcObject = stream; } catch {}
-        try { await (remoteAudio.value as HTMLAudioElement).play(); } catch {}
+        try {
+          (remoteAudio.value as any).srcObject = stream;
+        } catch {}
+        try {
+          await (remoteAudio.value as HTMLAudioElement).play();
+        } catch {}
       }
       // Attach video if this is a video call
-      if (remoteVideo.value && stream && effectiveType.value === 'video') {
-        try { (remoteVideo.value as any).srcObject = stream; } catch {}
-        try { await (remoteVideo.value as HTMLVideoElement).play(); } catch {}
+      if (remoteVideo.value && stream && effectiveType.value === "video") {
+        try {
+          (remoteVideo.value as any).srcObject = stream;
+        } catch {}
+        try {
+          await (remoteVideo.value as HTMLVideoElement).play();
+        } catch {}
       }
     },
     { immediate: true }
