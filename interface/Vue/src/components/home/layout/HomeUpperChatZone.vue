@@ -24,6 +24,8 @@
                 :userId="user.id"
                 @action="handleAddFriend($event)"
                 @message="handleMessage($event)"
+                @click-call="emit('click-call', $event)"
+                @click-video-call="emit('click-video-call', $event)"
                 :noresult="false"
               />
             </template>
@@ -129,7 +131,7 @@ defineProps<{
   sidebarHovered: boolean;
 }>();
 
-const emit = defineEmits(["add-friend", "create-room"]);
+const emit = defineEmits(["add-friend", "create-room", "click-call", "click-video-call"]);
 
 async function handleAddFriend(e: {
   userId: string;

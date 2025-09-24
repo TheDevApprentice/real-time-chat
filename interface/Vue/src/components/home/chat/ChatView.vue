@@ -5,6 +5,8 @@
     <ChatHeader
       :chat="props.chat"
       @closeConv="roomsStore.closeConversation($event)"
+      @click-call="emit('click-call', $event)"
+      @click-video-call="emit('click-video-call', $event)"
     />
     <div
       ref="scrollContainer"
@@ -57,6 +59,11 @@ const roomsStore = useRoomsStore();
 
 const props = defineProps<{
   chat: Conversation;
+}>();
+
+const emit = defineEmits<{
+  "click-call": [Conversation];
+  "click-video-call": [Conversation];
 }>();
 
 const messagesStore = useMessagesStore();

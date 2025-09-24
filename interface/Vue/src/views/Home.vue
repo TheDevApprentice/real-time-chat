@@ -20,6 +20,8 @@
         :sidebarHovered="sidebarHovered"
         @add-friend="openAddFriendModal"
         @create-room="openCreateRoomModal"
+        @click-call="clickVoiceCall"
+        @click-video-call="clickVideoCall"
       />
     </template>
 
@@ -27,14 +29,25 @@
       <ChatZone
         :sidebarExpended="sidebarExpended"
         @updateSideBarExpended="updateSideBarExpended"
+        @click-call="clickVoiceCall"
+        @click-video-call="clickVideoCall"
       />
     </template>
   </HomeLayout>
+  <!-- Fullscreen Call Overlay -->
+  <CallOverlay
+    :visible="callVisible"
+    :participants="callParticipants"
+    :type="callType"
+    @close="callVisible = false"
+  />
 </template>
 
 <script setup lang="ts">
-import { ref, defineAsyncComponent, onBeforeUnmount } from "vue";
+import { ref, defineAsyncComponent, onBeforeUnmount, watch } from "vue";
 import { useAuthStore } from "@/stores/AuthStore";
+import { useCallsStore } from "@/stores/CallsStore";
+import type { Conversation } from "@/components/home/chatZone/SideBarConversations.vue";
 
 const HomeLayout = defineAsyncComponent({
   loader: () => import("@components/layouts/home/HomeLayout.vue"),
@@ -60,11 +73,22 @@ const UpperChatZone = defineAsyncComponent({
   timeout: 20000,
   suspensible: true,
 });
+const CallOverlay = defineAsyncComponent({
+  loader: () => import("@/components/home/calls/CallOverlay.vue"),
+  delay: 0,
+  timeout: 20000,
+  suspensible: true,
+});
 
 const authStore = useAuthStore();
+const callsStore = useCallsStore();
 const HomeLayoutChild = ref();
 const sidebarHovered = ref(false);
 const sidebarExpended = ref(true);
+// Call overlay state
+const callVisible = ref(false);
+const callType = ref<'voice' | 'video'>('voice');
+const callParticipants = ref<Array<{ id?: string; name?: string; avatar?: string }>>([]);
 
 function askLogout() {
   HomeLayoutChild.value.askLogout();
@@ -93,6 +117,42 @@ function updateSideBarExpended(value: boolean) {
   expendedTimeoutId = window.setTimeout(() => {
     sidebarExpended.value = value;
   }, 150);
+}
+
+async function clickVoiceCall(chat: Conversation) {
+  callType.value = 'voice';
+  callParticipants.value = (chat?.participants || []).map(p => ({ name: p.name, avatar: p.avatar, id: (p as any).id }));
+  // Private DM: call the other participant directly via CallsStore
+  if (chat.type === 'user') {
+    const me = authStore.userId;
+    const target = (chat.participants || []).find(p => (p as any).id && (p as any).id !== me) as any;
+    console.log("Voice call id me ", me);
+    console.log("Voice call target ", target);
+    if (target?.id) {
+      try { await callsStore.requestCall(String(target.id), 'audio'); } catch {}
+    }
+  } else {
+    // Public/group room: just open overlay for now (users can join existing call if any)
+    // TODO: implement group call create/join flow in CallsStore when backend is ready.
+  }
+  callVisible.value = true;
+}
+
+async function clickVideoCall(chat: Conversation) {
+  callType.value = 'video';
+  callParticipants.value = (chat?.participants || []).map(p => ({ name: p.name, avatar: p.avatar, id: (p as any).id }));
+  if (chat.type === 'user') {
+    const me = authStore.userId;
+    const target = (chat.participants || []).find(p => (p as any).id && (p as any).id !== me) as any;
+    console.log("Video call id me ", me);
+    console.log("Video call target ", target);
+    if (target?.id) {
+      try { await callsStore.requestCall(String(target.id), 'video'); } catch {}
+    }
+  } else {
+    // Public/group room: show overlay; future: group call start/join
+  }
+  callVisible.value = true;
 }
 
 // Track pending timeouts to avoid updates after unmount

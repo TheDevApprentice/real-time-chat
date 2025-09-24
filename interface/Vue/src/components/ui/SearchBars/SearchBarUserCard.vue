@@ -70,9 +70,15 @@
     </button>
     <!-- Friend quick actions: call / message (only if already friends) -->
     <div v-if="!noresult && isFriend" class="friend-actions">
-      <button class="btn-call" title="Appeler" @click.stop="$emit('call', { userId, name })">
+      <button class="btn-call" title="Appeler" @click.stop="$emit('click-call', { userId, name })">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7bd88f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.12.9.31 1.78.57 2.63a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.45-1.09a2 2 0 0 1 2.11-.45c.85.26 1.73.45 2.63.57A2 2 0 0 1 22 16.92z"/>
+        </svg>
+      </button>
+      <button class="btn-call" title="Appeler vidéo" @click.stop="$emit('click-video-call', { userId, name })">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7bd88f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="7" width="12" height="10" rx="2" ry="2" />
+          <polygon points="19 8 23 10.5 23 13.5 19 16 19 8" />
         </svg>
       </button>
       <button class="btn-message" title="Envoyer un message" @click.stop="$emit('message', { userId, name })">
@@ -141,7 +147,7 @@ const avatarComputed = computed(() => {
     return props.avatar;
   }
 });
-defineEmits(["action", "accept", "reject", "call", "message"]);
+defineEmits(["action", "accept", "reject", "call", "message", "click-call", "click-video-call"]);
 
 // Subtle pulse when status switches to accepted
 const acceptedPulse = ref(false);

@@ -5,7 +5,11 @@
       :key="chat.id"
       :class="getChatItemClasses(index)"
     >
-      <ChatView :chat="chat" />
+      <ChatView
+        :chat="chat"
+        @click-call="emit('click-call', chat)"
+        @click-video-call="emit('click-video-call', chat)"
+      />
     </div>
   </div>
 </template>
@@ -16,6 +20,7 @@ import { useRoomsStore } from "@/stores/RoomsStore";
 
 const ChatView = defineAsyncComponent(() => import("@home/chat/ChatView.vue"));
 const roomsStore = useRoomsStore();
+const emit = defineEmits(["click-call", "click-video-call"]);
 
 const gridType = computed(() => {
   if (roomsStore.conversations.filter((c) => c.active).length === 1) {
@@ -41,7 +46,9 @@ const gridType = computed(() => {
   }
   return {
     cols: Math.min(roomsStore.conversations.filter((c) => c.active).length, 4),
-    rows: Math.ceil(roomsStore.conversations.filter((c) => c.active).length / 4),
+    rows: Math.ceil(
+      roomsStore.conversations.filter((c) => c.active).length / 4
+    ),
   };
 });
 

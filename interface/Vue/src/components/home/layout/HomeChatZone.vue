@@ -78,7 +78,10 @@
             </div>
           </div>
           <div class="col-span-1 row-span-1 w-full h-full relative">
-            <ChatGrid />
+            <ChatGrid
+              @click-call="emit('click-call', $event)"
+              @click-video-call="emit('click-video-call', $event)"
+            />
           </div>
         </div>
       </section>
@@ -86,7 +89,10 @@
         v-else
         class="flex relative min-w-0 w-full h-[calc(100vh-6.5rem)] md:mt-[4.4rem] md:h-[calc(100vh-4.5rem)]"
       >
-        <ChatGrid />
+        <ChatGrid
+          @click-call="emit('click-call', $event)"
+          @click-video-call="emit('click-video-call', $event)"
+        />
       </section>
     </template>
     <template #fallback>
@@ -114,7 +120,11 @@ const props = defineProps<{
   sidebarExpended: boolean;
 }>();
 
-const emit = defineEmits(["updateSideBarExpended"]);
+const emit = defineEmits([
+  "updateSideBarExpended",
+  "click-call",
+  "click-video-call",
+]);
 
 function toggleSidebar() {
   emit("updateSideBarExpended", !props.sidebarExpended);
