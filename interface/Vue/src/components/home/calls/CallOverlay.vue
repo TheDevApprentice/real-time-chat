@@ -6,26 +6,46 @@
           <div class="incoming-card">
             <div class="incoming-title">Appel entrant</div>
             <div class="incoming-caller">
-              <div class="avatar-circle sm">{{ caller.initials }}</div>
+              <div class="avatar-circle sm pulse">{{ caller.initials }}</div>
               <div class="who">
                 <div class="name">{{ caller.name }}</div>
                 <div class="kind">{{ incomingKindLabel }}</div>
               </div>
             </div>
             <div class="incoming-actions">
-              <button class="btn accept" @click="accept">Accepter</button>
-              <button class="btn decline" @click="decline">Refuser</button>
+              <button class="action-btn accept" @click="accept">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <!-- Phone/answer icon -->
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.12.9.31 1.78.57 2.63a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.45-1.09a2 2 0 0 1 2.11-.45c.85.26 1.73.45 2.63.57A2 2 0 0 1 22 16.92z"/>
+                </svg>
+                <span>Accepter</span>
+              </button>
+              <button class="action-btn decline" @click="decline">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <!-- Hangup icon (curved handset) -->
+                  <path d="M4 13c2.5-2 5.3-3 8-3s5.5 1 8 3l-2 4c-1.7-1.4-3.7-2.2-6-2.2S7.7 15.6 6 17L4 13z"/>
+                </svg>
+                <span>Refuser</span>
+              </button>
             </div>
           </div>
         </template>
         <template v-else>
+          <!-- Outgoing: show waiting note and optional local preview for video while ringing -->
           <div class="tiles">
             <div class="tile" v-for="(p, idx) in normalizedParticipants" :key="idx">
               <div class="video-placeholder" :class="{ muted: effectiveType === 'voice' }">
-                <div class="avatar-circle">{{ p.initials }}</div>
-                <div class="name">{{ p.name }}</div>
-                <div class="badge" v-if="effectiveType === 'voice'">Audio</div>
-                <div class="badge" v-else>Vidéo</div>
+                <!-- Local preview for first tile if video and we have stream -->
+                <template v-if="effectiveType === 'video' && idx === 1 && previewReady">
+                  <video ref="previewVideo" autoplay playsinline muted class="preview-video"></video>
+                  <div class="badge">Prévisualisation</div>
+                </template>
+                <template v-else>
+                  <div class="avatar-circle">{{ p.initials }}</div>
+                  <div class="name">{{ p.name }}</div>
+                  <div class="badge" v-if="effectiveType === 'voice'">Audio</div>
+                  <div class="badge" v-else>Vidéo</div>
+                </template>
               </div>
             </div>
           </div>
@@ -56,7 +76,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { useCallsStore } from '@/stores/CallsStore';
 import { ensureAudioPermission, ensureVideoPermission } from '@/utils/media';
 
@@ -76,6 +96,13 @@ function toggleCam() { camOn.value = !camOn.value; }
 
 const normalizedParticipants = computed(() => {
   const list = (props.participants || []).slice(0, 2);
+  // Ensure order: caller on the left, 'Moi' on the right when present
+  if (list.length === 2) {
+    const meIdx = list.findIndex(p => (p.name || '').trim().toLowerCase() === 'moi');
+    if (meIdx === 0) {
+      list.reverse();
+    }
+  }
   while (list.length < 2) list.push({ name: 'Participant', avatar: '?' });
   return list.map(p => ({
     name: p.name || 'Participant',
@@ -138,6 +165,44 @@ function decline() {
   callsStore.declineCall('user-declined');
   emit('close');
 }
+
+// -------- Local preview for outgoing video (ringing without incoming) --------
+const previewVideo = ref<HTMLVideoElement | null>(null);
+const previewStream = ref<MediaStream | null>(null);
+const previewReady = ref(false);
+
+async function startPreviewIfNeeded() {
+  const isOutgoingRinging = callsStore.status === 'ringing' && !callsStore.incoming;
+  if (!isOutgoingRinging) return stopPreview();
+  if (props.type !== 'video') return stopPreview();
+  if (previewStream.value) return; // already started
+  try {
+    await ensureVideoPermission();
+    if (navigator?.mediaDevices?.getUserMedia) {
+      previewStream.value = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+      await nextTick();
+      if (previewVideo.value && previewStream.value) {
+        (previewVideo.value as any).srcObject = previewStream.value;
+        previewReady.value = true;
+      }
+    }
+  } catch {
+    // ignore preview failure
+  }
+}
+
+function stopPreview() {
+  previewReady.value = false;
+  if (previewStream.value) {
+    try { previewStream.value.getTracks().forEach(t => t.stop()); } catch {}
+  }
+  previewStream.value = null;
+}
+
+watch(() => callsStore.status, () => startPreviewIfNeeded());
+watch(() => props.type, () => startPreviewIfNeeded());
+onMounted(() => startPreviewIfNeeded());
+onBeforeUnmount(() => stopPreview());
 
 </script>
 
@@ -208,6 +273,13 @@ function decline() {
   text-shadow: 0 2px 8px rgba(0,0,0,0.4);
   box-shadow: 0 8px 22px rgba(68, 102, 214, 0.35);
 }
+.avatar-circle.sm { width: 72px; height: 72px; }
+.avatar-circle.pulse { animation: callerPulse 1.8s ease-in-out infinite; }
+@keyframes callerPulse {
+  0% { box-shadow: 0 0 0 0 rgba(68, 102, 214, 0.35); }
+  70% { box-shadow: 0 0 0 18px rgba(68, 102, 214, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(68, 102, 214, 0); }
+}
 .name { margin-top: 0.7rem; font-weight: 600; letter-spacing: .02em; }
 .badge {
   margin-top: .35rem;
@@ -218,6 +290,44 @@ function decline() {
   padding: 2px 8px;
   border-radius: 999px;
 }
+
+/* Incoming card (glass) */
+.incoming-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 18px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+}
+.incoming-title { color: #eaf0ff; font-weight: 600; opacity: 0.95; }
+.incoming-caller { display: flex; align-items: center; gap: 12px; }
+.incoming-caller .who { display: flex; flex-direction: column; }
+.incoming-caller .who .name { margin: 0; font-size: 1.05rem; }
+.incoming-caller .who .kind { color: #c9d4ff; font-size: 0.95rem; opacity: .9; }
+.incoming-actions { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  border-radius: 12px;
+  padding: 8px 12px;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+  transition: transform .12s ease, filter .12s ease, box-shadow .12s ease;
+  background: rgba(255,255,255,0.1);
+}
+.action-btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
+.action-btn:active { transform: scale(0.98); }
+.action-btn svg { display: block; }
+.action-btn.accept { background: #19c37d; }
+.action-btn.decline { background: #ef4444; }
 
 .controls {
   position: absolute;
