@@ -2,23 +2,18 @@
   <div class="signal-hud">
     <span class="sig-badge">PC: {{ pcState }}</span>
     <span class="sig-badge">ICE: {{ iceState }}</span>
+    <span class="sig-badge">Type: {{ type }}</span>
     <span class="sig-badge" v-if="status === 'ringing'">Ringing…</span>
-    <span class="sig-badge" v-if="showPreviewBadge">Prévisualisation</span>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-const props = defineProps<{
+defineProps<{
   pcState: RTCPeerConnectionState;
   iceState: RTCIceConnectionState;
   status: 'idle' | 'ringing' | 'accepted' | 'ended';
-  previewReady: boolean;
-  localReady: boolean;
   type: 'voice' | 'video';
 }>();
-
-const showPreviewBadge = computed(() => props.type === 'video' && props.previewReady && !props.localReady);
 </script>
 
 <style scoped>

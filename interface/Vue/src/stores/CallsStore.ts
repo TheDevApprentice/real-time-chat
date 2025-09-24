@@ -57,6 +57,8 @@ export const useCallsStore = defineStore('calls', () => {
             onRemoteStream: (s) => { remoteStream.value = (s?.value ?? null) as MediaStream | null; },
             onQuality: (q) => { quality.value = (q?.value ?? { bitrateKbps: 0, rttMs: 0, packetsLostPct: 0 }); },
             getPreAcquiredStream: () => preAcquiredStream,
+            onConnectionState: (st) => { pcState.value = st; },
+            onIceConnectionState: (st) => { iceState.value = st; },
           });
           webrtcClient.startCaller(activeCallId.value!, outgoingMedia.value!, iceServers.value as any);
         });
@@ -163,6 +165,7 @@ export const useCallsStore = defineStore('calls', () => {
               onConnectionState: (st) => { pcState.value = st; },
               onIceConnectionState: (st) => { iceState.value = st; },
             });
+            console.log("fetchTurnConfig().finally localStream ", localStream.value)
             const media = incoming.value?.media || 'audio';
             webrtcClient.startCalleeIfNeeded(cid, media, iceServers.value as any);
           });
@@ -183,6 +186,7 @@ export const useCallsStore = defineStore('calls', () => {
           webrtcClient.end();
           localStream.value = null; remoteStream.value = null;
           micEnabled.value = true; camEnabled.value = true;
+          console.log("declineCall().finally localStream ", localStream.value)
           try { preAcquiredStream?.getTracks().forEach(t => t.stop()); } catch {}
           preAcquiredStream = null;
         }

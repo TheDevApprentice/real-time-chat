@@ -6,10 +6,15 @@
           :pc-state="callsStore.pcState"
           :ice-state="callsStore.iceState"
           :status="callsStore.status"
-          :preview-ready="previewReady"
-          :local-ready="localReady"
           :type="type"
         />
+        <!-- Hidden audio sink for remote media (voice-only and video audio track) -->
+        <audio
+          ref="remoteAudio"
+          autoplay
+          playsinline
+          style="display: none"
+        ></audio>
         <template v-if="showIncomingCard && caller">
           <IncomingCard
             :caller="caller"
@@ -21,7 +26,7 @@
         <template v-else>
           <!-- In-call view or ringing (outgoing) -->
           <div class="tiles">
-            <!-- Left tile: caller/remote -->
+            <!-- Left tile: me -->
             <div class="tile">
               <div
                 class="video-placeholder"
@@ -29,9 +34,9 @@
               >
                 <template
                   v-if="
-                    callsStore.status === 'accepted' &&
                     effectiveType === 'video' &&
-                    remoteReady
+                    callsStore.camEnabled &&
+                    callsStore.remoteStream
                   "
                 >
                   <video
@@ -40,15 +45,6 @@
                     playsinline
                     class="preview-video"
                   ></video>
-                  <div class="qual-badges">
-                    <span class="q-badge">{{ qualityText }}</span>
-                    <span class="q-badge subtle"
-                      >RTT {{ callsStore.quality.rttMs }} ms</span
-                    >
-                    <span class="q-badge subtle"
-                      >Perte {{ callsStore.quality.packetsLostPct }}%</span
-                    >
-                  </div>
                 </template>
                 <template v-else>
                   <div class="avatar-circle">
@@ -62,7 +58,7 @@
                 </template>
               </div>
             </div>
-            <!-- Right tile: me/local -->
+            <!-- Right tile: caller/remote -->
             <div class="tile">
               <div
                 class="video-placeholder"
@@ -72,7 +68,7 @@
                   v-if="
                     callsStore.status === 'accepted' &&
                     effectiveType === 'video' &&
-                    localReady
+                    callsStore.remoteStream
                   "
                 >
                   <video
@@ -82,16 +78,6 @@
                     muted
                     class="preview-video"
                   ></video>
-                </template>
-                <template v-else-if="effectiveType === 'video' && previewReady">
-                  <video
-                    ref="previewVideo"
-                    autoplay
-                    playsinline
-                    muted
-                    class="preview-video"
-                  ></video>
-                  <div class="badge">Prévisualisation</div>
                 </template>
                 <template v-else>
                   <div class="avatar-circle">
@@ -108,19 +94,18 @@
           </div>
         </template>
       </div>
-
       <div class="controls">
         <ControlButton
-          :class="{ active: micOn }"
-          :active="micOn"
+          :class="{ active: callsStore.micEnabled }"
+          :active="callsStore.micEnabled"
           aria-label="Micro"
           :icon-svg="`<svg width='22' height='22' viewBox='0 0 24 24' fill='none'><path d='M12 14a3 3 0 003-3V6a3 3 0 10-6 0v5a3 3 0 003 3z' stroke='currentColor' stroke-width='2'/><path d='M19 11a7 7 0 11-14 0' stroke='currentColor' stroke-width='2' stroke-linecap='round'/><path d='M12 18v3' stroke='currentColor' stroke-width='2' stroke-linecap='round'/></svg>`"
           @click="toggleMic"
         />
         <ControlButton
           v-if="type === 'video'"
-          :class="{ active: camOn }"
-          :active="camOn"
+          :class="{ active: callsStore.camEnabled }"
+          :active="callsStore.camEnabled"
           aria-label="Caméra"
           :icon-svg="`<svg width='22' height='22' viewBox='0 0 24 24' fill='none'><path d='M3 7.5C3 6.12 4.12 5 5.5 5h7A2.5 2.5 0 0115 7.5v1.8l3.3-2.2a1 1 0 011.7.83v7.14a1 1 0 01-1.7.83L15 13.7v1.8A2.5 2.5 0 0112.5 18h-7A2.5 2.5 0 013 15.5v-8Z' fill='currentColor'/></svg>`"
           @click="toggleCam"
@@ -137,14 +122,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-  computed,
-  ref,
-  watch,
-  onMounted,
-  onBeforeUnmount,
-  nextTick,
-} from "vue";
+import { computed, onMounted } from "vue";
 import { useCallsStore } from "@/stores/CallsStore";
 import { ensureAudioPermission, ensureVideoPermission } from "@/utils/media";
 import ControlButton from "./ControlButton.vue";
@@ -158,28 +136,20 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ close: [] }>();
 
-const micOn = ref(true);
-const camOn = ref(true);
-const localVideo = ref<HTMLVideoElement | null>(null);
-const remoteVideo = ref<HTMLVideoElement | null>(null);
-const localReady = ref(false);
-const remoteReady = ref(false);
 const callsStore = useCallsStore();
 
 function toggleMic() {
-  micOn.value = !micOn.value;
-  try { 
-    callsStore.setMicEnabled(micOn.value);
+  try {
+    callsStore.setMicEnabled(!callsStore.micEnabled);
     console.log("micEnabled", callsStore.micEnabled);
-   } catch {}
+  } catch {}
 }
 
 function toggleCam() {
-  camOn.value = !camOn.value;
-  try { 
-    callsStore.setCamEnabled(camOn.value);
+  try {
+    callsStore.setCamEnabled(!callsStore.camEnabled);
     console.log("camEnabled", callsStore.camEnabled);
-   } catch {}
+  } catch {}
 }
 
 const normalizedParticipants = computed(() => {
@@ -231,59 +201,6 @@ const caller = computed(() => {
   }
   return null as any;
 });
-// Close overlay when call ends
-watch(callsStore.$state, () => {
-  const s = callsStore.status;
-  if (s === "ended") {
-    // Emit close so parent hides overlay
-    emit("close");
-  }
-});
-
-// Keep UI toggle in sync with store when streams come in
-watch(() => callsStore.micEnabled, (v) => { micOn.value = !!v; });
-watch(() => callsStore.camEnabled, (v) => { camOn.value = !!v; });
-
-// Attach streams to video elements when available
-watch(
-  () => callsStore.localStream,
-  async (s) => {
-    await nextTick();
-    const stream = s as any as MediaStream | null;
-    if (localVideo.value && stream) {
-      (localVideo.value as any).srcObject = stream;
-      localReady.value = true;
-      try {
-        await (localVideo.value as HTMLVideoElement).play();
-      } catch {}
-    } else {
-      localReady.value = false;
-    }
-  }
-);
-watch(
-  () => callsStore.remoteStream,
-  async (s) => {
-    await nextTick();
-    const stream = s as any as MediaStream | null;
-    if (remoteVideo.value && stream) {
-      (remoteVideo.value as any).srcObject = stream;
-      remoteReady.value = true;
-      try {
-        await (remoteVideo.value as HTMLVideoElement).play();
-      } catch {}
-    } else {
-      remoteReady.value = false;
-    }
-  }
-);
-
-const qualityText = computed(() => {
-  const kbps = callsStore.quality?.bitrateKbps ?? 0;
-  if (kbps > 1500) return `Qualité: Haute (${kbps} kbps)`;
-  if (kbps > 600) return `Qualité: Moyenne (${kbps} kbps)`;
-  return `Qualité: Basse (${kbps} kbps)`;
-});
 
 function onHangup() {
   callsStore.hangup().finally(() => {
@@ -297,71 +214,26 @@ async function accept() {
     const media = callsStore.incoming?.media || props.type;
     if (media === "video") {
       await ensureVideoPermission();
+      await ensureAudioPermission();
     } else {
       await ensureAudioPermission();
     }
   } catch {}
   callsStore.acceptCall();
 }
+
 function decline() {
   callsStore.declineCall("user-declined");
   emit("close");
 }
 
-// -------- Local preview for outgoing video (ringing without incoming) --------
-const previewVideo = ref<HTMLVideoElement | null>(null);
-const previewStream = ref<MediaStream | null>(null);
-const previewReady = ref(false);
+onMounted(async () => {
+  callsStore.setMicEnabled(false);
+  callsStore.setCamEnabled(true);
 
-async function startPreviewIfNeeded() {
-  const isOutgoingRinging =
-    callsStore.status === "ringing" && !callsStore.incoming;
-  if (!isOutgoingRinging) return stopPreview();
-  if (props.type !== "video") return stopPreview();
-  if (previewStream.value) return; // already started
-  try {
-    await ensureVideoPermission();
-    if (navigator?.mediaDevices?.getUserMedia) {
-      previewStream.value = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: true,
-      });
-      await nextTick();
-      if (previewVideo.value && previewStream.value) {
-        (previewVideo.value as any).srcObject = previewStream.value;
-        previewReady.value = true;
-      }
-    }
-  } catch {
-    // ignore preview failure
-  }
-}
-
-function stopPreview() {
-  previewReady.value = false;
-  if (previewStream.value) {
-    try {
-      previewStream.value.getTracks().forEach((t) => t.stop());
-    } catch {}
-  }
-  previewStream.value = null;
-}
-
-watch(
-  () => callsStore.status,
-  () => startPreviewIfNeeded()
-);
-watch(
-  () => props.type,
-  () => startPreviewIfNeeded()
-);
-onMounted(() => {
-  // Ensure initial UI state matches store
-  try { micOn.value = !!callsStore.micEnabled; } catch {}
-  try { camOn.value = !!callsStore.camEnabled; } catch {}
-  startPreviewIfNeeded();
+  await ensureAudioPermission();
+  await ensureVideoPermission();
 });
-onBeforeUnmount(() => stopPreview());
 </script>
 
 <style scoped>
