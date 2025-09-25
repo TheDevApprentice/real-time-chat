@@ -12,7 +12,9 @@ import { RedisService } from "./domain/services/cacheServices/RedisService";
 
 require("@dotenvx/dotenvx").config();
 
+if (process.env.DEBUG === "true") {
 console.log("process.env", process.env);
+}
 
 class AppServer {
   private app: express.Application;
