@@ -57,16 +57,27 @@ export const useCallsStore = defineStore('calls', () => {
           webrtcClient.attachStore({
             sendOffer: (callId, sdp) => new Promise((r) => socketService.emit('callOffer', { callId, sdp: (sdp?.sdp ?? '') }, r)),
             sendAnswer: (callId, sdp) => new Promise((r) => socketService.emit('callAnswer', { callId, sdp: (sdp?.sdp ?? '') }, r)),
-            sendIceCandidate: (callId, cand) => new Promise((r) => socketService.emit('callIceCandidate', { callId, candidate: (cand?.candidate ?? '') }, r)),
+            sendIceCandidate: (callId, cand) => new Promise((r) => socketService.emit('callIceCandidate', { callId, candidate: (cand?.candidate) }, r)),
             getIceServers: () => iceServers.value as any,
             onLocalStream: (s) => { localStream.value = (s?.value ?? null) as MediaStream | null; },
-            onRemoteStream: (s) => { remoteStream.value = (s?.value ?? null) as MediaStream | null; },
+            onRemoteStream: (s) => {
+              const base = (s?.value ?? null) as MediaStream | null;
+              const cloned = base ? new MediaStream(base.getTracks()) : null;
+              try {
+                const vCount = base ? base.getVideoTracks().length : 0;
+                const aCount = base ? base.getAudioTracks().length : 0;
+                console.debug('[CallsStore][caller] onRemoteStream -> videoTracks:', vCount, 'audioTracks:', aCount);
+              } catch {}
+              remoteStream.value = cloned;
+            },
             onQuality: (q) => { quality.value = (q?.value ?? { bitrateKbps: 0, rttMs: 0, packetsLostPct: 0 }); },
             getPreAcquiredStream: () => preAcquiredStream,
             onConnectionState: (st) => { pcState.value = st; },
             onIceConnectionState: (st) => { iceState.value = st; },
           });
-          webrtcClient.startCaller(activeCallId.value!, outgoingMedia.value!, iceServers.value as any);
+          setTimeout(() => {
+            webrtcClient.startCaller(activeCallId.value!, outgoingMedia.value!, iceServers.value as any);
+          }, 100);
         });
       }
     });
@@ -164,10 +175,19 @@ export const useCallsStore = defineStore('calls', () => {
             webrtcClient.attachStore({
               sendOffer: (callId, sdp) => new Promise((r) => socketService.emit('callOffer', { callId, sdp: (sdp?.sdp ?? '') }, r)),
               sendAnswer: (callId, sdp) => new Promise((r) => socketService.emit('callAnswer', { callId, sdp: (sdp?.sdp ?? '') }, r)),
-              sendIceCandidate: (callId, cand) => new Promise((r) => socketService.emit('callIceCandidate', { callId, candidate: (cand?.candidate ?? '') }, r)),
+              sendIceCandidate: (callId, cand) => new Promise((r) => socketService.emit('callIceCandidate', { callId, candidate: cand }, r)),
               getIceServers: () => iceServers.value as any,
               onLocalStream: (s) => { localStream.value = (s?.value ?? null) as MediaStream | null; },
-              onRemoteStream: (s) => { remoteStream.value = (s?.value ?? null) as MediaStream | null; },
+              onRemoteStream: (s) => {
+                const base = (s?.value ?? null) as MediaStream | null;
+                const cloned = base ? new MediaStream(base.getTracks()) : null;
+                try {
+                  const vCount = base ? base.getVideoTracks().length : 0;
+                  const aCount = base ? base.getAudioTracks().length : 0;
+                  console.debug('[CallsStore][callee] onRemoteStream -> videoTracks:', vCount, 'audioTracks:', aCount);
+                } catch {}
+                remoteStream.value = cloned;
+              },
               onQuality: (q) => { quality.value = (q?.value ?? { bitrateKbps: 0, rttMs: 0, packetsLostPct: 0 }); },
               getPreAcquiredStream: () => preAcquiredStream,
               onConnectionState: (st) => { pcState.value = st; },

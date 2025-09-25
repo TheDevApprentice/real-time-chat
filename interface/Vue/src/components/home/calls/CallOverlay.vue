@@ -8,13 +8,6 @@
           :status="callsStore.status"
           :type="type"
         />
-        <!-- Hidden audio sink for remote media (voice-only and video audio track) -->
-        <audio
-          ref="remoteAudio"
-          autoplay
-          playsinline
-          style="display: none"
-        ></audio>
         <template v-if="showIncomingCard && caller">
           <IncomingCard
             :caller="caller"
@@ -35,6 +28,7 @@
                 <video
                   v-show="effectiveType === 'video' && hasLocalVideo"
                   ref="localVideo"
+                  muted
                   autoplay
                   playsinline
                   class="preview-video"
@@ -129,7 +123,6 @@ const callsStore = useCallsStore();
 // Media element refs
 const localVideo = ref<HTMLVideoElement | null>(null);
 const remoteVideo = ref<HTMLVideoElement | null>(null);
-const remoteAudio = ref<HTMLAudioElement | null>(null);
 
 function toggleMic() {
   try {
@@ -213,39 +206,33 @@ const me = computed(() => {
   // When this client is the callee (incoming), "me" corresponds to callee
   const m = callsStore.isIncomingCall ? callee.value : caller.value;
   return (
-    m || { name: normalizedParticipants.value[1].name, initials: normalizedParticipants.value[1].initials }
+    m || {
+      name: normalizedParticipants.value[1].name,
+      initials: normalizedParticipants.value[1].initials,
+    }
   );
 });
 const peer = computed(() => {
   // The other party
   const p = callsStore.isIncomingCall ? caller.value : callee.value;
   return (
-    p || { name: normalizedParticipants.value[0].name, initials: normalizedParticipants.value[0].initials }
+    p || {
+      name: normalizedParticipants.value[0].name,
+      initials: normalizedParticipants.value[0].initials,
+    }
   );
 });
 
 // Helper computeds to decide when to render video vs avatar/name
+// Keep logic simple to avoid races: if we have a stream reference, show the <video>.
 const hasLocalVideo = computed(() => {
-  if (effectiveType.value !== 'video') return false;
-  const s = callsStore.localStream as MediaStream | null;
-  if (!s) return false;
-  if (!callsStore.camEnabled) return false;
-  try {
-    const tracks = s.getVideoTracks ? s.getVideoTracks() : [];
-    // Consider available as soon as a track exists and is enabled; readyState may still be 'new'
-    return tracks.some(t => t.enabled !== false);
-  } catch { return false; }
+  if (effectiveType.value !== "video") return false;
+  return !!callsStore.localStream && !!callsStore.camEnabled;
 });
 
 const hasRemoteVideo = computed(() => {
-  if (effectiveType.value !== 'video') return false;
-  const s = callsStore.remoteStream as MediaStream | null;
-  if (!s) return false;
-  try {
-    const tracks = s.getVideoTracks ? s.getVideoTracks() : [];
-    // Show as soon as a remote video track is present
-    return tracks.length > 0;
-  } catch { return false; }
+  if (effectiveType.value !== "video") return false;
+  return !!callsStore.remoteStream;
 });
 
 function onHangup() {
@@ -274,52 +261,47 @@ function decline() {
 }
 
 onMounted(async () => {
-  callsStore.setMicEnabled(true);
-  callsStore.setCamEnabled(true);
+  // callsStore.setMicEnabled(true);
+  // callsStore.setCamEnabled(true);
 
   await ensureAudioPermission();
   await ensureVideoPermission();
-
-  // Minimal binding: whenever store streams change, bind them to media elements
-  watch(
-    () => callsStore.localStream,
-    async (s) => {
-      await nextTick();
-      const stream = s as MediaStream | null;
-      if (localVideo.value && stream) {
-        try {
-          (localVideo.value as any).srcObject = stream;
-        } catch {}
-        try {
-          await (localVideo.value as HTMLVideoElement).play();
-        } catch {}
-      }
-    },
-    { immediate: true }
-  );
-  watch(
-    () => callsStore.remoteStream,
-    async (s) => {
-      await nextTick();
-      const stream = s as MediaStream | null;
-      const isVideo = effectiveType.value === "video";
-      if (isVideo && remoteVideo.value && stream) {
-        // Prefer playing via the video element and stop hidden audio to avoid double audio
-        try { (remoteVideo.value as any).srcObject = stream; } catch {}
-        if (remoteAudio.value) {
-          try { (remoteAudio.value as HTMLAudioElement).pause(); } catch {}
-          try { (remoteAudio.value as any).srcObject = null; } catch {}
-        }
-        try { await (remoteVideo.value as HTMLVideoElement).play(); } catch {}
-      } else if (remoteAudio.value && stream) {
-        // Voice-only or no video element: use hidden audio sink
-        try { (remoteAudio.value as any).srcObject = stream; } catch {}
-        try { await (remoteAudio.value as HTMLAudioElement).play(); } catch {}
-      }
-    },
-    { immediate: true }
-  );
 });
+
+// Minimal binding: whenever store streams change, bind them to media elements
+watch(
+  () => callsStore.localStream,
+  async (s) => {
+    await nextTick();
+    const stream = s as MediaStream | null;
+    if (localVideo.value && stream) {
+      console.log("Stream local : ", stream);
+      try {
+        (localVideo.value as any).srcObject = stream;
+      } catch {
+        console.error("Failed to set local stream");
+      }
+    }
+  },
+  { immediate: true }
+);
+watch(
+  () => callsStore.remoteStream,
+  async (s) => {
+    await nextTick();
+    const stream = s as MediaStream | null;
+    if (remoteVideo.value && stream) {
+      console.log("Stream remote : ", stream);
+      try {
+        (remoteVideo.value as any).srcObject = stream;
+        console.log("Remote video", remoteVideo.value);
+      } catch (e) {
+        console.error("Failed to set remote stream", e);
+      }
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <style scoped>

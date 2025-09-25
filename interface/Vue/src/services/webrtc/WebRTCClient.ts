@@ -39,7 +39,7 @@ export class WebRTCClient {
     this.pc.onicecandidate = (e) => {
       if (e.candidate && this.callId && this.store) {
         try { console.debug('[RTC] onicecandidate -> sending', e.candidate.candidate); } catch {}
-        this.store.sendIceCandidate(this.callId, e.candidate);
+        this.store.sendIceCandidate(this.callId, JSON.stringify(e.candidate));
       }
     };
     this.pc.onconnectionstatechange = () => {
