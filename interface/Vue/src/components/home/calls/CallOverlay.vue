@@ -302,22 +302,19 @@ onMounted(async () => {
     async (s) => {
       await nextTick();
       const stream = s as MediaStream | null;
-      // Always attach audio
-      if (remoteAudio.value && stream) {
-        try {
-          (remoteAudio.value as any).srcObject = stream;
-        } catch {}
-        try {
-          await (remoteAudio.value as HTMLAudioElement).play();
-        } catch {}
-      }
-      // Attach video if this is a video call
-      if (remoteVideo.value && stream && effectiveType.value === "video") {
+      const isVideo = effectiveType.value === "video";
+      if (isVideo && remoteVideo.value && stream) {
+        // Prefer playing via the video element and stop hidden audio to avoid double audio
         try { (remoteVideo.value as any).srcObject = stream; } catch {}
-        try { (remoteVideo.value as any).muted = true; } catch {}
-        try {
-          await (remoteVideo.value as HTMLVideoElement).play();
-        } catch {}
+        if (remoteAudio.value) {
+          try { (remoteAudio.value as HTMLAudioElement).pause(); } catch {}
+          try { (remoteAudio.value as any).srcObject = null; } catch {}
+        }
+        try { await (remoteVideo.value as HTMLVideoElement).play(); } catch {}
+      } else if (remoteAudio.value && stream) {
+        // Voice-only or no video element: use hidden audio sink
+        try { (remoteAudio.value as any).srcObject = stream; } catch {}
+        try { await (remoteAudio.value as HTMLAudioElement).play(); } catch {}
       }
     },
     { immediate: true }
