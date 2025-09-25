@@ -24,24 +24,24 @@
             <div class="tile">
               <div
                 class="video-placeholder"
-                :class="{ muted: effectiveType === 'voice' }"
+                :class="{ muted: isVoiceCall }"
               >
                 <video
-                  v-show="effectiveType === 'video' && callsStore.camEnabled"
+                  v-show="isVideoCall && callsStore.camEnabled"
                   ref="localVideo"
                   muted
                   autoplay
                   playsinline
                   class="preview-video"
                 ></video>
-                <template v-if="(effectiveType === 'video') && !callsStore.camEnabled">
+                <template v-if="isVideoCall && !callsStore.camEnabled">
                   <div class="avatar-circle">
                     {{ me.initials }}
                   </div>
                   <div class="name">
                     {{ me.name }}
                   </div>
-                  <div class="badge" v-if="(effectiveType === 'voice')">
+                  <div class="badge" v-if="isVoiceCall">
                     Audio
                   </div>
                   <div class="badge" v-else>Vidéo</div>
@@ -55,21 +55,21 @@
                 :class="{ muted: effectiveType === 'voice' }"
               >
               <video
-                  v-show="effectiveType === 'video' && hasRemoteVideo"
+                  v-show="isVideoCall && hasRemoteVideo"
                   ref="remoteVideo"
                   autoplay
                   playsinline
                   muted
                   class="preview-video"
                 ></video>
-                <template v-if="(effectiveType === 'video' && hasRemoteVideo)">
+                <template v-if="!(isVideoCall && hasRemoteVideo)">
                   <div class="avatar-circle">
                     {{ peer.initials }}
                   </div>
                   <div class="name">
                     {{ peer.name }}
                   </div>
-                  <div class="badge" v-if="effectiveType === 'voice'">
+                  <div class="badge" v-if="isVoiceCall">
                     Audio
                   </div>
                   <div class="badge" v-else>Vidéo</div>
@@ -107,7 +107,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, nextTick, onMounted } from "vue";
+import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
 import { useCallsStore } from "@/stores/CallsStore";
 import { ensureAudioPermission, ensureVideoPermission } from "@/utils/media";
 import ControlButton from "./ControlButton.vue";
@@ -206,6 +206,10 @@ const effectiveType = computed(() => {
     ? callsStore.incoming.media
     : props.type;
 });
+
+// Simple flags for template conditions
+const isVideoCall = computed(() => effectiveType.value === 'video');
+const isVoiceCall = computed(() => effectiveType.value === 'voice');
 const caller = computed(() => {
   const from = callsStore.incoming?.fromUser as any;
   if (from && (from.name || from.id)) {
@@ -256,15 +260,6 @@ const peer = computed(() => {
   );
 });
 
-// Helper computeds to decide when to render video vs avatar/name
-// Keep logic simple to avoid races: if we have a stream reference, show the <video>.
-const hasLocalVideo = computed(() => {
-  if (effectiveType.value !== "video") return false;
-  const s = callsStore.localStream as MediaStream | null;
-  const hasLive = !!s && s.getVideoTracks().some(t => t.enabled && t.readyState === 'live');
-  return hasLive && !!callsStore.camEnabled;
-});
-
 const hasRemoteVideo = computed(() => {
   if (effectiveType.value !== "video") return false;
   return remoteVideoTrackCount.value > 0;
@@ -278,15 +273,6 @@ function onHangup() {
 }
 
 async function accept() {
-  try {
-    const media = callsStore.incoming?.media || props.type;
-    if (media === 'video') {
-      await ensureVideoPermission();
-      await ensureAudioPermission();
-    } else {
-      await ensureAudioPermission();
-    }
-  } catch {}
   callsStore.acceptCall().finally(async () => {
     // User gesture happened, safe to unmute and play
     await nextTick();
@@ -391,6 +377,13 @@ function onRemoteAddTrack() {
     } catch {}
   }
 }
+
+// Cleanup listeners and element refs on unmount
+onBeforeUnmount(() => {
+  try { if (lastRemoteStream) lastRemoteStream.removeEventListener('addtrack', onRemoteAddTrack as any); } catch {}
+  localVideo.value = null;
+  remoteVideo.value = null;
+});
 </script>
 
 <style scoped>
