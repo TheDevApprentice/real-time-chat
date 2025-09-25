@@ -6,7 +6,7 @@ import { io, Socket } from 'socket.io-client';
 
 const WS_URL = import.meta.env.VITE_WEBSOCKET_URL as string;
 const RECONNECT_INTERVAL = Number(import.meta.env.VITE_WEBSOCKET_RECONNECT_INTERVAL);
-const DEBUG = import.meta.env.VITE_ENABLE_DEBUG_MODE === 'true';
+const DEBUG = import.meta.env.VITE_DEBUG === 'true';
 console.log("DEBUG : ", DEBUG);
 class SocketService {
   private socket: Socket;

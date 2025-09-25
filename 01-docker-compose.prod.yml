@@ -25,6 +25,8 @@ services:
       dockerfile: Dockerfile
     image: realtime-chat-server:latest
     scale: 2
+    env_file:
+      - server/Express/.env.production
     networks:
       - proxy
       - dbnet

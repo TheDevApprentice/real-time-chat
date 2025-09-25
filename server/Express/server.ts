@@ -12,6 +12,8 @@ import { RedisService } from "./domain/services/cacheServices/RedisService";
 
 require("@dotenvx/dotenvx").config();
 
+console.log("process.env", process.env);
+
 class AppServer {
   private app: express.Application;
   private server: http.Server;

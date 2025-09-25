@@ -33,10 +33,12 @@ authStore.$subscribe(
 
 app.mount('#app')
 
+if (import.meta.env.VITE_DEBUG === 'true') {
 console.log("Env variable");
-console.log("Node Environment: ", import.meta.env.NODE_ENV);
+console.log("Node Environment: ", import.meta.env.VITE_NODE_ENV);
 console.log("API Base URL: ", import.meta.env.VITE_API_BASE_URL);
 console.log("WebSocket URL: ", import.meta.env.VITE_WEBSOCKET_URL);
 console.log("WebSocket Reconnect Interval: ", import.meta.env.VITE_WEBSOCKET_RECONNECT_INTERVAL);
-console.log("Enable Debug Mode: ", import.meta.env.VITE_ENABLE_DEBUG_MODE);
+console.log("Enable Debug Mode: ", import.meta.env.VITE_DEBUG);
+}
 

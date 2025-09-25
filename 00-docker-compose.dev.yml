@@ -5,8 +5,6 @@ services:
       dockerfile: Dockerfile
     image: realtime-chat-interface:latest
     # scale: 2
-    env_file:
-      - interface/Vue/.env
     # No direct host port exposure; Traefik will route HTTP traffic.
     networks:
       - proxy
