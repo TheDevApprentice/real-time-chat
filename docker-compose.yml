@@ -27,17 +27,6 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       # - traefik_data:/letsencrypt
-    depends_on:
-      proxysql:
-        condition: service_healthy
-      mariadb_galera1:
-        condition: service_healthy
-      mariadb_galera2:
-        condition: service_healthy
-      mariadb_galera3:
-        condition: service_healthy
-      mariadb_backup:
-        condition: service_healthy
     networks:
       - proxy
     restart: unless-stopped
@@ -129,17 +118,7 @@ services:
     depends_on:
       traefik:
         condition: service_started
-      mariadb_galera1:
-        condition: service_healthy
-      mariadb_galera2:
-        condition: service_healthy
-      mariadb_galera3:
-        condition: service_healthy
-      maxscale:
-        condition: service_healthy
       mariadb_backup:
-        condition: service_healthy
-      proxysql:
         condition: service_healthy
     restart: unless-stopped
     labels:
@@ -196,17 +175,6 @@ services:
         --min-port=49160 --max-port=49200 \
         --verbose"
     restart: unless-stopped
-    depends_on:
-      proxysql:
-        condition: service_healthy
-      mariadb_galera1:
-        condition: service_healthy
-      mariadb_galera2:
-        condition: service_healthy
-      mariadb_galera3:
-        condition: service_healthy
-      mariadb_backup:
-        condition: service_healthy
     networks:
       - proxy
 
@@ -226,17 +194,6 @@ services:
     volumes:
       - minio_data:/data
     restart: unless-stopped
-    depends_on:
-      proxysql:
-        condition: service_healthy
-      mariadb_galera1:
-        condition: service_healthy
-      mariadb_galera2:
-        condition: service_healthy
-      mariadb_galera3:
-        condition: service_healthy
-      mariadb_backup:
-        condition: service_healthy
     networks:
       - proxy
       - stornet
@@ -276,17 +233,6 @@ services:
     environment:
       # Set a strong password here (dev example)
       REDIS_PASSWORD: changeme
-    depends_on:
-      proxysql:
-        condition: service_healthy
-      mariadb_galera1:
-        condition: service_healthy
-      mariadb_galera2:
-        condition: service_healthy
-      mariadb_galera3:
-        condition: service_healthy
-      mariadb_backup:
-        condition: service_healthy
     volumes:
       - redis_data:/data
     networks:
@@ -558,19 +504,6 @@ services:
       - REDIS_HOSTS=local:redis:6379:0:changeme
       - HTTP_USER=admin
       - HTTP_PASSWORD=secret
-    depends_on:
-      redis:
-        condition: service_started
-      proxysql:
-        condition: service_healthy
-      mariadb_galera1:
-        condition: service_healthy
-      mariadb_galera2:
-        condition: service_healthy
-      mariadb_galera3:
-        condition: service_healthy
-      mariadb_backup:
-        condition: service_healthy
     labels:
       - "traefik.enable=true"
       # Route /redis-commander -> Redis Commander Web UI (HTTP)
