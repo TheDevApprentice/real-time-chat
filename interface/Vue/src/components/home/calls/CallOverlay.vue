@@ -27,21 +27,21 @@
                 :class="{ muted: effectiveType === 'voice' }"
               >
                 <video
-                  v-show="effectiveType === 'video' && hasLocalVideo"
+                  v-show="effectiveType === 'video' && callsStore.camEnabled"
                   ref="localVideo"
                   muted
                   autoplay
                   playsinline
                   class="preview-video"
                 ></video>
-                <template v-if="!(effectiveType === 'video' && hasLocalVideo)">
+                <template v-if="(effectiveType === 'video') && !callsStore.camEnabled">
                   <div class="avatar-circle">
                     {{ me.initials }}
                   </div>
                   <div class="name">
                     {{ me.name }}
                   </div>
-                  <div class="badge" v-if="effectiveType === 'voice'">
+                  <div class="badge" v-if="(effectiveType === 'voice')">
                     Audio
                   </div>
                   <div class="badge" v-else>Vidéo</div>
@@ -62,7 +62,7 @@
                   muted
                   class="preview-video"
                 ></video>
-                <template v-if="!(effectiveType === 'video' && hasRemoteVideo)">
+                <template v-if="(effectiveType === 'video' && hasRemoteVideo)">
                   <div class="avatar-circle">
                     {{ peer.initials }}
                   </div>
@@ -315,6 +315,37 @@ onMounted(async () => {
   await ensureAudioPermission();
   await ensureVideoPermission();
 });
+
+// When the call becomes accepted (both roles), ensure remote video is unmuted and playing
+watch(
+  () => callsStore.status,
+  async (st) => {
+    if (st === 'accepted') {
+      await nextTick();
+      const stream = callsStore.remoteStream as MediaStream | null;
+      if (remoteVideo.value && stream) {
+        try { attachStreamToVideo(remoteVideo.value, stream, 'remote'); } catch {}
+        try { remoteVideo.value.muted = false; remoteVideo.value.removeAttribute('muted'); } catch {}
+        try { await remoteVideo.value.play(); } catch (e) { console.debug('remoteVideo play() on accepted failed', e); }
+      }
+    }
+  },
+  { immediate: false }
+);
+
+// When cam is re-enabled, re-attach and play local preview
+watch(
+  () => callsStore.camEnabled,
+  async (on) => {
+    if (on) {
+      await nextTick();
+      const stream = callsStore.localStream as MediaStream | null;
+      if (localVideo.value && stream && stream.getVideoTracks().length) {
+        try { attachStreamToVideo(localVideo.value, stream, 'local'); } catch {}
+      }
+    }
+  }
+);
 
 watch(
   () => callsStore.localStream,

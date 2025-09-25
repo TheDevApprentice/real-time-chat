@@ -268,6 +268,9 @@ export const useCallsStore = defineStore('calls', () => {
   function setCamEnabled(enabled: boolean) {
     camEnabled.value = enabled;
     try { localStream.value?.getVideoTracks().forEach(t => t.enabled = enabled); } catch {}
+    if (enabled) {
+      try { void webrtcClient.ensureLocalVideoTrack(); } catch {}
+    }
   }
 
   // Signaling relays

@@ -187,6 +187,41 @@ export class WebRTCClient {
     } catch {}
   }
 
+  // Ensure we have a live local video track and that the sender uses it
+  async ensureLocalVideoTrack() {
+    if (!this.pc) return;
+    try {
+      // Try to find a live local video track
+      let live = this.localStream.value?.getVideoTracks().find(t => t.readyState === 'live');
+      if (!live) {
+        // Acquire a fresh one
+        const s = await navigator.mediaDevices.getUserMedia({ video: true });
+        const newTrack = s.getVideoTracks()[0];
+        if (!newTrack) return;
+        if (!this.localStream.value) this.localStream.value = new MediaStream();
+        // Remove old ended tracks to avoid duplicates in preview
+        try { this.localStream.value.getVideoTracks().forEach(t => { try { t.stop(); } catch {}; this.localStream.value!.removeTrack(t); }); } catch {}
+        this.localStream.value.addTrack(newTrack);
+        live = newTrack;
+      }
+
+      // Replace the sender track without renegotiation if possible
+      const videoTransceiver = this.pc.getTransceivers().find(tr => tr?.receiver?.track?.kind === 'video' || tr?.mid === '1');
+      const sender = videoTransceiver?.sender || this.pc.getSenders().find(s => (s.track?.kind ?? 'video') === 'video');
+      if (sender) {
+        await sender.replaceTrack(live);
+      } else {
+        // Fallback: addTrack (may require renegotiation on some browsers)
+        try { this.pc.addTrack(live, this.localStream.value!); } catch {}
+      }
+
+      // Update local preview in UI
+      if (this.store?.onLocalStream) this.store.onLocalStream(this.localStream);
+    } catch (e) {
+      try { console.warn('[RTC] ensureLocalVideoTrack failed', e); } catch {}
+    }
+  }
+
   async end() {
     if (this.statsTimer) { window.clearInterval(this.statsTimer); this.statsTimer = null; }
     if (this.pc) {
