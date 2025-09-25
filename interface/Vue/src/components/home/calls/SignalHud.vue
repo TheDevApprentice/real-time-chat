@@ -3,6 +3,7 @@
     <span class="sig-badge">PC: {{ pcState }}</span>
     <span class="sig-badge">ICE: {{ iceState }}</span>
     <span class="sig-badge">Type: {{ type }}</span>
+    <span class="sig-badge">user: {{ user }}</span>
     <span class="sig-badge" v-if="status === 'ringing'">Ringing…</span>
   </div>
 </template>
@@ -13,6 +14,7 @@ defineProps<{
   iceState: RTCIceConnectionState;
   status: 'idle' | 'ringing' | 'accepted' | 'ended';
   type: 'voice' | 'video';
+  user: string;
 }>();
 </script>
 

@@ -54,9 +54,31 @@ export class WebRTCClient {
     };
     this.pc.ontrack = (ev) => {
       try { console.debug('[RTC] ontrack', ev.track.kind, ev.streams?.[0]?.id); } catch {}
-      if (!this.remoteStream.value) this.remoteStream.value = new MediaStream();
-      this.remoteStream.value.addTrack(ev.track);
-      if (this.store?.onRemoteStream) this.store.onRemoteStream(this.remoteStream);
+      const useIncomingStreamObject = () => {
+        const stream0 = ev.streams && ev.streams[0];
+        if (stream0) {
+          this.remoteStream.value = stream0;
+          if (this.store?.onRemoteStream) this.store.onRemoteStream(this.remoteStream);
+          return true;
+        }
+        return false;
+      };
+      const addTrackToAggregatedStream = () => {
+        if (!this.remoteStream.value) this.remoteStream.value = new MediaStream();
+        try {
+          const tracks = this.remoteStream.value.getTracks();
+          if (!tracks.includes(ev.track)) this.remoteStream.value.addTrack(ev.track);
+        } catch {}
+        if (this.store?.onRemoteStream) this.store.onRemoteStream(this.remoteStream);
+      };
+      const ensure = () => {
+        if (!useIncomingStreamObject()) addTrackToAggregatedStream();
+      };
+      if (ev.track.muted) {
+        ev.track.onunmute = () => { try { ensure(); } catch {} };
+      } else {
+        ensure();
+      }
     };
   }
 
@@ -157,9 +179,12 @@ export class WebRTCClient {
     await this.pc.setRemoteDescription(new RTCSessionDescription(sdp));
   }
 
-  async handleIceCandidate(_callId: string, candidate: RTCIceCandidateInit) {
+  async handleIceCandidate(_callId: string, candidate: RTCIceCandidateInit | string) {
     if (!this.pc) return;
-    try { await this.pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch {}
+    try {
+      const cand: RTCIceCandidateInit = typeof candidate === 'string' ? JSON.parse(candidate) : candidate;
+      await this.pc.addIceCandidate(new RTCIceCandidate(cand));
+    } catch {}
   }
 
   async end() {

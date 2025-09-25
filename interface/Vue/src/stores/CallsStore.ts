@@ -57,18 +57,20 @@ export const useCallsStore = defineStore('calls', () => {
           webrtcClient.attachStore({
             sendOffer: (callId, sdp) => new Promise((r) => socketService.emit('callOffer', { callId, sdp: (sdp?.sdp ?? '') }, r)),
             sendAnswer: (callId, sdp) => new Promise((r) => socketService.emit('callAnswer', { callId, sdp: (sdp?.sdp ?? '') }, r)),
-            sendIceCandidate: (callId, cand) => new Promise((r) => socketService.emit('callIceCandidate', { callId, candidate: (cand?.candidate) }, r)),
+            sendIceCandidate: (callId, cand) => new Promise((r) => socketService.emit('callIceCandidate', { callId, candidate: cand }, r)),
             getIceServers: () => iceServers.value as any,
             onLocalStream: (s) => { localStream.value = (s?.value ?? null) as MediaStream | null; },
             onRemoteStream: (s) => {
-              const base = (s?.value ?? null) as MediaStream | null;
-              const cloned = base ? new MediaStream(base.getTracks()) : null;
+              const incoming = (s?.value ?? null) as MediaStream | null;
               try {
-                const vCount = base ? base.getVideoTracks().length : 0;
-                const aCount = base ? base.getAudioTracks().length : 0;
+                const vCount = incoming ? incoming.getVideoTracks().length : 0;
+                const aCount = incoming ? incoming.getAudioTracks().length : 0;
                 console.debug('[CallsStore][caller] onRemoteStream -> videoTracks:', vCount, 'audioTracks:', aCount);
               } catch {}
-              remoteStream.value = cloned;
+              // Keep a stable reference to avoid reassigning <video>.srcObject during ontrack bursts
+              if (remoteStream.value !== incoming) {
+                remoteStream.value = incoming;
+              }
             },
             onQuality: (q) => { quality.value = (q?.value ?? { bitrateKbps: 0, rttMs: 0, packetsLostPct: 0 }); },
             getPreAcquiredStream: () => preAcquiredStream,
@@ -123,7 +125,7 @@ export const useCallsStore = defineStore('calls', () => {
     });
     socketService.on('callIceCandidate', async (p: any) => {
       if (!p?.callId || typeof p?.candidate !== 'string') return;
-      await webrtcClient.handleIceCandidate(p.callId, { candidate: p.candidate });
+      await webrtcClient.handleIceCandidate(p.callId, p.candidate);
     });
   }
   
@@ -179,14 +181,16 @@ export const useCallsStore = defineStore('calls', () => {
               getIceServers: () => iceServers.value as any,
               onLocalStream: (s) => { localStream.value = (s?.value ?? null) as MediaStream | null; },
               onRemoteStream: (s) => {
-                const base = (s?.value ?? null) as MediaStream | null;
-                const cloned = base ? new MediaStream(base.getTracks()) : null;
+                const incoming = (s?.value ?? null) as MediaStream | null;
                 try {
-                  const vCount = base ? base.getVideoTracks().length : 0;
-                  const aCount = base ? base.getAudioTracks().length : 0;
+                  const vCount = incoming ? incoming.getVideoTracks().length : 0;
+                  const aCount = incoming ? incoming.getAudioTracks().length : 0;
                   console.debug('[CallsStore][callee] onRemoteStream -> videoTracks:', vCount, 'audioTracks:', aCount);
                 } catch {}
-                remoteStream.value = cloned;
+                // Keep a stable reference to avoid reassigning <video>.srcObject during ontrack bursts
+                if (remoteStream.value !== incoming) {
+                  remoteStream.value = incoming;
+                }
               },
               onQuality: (q) => { quality.value = (q?.value ?? { bitrateKbps: 0, rttMs: 0, packetsLostPct: 0 }); },
               getPreAcquiredStream: () => preAcquiredStream,

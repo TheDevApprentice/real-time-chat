@@ -6,6 +6,7 @@
           :pc-state="callsStore.pcState"
           :ice-state="callsStore.iceState"
           :status="callsStore.status"
+          :user="callsStore.isOutgoingCall ? 'caller' : 'callee'"
           :type="type"
         />
         <template v-if="showIncomingCard && caller">
@@ -53,11 +54,12 @@
                 class="video-placeholder"
                 :class="{ muted: effectiveType === 'voice' }"
               >
-                <video
+              <video
                   v-show="effectiveType === 'video' && hasRemoteVideo"
                   ref="remoteVideo"
                   autoplay
                   playsinline
+                  muted
                   class="preview-video"
                 ></video>
                 <template v-if="!(effectiveType === 'video' && hasRemoteVideo)">
@@ -123,6 +125,37 @@ const callsStore = useCallsStore();
 // Media element refs
 const localVideo = ref<HTMLVideoElement | null>(null);
 const remoteVideo = ref<HTMLVideoElement | null>(null);
+let lastRemoteStream: MediaStream | null = null;
+const remoteVideoTrackCount = ref(0);
+
+function attachStreamToVideo(el: HTMLVideoElement | null, stream: MediaStream | null, label: 'local' | 'remote') {
+  if (!el || !stream) return;
+  const current = (el as any).srcObject as MediaStream | null;
+  // Only (re)assign if the reference changed to avoid interrupting play()
+  if (current !== stream) {
+    (el as any).srcObject = stream;
+  }
+  const tryPlay = async () => {
+    try {
+      await el.play();
+    } catch (e) {
+      // Autoplay may be blocked or a new load may interrupt; that's fine.
+      console.debug(`${label} video play() deferred`, e);
+    }
+  };
+  if (el.readyState >= 1) {
+    // HAVE_METADATA
+    console.debug(`${label} video HAVE_METADATA`, el.videoWidth, el.videoHeight);
+    void tryPlay();
+  } else {
+    const onMeta = () => {
+      el.removeEventListener('loadedmetadata', onMeta);
+      console.debug(`${label} video loadedmetadata`, el.videoWidth, el.videoHeight);
+      void tryPlay();
+    };
+    el.addEventListener('loadedmetadata', onMeta, { once: true });
+  }
+}
 
 function toggleMic() {
   try {
@@ -227,12 +260,14 @@ const peer = computed(() => {
 // Keep logic simple to avoid races: if we have a stream reference, show the <video>.
 const hasLocalVideo = computed(() => {
   if (effectiveType.value !== "video") return false;
-  return !!callsStore.localStream && !!callsStore.camEnabled;
+  const s = callsStore.localStream as MediaStream | null;
+  const hasLive = !!s && s.getVideoTracks().some(t => t.enabled && t.readyState === 'live');
+  return hasLive && !!callsStore.camEnabled;
 });
 
 const hasRemoteVideo = computed(() => {
   if (effectiveType.value !== "video") return false;
-  return !!callsStore.remoteStream;
+  return remoteVideoTrackCount.value > 0;
 });
 
 function onHangup() {
@@ -245,14 +280,27 @@ function onHangup() {
 async function accept() {
   try {
     const media = callsStore.incoming?.media || props.type;
-    if (media === "video") {
+    if (media === 'video') {
       await ensureVideoPermission();
       await ensureAudioPermission();
     } else {
       await ensureAudioPermission();
     }
   } catch {}
-  callsStore.acceptCall();
+  callsStore.acceptCall().finally(async () => {
+    // User gesture happened, safe to unmute and play
+    await nextTick();
+    if (remoteVideo.value) {
+      remoteVideo.value.muted = false;
+      try { remoteVideo.value.removeAttribute('muted'); } catch {}
+      try {
+        await remoteVideo.value.play();
+        console.log("remoteVideo play() after accept");
+      } catch (e) {
+        console.debug('remoteVideo play() after accept still blocked', e);
+      }
+    }
+  });
 }
 
 function decline() {
@@ -261,50 +309,66 @@ function decline() {
 }
 
 onMounted(async () => {
-  // callsStore.setMicEnabled(true);
-  // callsStore.setCamEnabled(true);
+  callsStore.setMicEnabled(true);
+  callsStore.setCamEnabled(true);
 
   await ensureAudioPermission();
   await ensureVideoPermission();
 });
 
-// Minimal binding: whenever store streams change, bind them to media elements
 watch(
   () => callsStore.localStream,
   async (s) => {
     await nextTick();
     const stream = s as MediaStream | null;
     if (localVideo.value && stream) {
-      console.log("Stream local : ", stream);
-      try {
-        (localVideo.value as any).srcObject = stream;
-      } catch {
-        console.error("Failed to set local stream");
-      }
+      try { attachStreamToVideo(localVideo.value, stream, 'local'); } catch { console.error('Failed to set local stream'); }
     }
   },
   { immediate: true }
 );
+
 watch(
   () => callsStore.remoteStream,
   async (s) => {
     await nextTick();
     const stream = s as MediaStream | null;
     if (remoteVideo.value && stream) {
-      console.log("Stream remote : ", stream);
       try {
-        (remoteVideo.value as any).srcObject = stream;
-        console.log("Remote video", remoteVideo.value);
-      } catch (e) {
-        console.error("Failed to set remote stream", e);
-      }
+        attachStreamToVideo(remoteVideo.value, stream, 'remote');
+        // Re-attach play when new tracks (e.g., video) are added later
+        if (lastRemoteStream !== stream) {
+          if (lastRemoteStream) {
+            try { lastRemoteStream.removeEventListener('addtrack', onRemoteAddTrack as any); } catch {}
+          }
+          lastRemoteStream = stream;
+          stream.addEventListener('addtrack', onRemoteAddTrack as any);
+        }
+        try { remoteVideoTrackCount.value = stream.getVideoTracks().length; } catch {}
+      } catch (e) { console.error('Failed to set remote stream', e); }
     }
   },
   { immediate: true }
 );
+
+function onRemoteAddTrack() {
+  // Called when a new track (e.g., video) is added to the existing remote stream
+  if (remoteVideo.value && lastRemoteStream) {
+    try {
+      remoteVideoTrackCount.value = lastRemoteStream.getVideoTracks().length;
+      attachStreamToVideo(remoteVideo.value, lastRemoteStream, 'remote');
+    } catch {}
+  }
+}
 </script>
 
 <style scoped>
+.preview-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: black;
+}
 .call-overlay {
   position: fixed;
   inset: 0;

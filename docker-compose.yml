@@ -208,16 +208,16 @@ services:
       - "traefik.http.services.minio.loadbalancer.server.port=9000"
       - "traefik.http.routers.minio.priority=100"
       # Route /minio-console -> MinIO Console (HTTP)
-      - "traefik.http.routers.minioconsole.rule=PathPrefix(`/minio-console`)"
-      - "traefik.http.routers.minioconsole.entrypoints=web"
-      - "traefik.http.routers.minioconsole.service=minioconsole"
-      - "traefik.http.routers.minioconsole.middlewares=minioconsole-strip,minioconsole-auth,minio-allow"
-      - "traefik.http.middlewares.minioconsole-auth.basicauth.users=admin:$$apr1$$H6uskkkW$$IgXLP6ewTrSuBkTrqE8wj/"
-      - "traefik.http.middlewares.minioconsole-auth.basicauth.removeheader=true"
-      - "traefik.http.middlewares.minio-allow.ipwhitelist.sourcerange=127.0.0.1/32,172.30.0.0/24,::1/128"
-      - "traefik.http.middlewares.minioconsole-strip.stripprefix.prefixes=/minio-console"
-      - "traefik.http.services.minioconsole.loadbalancer.server.port=9001"
-      - "traefik.http.routers.minioconsole.priority=110"
+      # - "traefik.http.routers.minioconsole.rule=PathPrefix(`/minio-console`)"
+      # - "traefik.http.routers.minioconsole.entrypoints=web"
+      # - "traefik.http.routers.minioconsole.service=minioconsole"
+      # - "traefik.http.routers.minioconsole.middlewares=minioconsole-strip,minioconsole-auth,minio-allow"
+      # - "traefik.http.middlewares.minioconsole-auth.basicauth.users=admin:$$apr1$$H6uskkkW$$IgXLP6ewTrSuBkTrqE8wj/"
+      # - "traefik.http.middlewares.minioconsole-auth.basicauth.removeheader=true"
+      # - "traefik.http.middlewares.minio-allow.ipwhitelist.sourcerange=127.0.0.1/32,172.30.0.0/24,::1/128"
+      # - "traefik.http.middlewares.minioconsole-strip.stripprefix.prefixes=/minio-console"
+      # - "traefik.http.services.minioconsole.loadbalancer.server.port=9001"
+      # - "traefik.http.routers.minioconsole.priority=110"
       - "traefik.docker.network=proxy"
 
   redis:
@@ -494,32 +494,32 @@ services:
       - dbnet
       - proxy
 
-  redis-commander:
-    image: rediscommander/redis-commander:latest
-    container_name: chat-redis-commander-web
-    restart: unless-stopped
-    ports:
-      - "8081:8081"
-    environment:
-      - REDIS_HOSTS=local:redis:6379:0:changeme
-      - HTTP_USER=admin
-      - HTTP_PASSWORD=secret
-    labels:
-      - "traefik.enable=true"
-      # Route /redis-commander -> Redis Commander Web UI (HTTP)
-      - "traefik.http.routers.rediscommander.rule=PathPrefix(`/redis-commander`)"
-      - "traefik.http.routers.rediscommander.entrypoints=web"
-      - "traefik.http.routers.rediscommander.service=rediscommander"
-      - "traefik.http.routers.rediscommander.middlewares=rediscommander-strip,rediscommander-auth,rediscommander-allow"
-      - "traefik.http.middlewares.rediscommander-strip.stripprefix.prefixes=/redis-commander"
-      - "traefik.http.middlewares.rediscommander-auth.basicauth.users=admin:$$apr1$$H6uskkkW$$IgXLP6ewTrSuBkTrqE8wj/"
-      - "traefik.http.middlewares.rediscommander-auth.basicauth.removeheader=true"
-      - "traefik.http.middlewares.rediscommander-allow.ipwhitelist.sourcerange=127.0.0.1/32,172.30.0.0/24,::1/128"
-      - "traefik.http.services.rediscommander.loadbalancer.server.port=8081"
-      - "traefik.docker.network=proxy"
-    networks:
-      - cachenet
-      - proxy
+  # redis-commander:
+  #   image: rediscommander/redis-commander:latest
+  #   container_name: chat-redis-commander-web
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8081:8081"
+  #   environment:
+  #     - REDIS_HOSTS=local:redis:6379:0:changeme
+  #     - HTTP_USER=admin
+  #     - HTTP_PASSWORD=secret
+  #   labels:
+  #     - "traefik.enable=true"
+  #     # Route /redis-commander -> Redis Commander Web UI (HTTP)
+  #     - "traefik.http.routers.rediscommander.rule=PathPrefix(`/redis-commander`)"
+  #     - "traefik.http.routers.rediscommander.entrypoints=web"
+  #     - "traefik.http.routers.rediscommander.service=rediscommander"
+  #     - "traefik.http.routers.rediscommander.middlewares=rediscommander-strip,rediscommander-auth,rediscommander-allow"
+  #     - "traefik.http.middlewares.rediscommander-strip.stripprefix.prefixes=/redis-commander"
+  #     - "traefik.http.middlewares.rediscommander-auth.basicauth.users=admin:$$apr1$$H6uskkkW$$IgXLP6ewTrSuBkTrqE8wj/"
+  #     - "traefik.http.middlewares.rediscommander-auth.basicauth.removeheader=true"
+  #     - "traefik.http.middlewares.rediscommander-allow.ipwhitelist.sourcerange=127.0.0.1/32,172.30.0.0/24,::1/128"
+  #     - "traefik.http.services.rediscommander.loadbalancer.server.port=8081"
+  #     - "traefik.docker.network=proxy"
+  #   networks:
+  #     - cachenet
+  #     - proxy
 
 volumes:
   traefik_data:
