@@ -141,7 +141,7 @@ export const useFriendsStore = defineStore("friends", () => {
       const res = await axiosService.get<{
         status: string;
         lastSeen: number | null;
-      }>(`/user/presence/${encodeURIComponent(uid)}`, {
+      }>(`/api/user/presence/${encodeURIComponent(uid)}`, {
         skipErrorHandling: true,
       } as any);
       if (res?.success && res?.data) {

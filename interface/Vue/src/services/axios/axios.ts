@@ -205,6 +205,7 @@ import axios, {
       config?: RequestConfig
     ): Promise<ApiResponse<T>> {
       try {
+        console.warn("AXIOS Service - GET - URL:", url);
         const response = await this.instance.get<T>(url, config);
         return this.normalizeResponse(response);
       } catch (error) {
@@ -219,6 +220,7 @@ import axios, {
       config?: RequestConfig
     ): Promise<ApiResponse<T>> {
       try {
+        console.warn("AXIOS Service - POST - URL:", url);
         const response = await this.instance.post<T>(url, data, config);
         return this.normalizeResponse(response);
       } catch (error) {
@@ -233,6 +235,7 @@ import axios, {
       config?: RequestConfig
     ): Promise<ApiResponse<T>> {
       try {
+        console.warn("AXIOS Service - PUT - URL:", url);
         const response = await this.instance.put<T>(url, data, config);
         return this.normalizeResponse(response);
       } catch (error) {
@@ -247,6 +250,7 @@ import axios, {
       config?: RequestConfig
     ): Promise<ApiResponse<T>> {
       try {
+        console.warn("AXIOS Service - PATCH - URL:", url);
         const response = await this.instance.patch<T>(url, data, config);
         return this.normalizeResponse(response);
       } catch (error) {
@@ -260,6 +264,7 @@ import axios, {
       config?: RequestConfig
     ): Promise<ApiResponse<T>> {
       try {
+        console.warn("AXIOS Service - DELETE - URL:", url);
         const response = await this.instance.delete<T>(url, config);
         return this.normalizeResponse(response);
       } catch (error) {
@@ -276,6 +281,7 @@ import axios, {
       const formData = new FormData();
       formData.append("file", file);
       try {
+        console.warn("AXIOS Service - UPLOAD - URL:", url);
         const response = await this.instance.post<T>(url, formData, {
           ...config,
           headers: {
@@ -296,6 +302,7 @@ import axios, {
       config?: RequestConfig
     ): Promise<void> {
       try {
+        console.warn("AXIOS Service - DOWNLOAD - URL:", url);
         const response = await this.instance.get(url, {
           ...config,
           responseType: "blob",
@@ -316,11 +323,13 @@ import axios, {
   
     // MÉTHODES UTILITAIRES
     setBaseURL(baseURL: string): void {
+      console.log("AXIOS Service - Set Base URL set to:", baseURL);
       this.instance.defaults.baseURL = baseURL;
     }
   
     getBaseURL(): string {
-      return this.instance.defaults.baseURL || "";
+      console.log("AXIOS Service - Get Base URL set to:", this.instance.defaults.baseURL);
+      return this.instance.defaults.baseURL || "/api";
     }
   
     // Normaliser la réponse

@@ -45,14 +45,14 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null;
     try {
       // Warm up CSRF cookie (issued on safe requests) before any socket connection
-      try { await axiosService.get('/health', { skipErrorHandling: true } as any); } catch {}
+      try { await axiosService.get('/api/health', { skipErrorHandling: true } as any); } catch {}
       // Always connect so server can inspect HttpOnly cookie and emit 'sessionRestored'
       if (!socketService.isConnected()) socketService.connect();
 
       const token = getToken('session_token');
       console.log("token", token);
       if (!token) {
-        await axiosService.get('/auth/me'); 
+        await axiosService.get('/api/auth/me'); 
       }
       const result = await new Promise<boolean>((resolve) => {
         // One-time handler for server-side restored session via cookie
@@ -124,7 +124,7 @@ export const useAuthStore = defineStore('auth', () => {
         // Ask backend to set secure HttpOnly cookie from token
         if (res?.token) {
           try {
-            await axiosService.post('/auth/session-cookie', { token: res.token });
+            await axiosService.post('/api/auth/session-cookie', { token: res.token });
           } catch (e) {
             console.warn('Failed to set HttpOnly cookie from server:', e);
           }
@@ -141,7 +141,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       // REST: POST /auth/register (base URL comes from VITE_API_BASE_URL which points to /api)
       const res = await axiosService.post<{ id: string; name: string }>(
-        '/auth/register',
+        '/api/auth/register',
         { username, password, confirmPassword: confirm }
       );
       if (!res.success) {

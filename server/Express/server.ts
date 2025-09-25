@@ -130,14 +130,14 @@ class AppServer {
   private setupRoutes(): void {
     // Serve SPA entry
     // Healthcheck
-    this.app.get("/health", (req, res) => {
+    this.app.get("/api/health", (req, res) => {
       res.status(200).json({ status: "ok" });
     });
 
     // SPA
-    // this.app.get("/", (req, res) => {
-    //   res.sendFile(path.join(__dirname, "public", "index.html"));
-    // });
+    this.app.get("/testui", (req, res) => {
+      res.sendFile(path.join(__dirname, "public", "index.html"));
+    });
     // Verify CSRF token for mutating API requests
     this.app.use("/api", verifyCsrfToken);
     this.app.use("/api", routerREST);

@@ -172,7 +172,7 @@ export default defineConfig(({ mode }) => ({
     allowedHosts: [
       "localhost",
       "127.0.0.1",
-      "0.0.0.0"
+      "0.0.0.0",
     ],
     cors: true,
     strictPort: false,

@@ -11,7 +11,7 @@ set -euo pipefail
 #     NODE_ID: "1"                # server-id
 #     NODE_NAME: "mariadb_galera1"
 #     NODE_ADDRESS: "mariadb_galera1"  # hostname/IP for wsrep_node_address
-#     CLUSTER_NAME: "chat_cluster"
+#     CLUSTER_NAME: "cluster"
 #     CLUSTER_SEEDS: "mariadb_galera1,mariadb_galera2,mariadb_galera3"
 #     BOOTSTRAP: "0"              # set to "1" only to bootstrap a new cluster
 #     SST_USER: "sst_user"
@@ -40,7 +40,7 @@ fi
 NODE_ID="${NODE_ID:-1}"
 NODE_NAME="${NODE_NAME:-mariadb_node}"
 NODE_ADDRESS="${NODE_ADDRESS:-127.0.0.1}"
-CLUSTER_NAME="${CLUSTER_NAME:-chat_cluster}"
+CLUSTER_NAME="${CLUSTER_NAME:-cluster}"
 CLUSTER_SEEDS="${CLUSTER_SEEDS:-}"
 BOOTSTRAP="${BOOTSTRAP:-0}"
 SST_USER="${SST_USER:-sst_user}"

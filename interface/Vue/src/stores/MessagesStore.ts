@@ -238,7 +238,7 @@ export const useMessagesStore = defineStore('messages', () => {
   // ---- Upload helpers (REST) ----
   // Upload a single file as temp for a specific room. Returns { key, url }
   async function uploadTemp(roomId: string, file: File): Promise<{ key: string; url: string }>{
-    const url = `/upload?temp=1&roomId=${encodeURIComponent(roomId)}`;
+    const url = `/api/upload?temp=1&roomId=${encodeURIComponent(roomId)}`;
     const res = await axiosService.upload<{ url: string; key: string }>(url, file);
     if (!res.success || !(res.data as any)?.key) {
       throw new Error(((res.data as any)?.error) || 'Upload failed');
@@ -250,7 +250,7 @@ export const useMessagesStore = defineStore('messages', () => {
   // Delete temporary keys (cleanup if user cancels before sending)
   async function deleteTempKeys(keys: string[]): Promise<string[]>{
     if (!keys || keys.length === 0) return [];
-    const res = await axiosService.delete<{ deleted: string[] }>(`/upload`, { data: { keys } as any });
+    const res = await axiosService.delete<{ deleted: string[] }>(`/api/upload`, { data: { keys } as any });
     if (!res.success) return [];
     const del = (res.data as any)?.deleted;
     return Array.isArray(del) ? del : [];

@@ -1,0 +1,88 @@
+services:
+  interface:
+    build:
+      context: ./interface/Vue
+      dockerfile: Dockerfile
+    image: realtime-chat-interface:latest
+    # scale: 2
+    env_file:
+      - interface/Vue/.env
+    # No direct host port exposure; Traefik will route HTTP traffic.
+    networks:
+      - proxy
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      # Route all non-API paths to the Vue interface (served by nginx in the container on port 80)
+      - "traefik.http.routers.webui.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.webui.entrypoints=web"
+      - "traefik.http.routers.webui.priority=2"
+      - "traefik.http.routers.webui.service=webui"
+      - "traefik.http.services.webui.loadbalancer.server.port=80"
+      - "traefik.docker.network=proxy"
+
+  server:
+    build:
+      context: ./server/Express
+      dockerfile: Dockerfile
+    image: realtime-chat-server:latest
+    scale: 2
+    env_file:
+      - server/Express/.env
+    networks:
+      - proxy
+      - dbnet
+      - cachenet
+      - stornet
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      # Route all paths to this server on entrypoint web (dev + ngrok friendly) (keep it commented)
+      - "traefik.http.routers.chat.rule=PathPrefix(`/testui`)"
+      - "traefik.http.routers.chat.entrypoints=web"
+      - "traefik.http.routers.chat.priority=1"
+      - "traefik.http.routers.chat.service=chat"
+      - "traefik.http.services.chat.loadbalancer.server.port=3080"
+      # Active API and WebSocket routing to the server
+      - "traefik.http.routers.api.rule=PathPrefix(`/api`) || PathPrefix(`/socket.io`)"
+      - "traefik.http.routers.api.entrypoints=web"
+      - "traefik.http.routers.api.priority=10"
+      - "traefik.http.routers.api.service=api"
+      - "traefik.http.services.api.loadbalancer.server.port=3080"
+      # Sticky cookie for session affinity (useful for reconnections and long-polling)
+      - "traefik.http.services.chat.loadbalancer.sticky.cookie=true"
+      - "traefik.http.services.chat.loadbalancer.sticky.cookie.name=chat_affinity"
+      - "traefik.http.services.chat.loadbalancer.sticky.cookie.httpOnly=true"
+      - "traefik.http.services.chat.loadbalancer.sticky.cookie.secure=false" # dev over HTTP
+      - "traefik.http.services.chat.loadbalancer.sticky.cookie.sameSite=lax"
+      - "traefik.docker.network=proxy"
+
+networks:
+  proxy:
+    external: true
+    name: proxy
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.30.0.0/24
+  dbnet:
+    external: true
+    name: dbnet
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.31.10.0/24
+  cachenet:
+    external: true
+    name: cachenet
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.31.20.0/24
+  stornet:
+    external: true
+    name: stornet
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.31.30.0/24

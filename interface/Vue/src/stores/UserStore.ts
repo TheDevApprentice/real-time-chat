@@ -76,7 +76,7 @@ watch(searchQuery, async (q) => {
     loading.value = true;
     error.value = null;
     try {
-      const res = await axiosService.get<UserDTO[]>(`/chat/users/search`, {
+      const res = await axiosService.get<UserDTO[]>(`/api/chat/users/search`, {
         params: { q, limit },
         // keep defaults: withCredentials true from axiosService
       });

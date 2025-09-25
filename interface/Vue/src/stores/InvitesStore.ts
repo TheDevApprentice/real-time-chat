@@ -12,7 +12,7 @@ export const useInvitesStore = defineStore('invites', () => {
   async function createInviteForRoom(roomId: string): Promise<{ token?: string; shareUrl?: string; error?: string }>{
     error.value = null; creating.value = true; lastShareUrl.value = null;
     try {
-      const res = await axiosService.post<{ token: string; expiresIn: number }>(`/chat/invite`, { roomId });
+      const res = await axiosService.post<{ token: string; expiresIn: number }>(`/api/chat/invite`, { roomId });
       if (!res.success || !(res.data as any)?.token) {
         const e = (res.data as any)?.error || 'Impossible de créer une invitation';
         error.value = e; creating.value = false; return { error: e };
@@ -39,7 +39,7 @@ export const useInvitesStore = defineStore('invites', () => {
           token = parts[parts.length - 1] || token;
         }
       } catch { /* keep token */ }
-      const res = await axiosService.get<{ token: string; payload?: { roomId: string } }>(`/chat/invite/${encodeURIComponent(token)}`);
+      const res = await axiosService.get<{ token: string; payload?: { roomId: string } }>(`/api/chat/invite/${encodeURIComponent(token)}`);
       if (!res.success || !(res.data as any)?.payload?.roomId) {
         const e = (res.data as any)?.error || 'Invitation invalide ou expirée';
         error.value = e; consuming.value = false; return { error: e };

@@ -18,10 +18,6 @@ yarn-debug.log*
 yarn-error.log*
 coverage
 
-# Env files
-.env
-.env.*
-
 # Misc
 .DS_Store
 *.local
