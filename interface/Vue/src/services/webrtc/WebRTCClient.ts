@@ -83,8 +83,7 @@ export class WebRTCClient {
       try {
         this.localStream.value = await navigator.mediaDevices.getUserMedia(constraints);
       } catch (err: any) {
-        try { console.warn('[RTC] getUserMedia failed for video, falling back to audio-only', err?.name || err); } catch {}
-        this.media = 'audio';
+        try { console.warn('[RTC] getUserMedia failed for video, falling back to audio-only (keeping recv video)', err?.name || err); } catch {}
         try {
           this.localStream.value = await navigator.mediaDevices.getUserMedia({ audio: true });
         } catch (e2) {
@@ -93,7 +92,9 @@ export class WebRTCClient {
         }
       }
     }
-    this.localStream.value.getTracks().forEach(t => this.pc!.addTrack(t, this.localStream.value!));
+    if (this.localStream.value) {
+      this.localStream.value.getTracks().forEach(t => this.pc!.addTrack(t, this.localStream.value!));
+    }
     if (this.store?.onLocalStream) this.store.onLocalStream(this.localStream);
 
     const offer = await this.pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: this.media === 'video' });
@@ -121,8 +122,7 @@ export class WebRTCClient {
       try {
         this.localStream.value = await navigator.mediaDevices.getUserMedia(constraints);
       } catch (err: any) {
-        try { console.warn('[RTC] getUserMedia failed for video (callee), falling back to audio-only', err?.name || err); } catch {}
-        this.media = 'audio';
+        try { console.warn('[RTC] getUserMedia failed for video (callee), falling back to audio-only (keeping recv video)', err?.name || err); } catch {}
         try {
           this.localStream.value = await navigator.mediaDevices.getUserMedia({ audio: true });
         } catch (e2) {

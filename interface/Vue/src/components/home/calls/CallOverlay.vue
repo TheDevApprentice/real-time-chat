@@ -32,16 +32,14 @@
                 class="video-placeholder"
                 :class="{ muted: effectiveType === 'voice' }"
               >
-                <template v-if="effectiveType === 'video' && hasLocalVideo">
-                  <video
-                    ref="localVideo"
-                    autoplay
-                    playsinline
-                    muted
-                    class="preview-video"
-                  ></video>
-                </template>
-                <template v-else>
+                <video
+                  v-show="effectiveType === 'video' && hasLocalVideo"
+                  ref="localVideo"
+                  autoplay
+                  playsinline
+                  class="preview-video"
+                ></video>
+                <template v-if="!(effectiveType === 'video' && hasLocalVideo)">
                   <div class="avatar-circle">
                     {{ me.initials }}
                   </div>
@@ -61,15 +59,14 @@
                 class="video-placeholder"
                 :class="{ muted: effectiveType === 'voice' }"
               >
-                <template v-if="effectiveType === 'video' && hasRemoteVideo">
-                  <video
-                    ref="remoteVideo"
-                    autoplay
-                    playsinline
-                    class="preview-video"
-                  ></video>
-                </template>
-                <template v-else>
+                <video
+                  v-show="effectiveType === 'video' && hasRemoteVideo"
+                  ref="remoteVideo"
+                  autoplay
+                  playsinline
+                  class="preview-video"
+                ></video>
+                <template v-if="!(effectiveType === 'video' && hasRemoteVideo)">
                   <div class="avatar-circle">
                     {{ peer.initials }}
                   </div>
@@ -235,7 +232,8 @@ const hasLocalVideo = computed(() => {
   if (!callsStore.camEnabled) return false;
   try {
     const tracks = s.getVideoTracks ? s.getVideoTracks() : [];
-    return tracks.some(t => t.enabled !== false && t.readyState === 'live');
+    // Consider available as soon as a track exists and is enabled; readyState may still be 'new'
+    return tracks.some(t => t.enabled !== false);
   } catch { return false; }
 });
 
@@ -245,7 +243,8 @@ const hasRemoteVideo = computed(() => {
   if (!s) return false;
   try {
     const tracks = s.getVideoTracks ? s.getVideoTracks() : [];
-    return tracks.some(t => t.readyState === 'live');
+    // Show as soon as a remote video track is present
+    return tracks.length > 0;
   } catch { return false; }
 });
 
@@ -275,7 +274,7 @@ function decline() {
 }
 
 onMounted(async () => {
-  callsStore.setMicEnabled(false);
+  callsStore.setMicEnabled(true);
   callsStore.setCamEnabled(true);
 
   await ensureAudioPermission();
@@ -314,9 +313,8 @@ onMounted(async () => {
       }
       // Attach video if this is a video call
       if (remoteVideo.value && stream && effectiveType.value === "video") {
-        try {
-          (remoteVideo.value as any).srcObject = stream;
-        } catch {}
+        try { (remoteVideo.value as any).srcObject = stream; } catch {}
+        try { (remoteVideo.value as any).muted = true; } catch {}
         try {
           await (remoteVideo.value as HTMLVideoElement).play();
         } catch {}
