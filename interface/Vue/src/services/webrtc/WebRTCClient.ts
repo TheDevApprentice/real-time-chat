@@ -170,6 +170,14 @@ export class WebRTCClient {
     await this.pc!.setLocalDescription(answer);
     try { console.debug('[RTC] sending answer, hasVideo?', /\bm=video\b/.test(answer.sdp || '')); } catch {}
     await this.store?.sendAnswer(callId, answer);
+
+    // Follow-up renegotiation on callee: some browsers may need a second pass
+    // to fully align m-lines when initial offer/answer timing races with track additions.
+    try {
+      if (hasVideo) {
+        setTimeout(() => { void this.renegotiate(); }, 250);
+      }
+    } catch {}
   }
 
   async handleAnswer(_callId: string, sdp: RTCSessionDescriptionInit) {
