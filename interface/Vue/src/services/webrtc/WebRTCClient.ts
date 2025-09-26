@@ -36,23 +36,23 @@ export class WebRTCClient {
 
   private createPC(iceServers: RTCIceServer[]) {
     this.pc = new RTCPeerConnection({ iceServers });
-    this.pc.onicecandidate = (e) => {
+    this.pc!.onicecandidate = (e) => {
       if (e.candidate && this.callId && this.store) {
         try { console.debug('[RTC] onicecandidate -> sending', e.candidate.candidate); } catch {}
         this.store.sendIceCandidate(this.callId, JSON.stringify(e.candidate));
       }
     };
-    this.pc.onconnectionstatechange = () => {
+    this.pc!.onconnectionstatechange = () => {
       try { console.debug('[RTC] connectionState', this.pc!.connectionState); } catch {}
       this.connectionState.value = this.pc!.connectionState;
       try { this.store?.onConnectionState?.(this.connectionState.value); } catch {}
     };
-    this.pc.oniceconnectionstatechange = () => {
+    this.pc!.oniceconnectionstatechange = () => {
       try { console.debug('[RTC] iceConnectionState', this.pc!.iceConnectionState); } catch {}
       this.iceConnectionState.value = this.pc!.iceConnectionState;
       try { this.store?.onIceConnectionState?.(this.iceConnectionState.value); } catch {}
     };
-    this.pc.ontrack = (ev) => {
+    this.pc!.ontrack = (ev) => {
       try { console.debug('[RTC] ontrack', ev.track.kind, ev.streams?.[0]?.id); } catch {}
       const useIncomingStreamObject = () => {
         const stream0 = ev.streams && ev.streams[0];
@@ -87,10 +87,10 @@ export class WebRTCClient {
     if (this.pc) await this.end();
     this.createPC(iceServers);
 
-    // Ensure we announce we are ready to receive tracks
+    // Pre-add transceivers to explicitly advertise receive capability and avoid one-way media
     try {
       this.pc!.addTransceiver('audio', { direction: 'sendrecv' });
-      this.pc!.addTransceiver('video', { direction: media === 'video' ? 'sendrecv' : 'inactive' });
+      this.pc!.addTransceiver('video', { direction: media === 'video' ? 'sendrecv' : 'recvonly' });
     } catch {}
 
     // Use pre-acquired local stream if provided (for local preview before accept)
@@ -119,7 +119,8 @@ export class WebRTCClient {
     }
     if (this.store?.onLocalStream) this.store.onLocalStream(this.localStream);
 
-    const offer = await this.pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: this.media === 'video' });
+    // Always allow receiving video so peer's camera can be displayed even if we start as audio-only
+    const offer = await this.pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
     await this.pc.setLocalDescription(offer);
     try { console.debug('[RTC] sending offer, hasVideo?', /\bm=video\b/.test(offer.sdp || '')); } catch {}
     await this.store?.sendOffer(callId, offer);
@@ -130,10 +131,7 @@ export class WebRTCClient {
     this.callId = callId; this.media = media;
     if (this.pc) return; // already started
     this.createPC(iceServers);
-    try {
-      this.pc!.addTransceiver('audio', { direction: 'sendrecv' });
-      this.pc!.addTransceiver('video', { direction: media === 'video' ? 'sendrecv' : 'inactive' });
-    } catch {}
+    // Do not pre-add transceivers; rely on addTrack to create m-lines to avoid mapping issues
     const pre = this.store?.getPreAcquiredStream?.() || null;
     if (pre) {
       this.localStream.value = pre;
@@ -205,9 +203,8 @@ export class WebRTCClient {
         live = newTrack;
       }
 
-      // Replace the sender track without renegotiation if possible
-      const videoTransceiver = this.pc.getTransceivers().find(tr => tr?.receiver?.track?.kind === 'video' || tr?.mid === '1');
-      const sender = videoTransceiver?.sender || this.pc.getSenders().find(s => (s.track?.kind ?? 'video') === 'video');
+      // Replace the sender track if present; otherwise addTrack
+      const sender = this.pc.getSenders().find(s => s.track && s.track.kind === 'video');
       if (sender) {
         await sender.replaceTrack(live);
       } else {
@@ -215,10 +212,33 @@ export class WebRTCClient {
         try { this.pc.addTrack(live, this.localStream.value!); } catch {}
       }
 
+      // Ensure video transceiver switches to sendrecv for sending camera
+      try {
+        const vtr = this.pc.getTransceivers().find(tr => tr.receiver?.track?.kind === 'video' || tr.sender?.track?.kind === 'video');
+        if (vtr && vtr.direction !== 'sendrecv') {
+          try { (vtr as any).direction = 'sendrecv'; } catch {}
+        }
+      } catch {}
+
+      // Renegotiate to advertise the new sending video m-line if needed
+      await this.renegotiate();
+
       // Update local preview in UI
       if (this.store?.onLocalStream) this.store.onLocalStream(this.localStream);
     } catch (e) {
       try { console.warn('[RTC] ensureLocalVideoTrack failed', e); } catch {}
+    }
+  }
+
+  // Lightweight renegotiation helper (caller or callee can use it)
+  private async renegotiate() {
+    if (!this.pc || !this.callId || !this.store) return;
+    try {
+      const offer = await this.pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+      await this.pc.setLocalDescription(offer);
+      await this.store.sendOffer(this.callId, offer);
+    } catch (e) {
+      try { console.warn('[RTC] renegotiate failed', e); } catch {}
     }
   }
 

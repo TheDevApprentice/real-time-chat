@@ -80,6 +80,8 @@
         </template>
       </div>
       <div class="controls">
+        <!-- Hidden remote audio sink to ensure audio playback even if remote <video> stays muted -->
+        <audio ref="remoteAudio" autoplay playsinline style="display:none"></audio>
         <ControlButton
           :class="{ active: callsStore.micEnabled }"
           :active="callsStore.micEnabled"
@@ -107,7 +109,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
+import { computed, ref, watch, nextTick, onBeforeUnmount } from "vue";
 import { useCallsStore } from "@/stores/CallsStore";
 import { ensureAudioPermission, ensureVideoPermission } from "@/utils/media";
 import ControlButton from "./ControlButton.vue";
@@ -125,6 +127,7 @@ const callsStore = useCallsStore();
 // Media element refs
 const localVideo = ref<HTMLVideoElement | null>(null);
 const remoteVideo = ref<HTMLVideoElement | null>(null);
+const remoteAudio = ref<HTMLAudioElement | null>(null);
 let lastRemoteStream: MediaStream | null = null;
 const remoteVideoTrackCount = ref(0);
 
@@ -273,18 +276,20 @@ function onHangup() {
 }
 
 async function accept() {
+  await ensureAudioPermission();
+  await ensureVideoPermission();
+  // Do not toggle mic here; let it follow the user's control
   callsStore.acceptCall().finally(async () => {
-    // User gesture happened, safe to unmute and play
     await nextTick();
     if (remoteVideo.value) {
-      remoteVideo.value.muted = false;
-      try { remoteVideo.value.removeAttribute('muted'); } catch {}
-      try {
-        await remoteVideo.value.play();
-        console.log("remoteVideo play() after accept");
-      } catch (e) {
-        console.debug('remoteVideo play() after accept still blocked', e);
-      }
+      // Keep video element muted; audio is rendered via hidden <audio>
+      try { remoteVideo.value.muted = true; remoteVideo.value.setAttribute('muted', ''); } catch {}
+      try { await remoteVideo.value.play(); } catch {}
+    }
+    // Try to kick remote audio playback upon user gesture
+    if (remoteAudio.value) {
+      try { (remoteAudio.value as any).muted = false; } catch {}
+      try { await remoteAudio.value.play(); } catch {}
     }
   });
 }
@@ -294,15 +299,50 @@ function decline() {
   emit("close");
 }
 
-onMounted(async () => {
-  callsStore.setMicEnabled(true);
-  callsStore.setCamEnabled(true);
-
-  await ensureAudioPermission();
-  await ensureVideoPermission();
-});
+// Do not force-mute on mount; start with mic following store default
 
 // When the call becomes accepted (both roles), ensure remote video is unmuted and playing
+let uninstallGestureResume: (() => void) | null = null;
+function installGestureResume() {
+  if (uninstallGestureResume) return; // already installed
+  const tryResume = async () => {
+    if (!remoteVideo.value) return;
+    try {
+      remoteVideo.value.muted = false;
+      remoteVideo.value.removeAttribute('muted');
+    } catch {}
+    try {
+      await remoteVideo.value!.play();
+      console.log('remote resumed by gesture');
+      cleanup();
+    } catch (e) {
+      console.debug('remote resume attempt failed', e);
+    }
+    // Also attempt to resume the hidden audio sink
+    if (remoteAudio.value) {
+      try { remoteAudio.value.muted = false; } catch {}
+      try { await remoteAudio.value.play(); } catch {}
+    }
+  };
+  const vis = () => { if (document.visibilityState === 'visible') void tryResume(); };
+  const cleanup = () => {
+    window.removeEventListener('click', tryResume, true);
+    window.removeEventListener('touchstart', tryResume, true);
+    window.removeEventListener('keydown', tryResume, true);
+    window.removeEventListener('focus', tryResume, true);
+    document.removeEventListener('visibilitychange', vis, true);
+    uninstallGestureResume = null;
+  };
+  uninstallGestureResume = cleanup;
+  try {
+    window.addEventListener('click', tryResume, true);
+    window.addEventListener('touchstart', tryResume, true);
+    window.addEventListener('keydown', tryResume, true);
+    window.addEventListener('focus', tryResume, true);
+    document.addEventListener('visibilitychange', vis, true);
+  } catch {}
+}
+function uninstallGestureResumeIfAny() { try { uninstallGestureResume?.(); } catch {} }
 watch(
   () => callsStore.status,
   async (st) => {
@@ -311,8 +351,16 @@ watch(
       const stream = callsStore.remoteStream as MediaStream | null;
       if (remoteVideo.value && stream) {
         try { attachStreamToVideo(remoteVideo.value, stream, 'remote'); } catch {}
-        try { remoteVideo.value.muted = false; remoteVideo.value.removeAttribute('muted'); } catch {}
-        try { await remoteVideo.value.play(); } catch (e) { console.debug('remoteVideo play() on accepted failed', e); }
+        // Keep video muted so autoplay of frames is allowed; audio comes from hidden <audio>
+        try { remoteVideo.value.muted = true; remoteVideo.value.setAttribute('muted', ''); } catch {}
+        try {
+          await remoteVideo.value.play();
+          uninstallGestureResumeIfAny();
+        } catch (e) {
+          console.debug('remoteVideo play() on accepted failed', e);
+          // Install gesture resume only as a last resort
+          installGestureResume();
+        }
       }
     }
   },
@@ -363,6 +411,22 @@ watch(
         }
         try { remoteVideoTrackCount.value = stream.getVideoTracks().length; } catch {}
       } catch (e) { console.error('Failed to set remote stream', e); }
+      // Keep video muted to allow autoplay of frames
+      try { remoteVideo.value.muted = true; remoteVideo.value.setAttribute('muted', ''); } catch {}
+      try { await remoteVideo.value.play(); } catch {}
+    }
+    // Bind remote audio sink and try to start playback without gesture
+    if (remoteAudio.value && stream) {
+      try { (remoteAudio.value as any).srcObject = stream; } catch {}
+      try { (remoteAudio.value as any).muted = false; (remoteAudio.value as any).playsInline = true; } catch {}
+      try {
+        await remoteAudio.value.play();
+        console.debug('remoteAudio play() ok');
+        stopRemoteAudioRetry();
+      } catch (e) {
+        console.debug('remoteAudio play() initial failed, will retry', e);
+        startRemoteAudioRetry();
+      }
     }
   },
   { immediate: true }
@@ -376,13 +440,37 @@ function onRemoteAddTrack() {
       attachStreamToVideo(remoteVideo.value, lastRemoteStream, 'remote');
     } catch {}
   }
+  // Also try to kick the hidden audio sink
+  if (remoteAudio.value) {
+    try { remoteAudio.value.play().catch(()=>undefined); } catch {}
+  }
 }
+
+// Retry loop for remote audio autoplay (no user gesture reliance)
+let remoteAudioRetryTimer: number | null = null;
+function startRemoteAudioRetry() {
+  if (remoteAudioRetryTimer) return;
+  remoteAudioRetryTimer = window.setInterval(async () => {
+    if (!remoteAudio.value) return;
+    if (!(remoteAudio.value as any).srcObject) return;
+    if (!remoteAudio.value.paused) { stopRemoteAudioRetry(); return; }
+    try {
+      await remoteAudio.value.play();
+      console.debug('remoteAudio play() retry ok');
+      stopRemoteAudioRetry();
+    } catch {}
+  }, 1200);
+}
+function stopRemoteAudioRetry() { if (remoteAudioRetryTimer) { window.clearInterval(remoteAudioRetryTimer); remoteAudioRetryTimer = null; } }
 
 // Cleanup listeners and element refs on unmount
 onBeforeUnmount(() => {
   try { if (lastRemoteStream) lastRemoteStream.removeEventListener('addtrack', onRemoteAddTrack as any); } catch {}
   localVideo.value = null;
   remoteVideo.value = null;
+  remoteAudio.value = null;
+  uninstallGestureResumeIfAny();
+  stopRemoteAudioRetry();
 });
 </script>
 
